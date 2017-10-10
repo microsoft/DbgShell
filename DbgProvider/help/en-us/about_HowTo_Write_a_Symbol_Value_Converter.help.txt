@@ -1,0 +1,470 @@
+TOPIC
+    about_HowTo_Write_a_Symbol_Value_Converter
+
+SHORT DESCRIPTION
+
+    "Symbol Value Converters" allow DbgShell to automagically transform symbol
+    value objects into more useful forms (for example, transforming STL
+    containers into .NET containers for easy inspection and scripting).
+
+LONG DESCRIPTION
+
+  A "Symbol Value Converter" is really just a snippet of PowerShell script. The
+  script accepts a symbol ([MS.Dbg.DbgSymbol]) as input, and yields a value
+  that represents the value of the symbol.
+
+  Most symbols do not need a symbol value converter--the default (or "stock")
+  value object created by DbgShell to represent the value of a symbol is in
+  most cases just fine. But in some cases, symbol value converters can add a
+  lot of value, making information much more easily and conveniently
+  accessible, both for manual inspection and for scripting.
+
+  Symbol value converters are registered and applied using type names (similar
+  to custom formatting view definitions (see Get-Help about_CustomFormatting)).
+  Qualifying a type name with the module is optional. So, for example, if you
+  want to write a symbol value converter for _RTL_CRITICAL_SECTION objects, you
+  could register the converter using either the name
+  'ntdll!_RTL_CRITICAL_SECTION', or just '!_RTL_CRITICAL_SECTION'. Then, when
+  DbgShell comes across an _RTL_CRITICAL_SECTION symbol and needs to create an
+  object representing the value of the symbol, it will look up your converter,
+  run it, and use the resulting object.
+
+  You can look at the type names associated with a symbol by calling
+  GetTypeNames() on it. For example:
+
+     > (dv this).GetTypeNames()
+     CoreMessaging!Contoso::CoreUI::Messaging::MessageSession*
+     !Contoso::CoreUI::Messaging::MessageSession*
+     CoreMessaging!Contoso::CoreUI::SharedDisposableObject*
+     !Contoso::CoreUI::SharedDisposableObject*
+     CoreMessaging!Contoso::CoreUI::BaseDisposableObject*
+     !Contoso::CoreUI::BaseDisposableObject*
+     CoreMessaging!Sys::Object*
+     !Sys::Object*
+
+  A symbol value converter is searched for starting with the most-specific type
+  name (the one at the top of the list). Note that each type name appears
+  twice--once with a qualifying module ("fooMod!Typename"), and then once
+  without ("!TypeName"). This allows you to narrow the scope of a symbol value
+  converter to just types from a particular module, which takes precedence over
+  a more broadly-scoped converter.
+
+  If a symbol value converter is for some reason unable to produce a value for
+  a given symbol, it can return $null to let DbgShell know. In that case,
+  DbgShell just uses the default ("stock") value. (It does not continue
+  searching for another converter to try.)
+
+CUSTOMIZING THE TYPENAMES LIST
+
+  Type names from symbols are also recorded in symbol values, by storing them
+  in the result PSObject's TypeNames list. When a converter is applied, you may
+  want to record that fact by inserting a name into the list. This can be
+  useful for when you also have a custom view definition that you want to apply
+  only to values that have been through your converter.
+
+  For instance, if you had a table view for a particular type where one of the
+  columns is a "synthetic" property added by a converter, you wouldn't want the
+  table view definition to be selected for values that had /not/ been through
+  your converter (else you would have errors when formatting that column).
+
+  There is a handy InsertTypeNameBefore function that you can use for this. For
+  example, we use it right at the end of the symbol value converter for
+  nt!_EPROCESS, before we return the converted value:
+
+        ...
+
+        #
+        # Mark the fact that this converter has been applied:
+        #
+
+        InsertTypeNameBefore -InputObject $val `
+                             -NewTypeName 'ConverterApplied:_EPROCESS' `
+                             -Before 'nt!_EPROCESS'
+        return $val
+
+  Then, in the script that registers view definitions for _EPROCESS objects, we have this entry:
+
+      New-AltTypeFormatEntry -TypeName 'ConverterApplied:_EPROCESS' {
+          ...
+
+
+  Quick PowerShell lesson: every object in PowerShell is represented by or
+  wrapped in a PSObject. You can access the PSObject for any given object by
+  using the hidden (it won't tab-complete) "PSObject" property. Then you can
+  access the "TypeNames" property to see the list of type names. Example:
+
+     > (dt ntdll!LdrpLoaderLock).PSObject.TypeNames
+     ntdll!_RTL_CRITICAL_SECTION|_RTL_CRITICAL_SECTION
+     !_RTL_CRITICAL_SECTION|_RTL_CRITICAL_SECTION
+     MS.Dbg.DbgUdtValue
+     MS.Dbg.DbgValue
+     System.Object
+
+CONVERTER SCRIPTS
+
+  Symbol value converter scripts can be saved in PowerShell script files
+  (.ps1).
+
+  Existing symbol value converter scripts are kept in the "Debugger" directory
+  where DbgShell is installed, and are named
+  Debugger.Converters.<something>.ps1. They can be named anything you like and
+  kept anywhere you like, but if you name and place your script according to
+  the convention, DbgShell will run it automatically when it starts.
+
+  If you want to update a converter, just edit the script and then re-run it
+  --you don't need to restart DbgShell (very handy during converter
+  development).
+
+TEMPLATES
+
+  C++ templates are a powerful metaprogramming tool. But they also mean that
+  there are effectively an endless set of of types that are essentially the
+  same, yet have different type names. Fortunately, you do not need to write a
+  different symbol value converter for every specialization of a template--you
+  can write just one, and use a special wildcard syntax when registering it.
+  The wildcards can be used within the angle brackets (<>) of a template name:
+
+    wildcard   meaning
+    ========   ==============================================================
+        ?      Matches a single template parameter.
+
+       ?*      Matches multiple template parameters. Consumes all remaining
+               parameters, and must come last in the parameter list for a
+               template.
+
+  Examples:
+
+    Template pattern          Matches
+    ================          ===============================================
+
+    '!Foo<?*>'                Foo<int>
+                              Foo<int,char>
+                              Foo<int,char,Bar<zip>>
+
+    '!Foo<?,WCHAR,?*>'        Foo<int,WCHAR>
+                              Foo<int,WCHAR,char>
+                              Foo<Bar<bool>,WCHAR,char>
+
+    '!Foo<?,Bar<?*>,int>      Foo<int,Bar<DWORD>,int>,
+                              Foo<char,Bar<DWORD,HANDLE>,int>
+
+    '!Foo<?*,WORD>'           Illegal: the '?*' wildcard must be last in the
+                              parameter list in which it appears.
+
+    '!Foo<?*,WORD,?>'         Illegal: the '?*' wildcard must be last in the
+                              parameter list in which it appears.
+
+
+POINTERS
+
+  You don't need to write symbol value converters for pointer types (or
+  arrays). When producing the value for a pointer symbol, DbgShell will follow
+  the pointer and use the symbol value converter for the UDT, and automatically
+  produce a nice value for the pointer symbol based on that. (This is also why
+  you don't ever need to worry about whether to use "->" or "." in Dbgshell;
+  you can just always use ".".)
+
+
+TECHNIQUES
+
+  There are several different techniques which can be used to write a symbol
+  value converter. The techniques used to write a converter allow us to loosely
+  categorize converters as follows:
+
+    1. Elision or "skip" converters
+    2. Additive converters
+    3. Member-tweaking converters
+    4. Type-changing converters
+    5. Total Conversion converters
+
+  One thing that you will notice that symbol value converter scripts have in
+  common is that they start off by retrieving the "stock" (default; no
+  converters or customizations applied) value for a symbol.  This lets the
+  converter access the "raw" members of the object, so that it can then do
+  something interesting with them to produce a more useful object to represent
+  the value of the symbol.
+
+  Now we'll explain the different styles of converters and give an example of
+  each.
+
+
+  1. Elision or "skip" converters.
+
+  This style of converter is the simplest. It is used to simply bypass or skip
+  a "level" in a membership tree.
+
+  For instance, there are many "smart pointer" types which simply contain a
+  single member (usually called something like "m_p", "p", "_ptr", or sometihng
+  like that). The value added by such smart pointer types is in their methods
+  (especially the constructor, destructor, and assignment operators), but at
+  debugging time, when inspecting data, they are not interesting. Just like in
+  source code, you'd rather be able to "see right through" the smart pointer
+  implementation. And you can do that with a symbol value converter like so:
+
+    New-DbgValueConverterInfo -TypeName '!ATL::CComPtr<?*>' -Converter {
+
+        # $_ is the symbol
+        $stockValue = $_.GetStockValue()
+
+        return $stockValue.p
+    }
+
+  If you had a local variable "foo" which contained a CComPtr<Bar> member
+  called m_pBar, without this converter, you would have to deal with the
+  CComPtr--for example, "dt foo.m_pBar.p.MemberOfBar". But with the converter,
+  you can access things more like how you would in the source code--"dt
+  foo.m_pBar.MemberOfBar". And viewing "foo", which will show its members, will
+  show a Bar object as a member, instead of a CComPtr (which you would then
+  have to dig into).
+
+
+  2. Additive Converters
+
+  For many objects, the default symbol value conversion is fine. But for some
+  objects, you wish you could just add a few more "virtual" properties to them.
+  You can do that with a symbol value converter.
+
+  For instance, consider _RTL_CRITICAL_SECTION objects. When debugging, you'd
+  want to be able to see the members of a CS object. But determining if a given
+  CS is locked or not can be tricky, especially if you don't remember how it is
+  encoded (the "LockCount" member encodes whether or not it is locked, whether
+  or not a waiter has been woken, and how many waiting threads there are). So
+  it would be nice to be able to write a little bit of script that can
+  interpret the LockCount field, and add a few "synthetic" properties to the
+  object.
+
+  Here is an abbreviated version (no error handling, and some minor
+  simplification) of the _RTL_CRITICAL_SECTION symbol value converter which
+  demonstrates this technique:
+
+    New-DbgValueConverterInfo -TypeName '!_RTL_CRITICAL_SECTION' -Converter {
+
+        # N.B. We make a copy of the stock value, because it would be really bad if we
+        # modified the stock value!
+        # $_ is the symbol
+        $val = $_.GetStockValue().PSObject.Copy()
+
+        $isLocked    = 0 -eq ($val.LockCount -band 0x01)
+        $waiterWoken = 0 -eq ($val.LockCount -band 0x02)
+        $numWaitingThreads = (-1 - $val.LockCount) -shr 2
+
+        $owningThreadDbgId = $Debugger.GetThreadDebuggerIdBySystemTid( $owningThreadSysTid )
+
+        $commonParams = @{ 'InputObject' = $val; 'MemberType' = 'NoteProperty' }
+        Add-Member @commonParams -Name 'IsLocked'          -Value $isLocked
+        Add-Member @commonParams -Name 'WaiterWoken'       -Value $waiterWoken
+        Add-Member @commonParams -Name 'NumWaitingThreads' -Value $numWaitingThreads
+        Add-Member @commonParams -Name 'OwningThreadDbgId' -Value $owningThreadDbgId
+
+        return $val
+    }
+
+  This will yield output like the following when viewing _RTL_CRITICAL_SECTION
+  objects. Note the "synthetic properties" section:
+
+    > dt ntdll!LdrpWorkQueueLock
+    Name: LdrpWorkQueueLock
+    Local var @ 00007ffd`34d53aa0: _RTL_CRITICAL_SECTION: Not locked.
+       +0x000 DebugInfo                     : ffffffff`ffffffff _RTL_CRITICAL_SECTION_DEBUG
+       +0x008 LockCount                     : -1
+       +0x00c RecursionCount                : 0
+       +0x010 OwningThread                  : (null) Void*
+       +0x018 LockSemaphore                 : (null) Void*
+       +0x020 SpinCount                     : 0x20007d0
+    Synthetic (debugger-generated) properties:
+       IsLocked                             : False
+       WaiterWoken                          : False
+       NumWaitingThreads                    : 0
+       OwningThreadDbgId                    : 0
+
+  In addition to improving the display of the value, these properties are also
+  available for scripting. In other words, you could write some bit of script
+  like "if( (dt ntdll!LdrpWorkQueueLock).IsLocked ) { ... }".
+
+  Note that the converter made a copy of the stock value before modifying it.
+  This is important for additive converters, because DbgSymbol.GetStockValue()
+  does not make a copy for you, so altering the stock value object could cause
+  unexpected results for other scripts that expect to find an unmodified value
+  when calling GetStockValue().
+
+
+  3. Member-tweaking converters
+
+  Member-tweaking converters are similar to additive converters, but instead of
+  adding some members, you might want to just tweak a few existing members.
+
+  For example, the nt!_EPROCESS structure stores a pointer to a session
+  structure. But the type of the session pointer is declared as "void*". It
+  would be a lot nicer if, when inspecting an _EPROCESS value, we could just
+  dig into the session pointer without any additional fuss. We can make that
+  possible with a converter for nt!_EPROCESS. Here's a snippet of script
+  demonstrating how to update the Session member (the error handling is
+  omitted):
+
+        $t = dt 'nt!_MM_SESSION_SPACE'
+        $session = $val.Session.DbgReinterpretPointeeType( $t )
+        $val.DbgReplaceMemberValue( 'Session', $session )
+
+  The key is the DbgReplaceMemberValue call. The advantage of replacing an
+  existing member is that it shows up in the value output where you would
+  expect, including its offset, etc., as opposed to in a "synthetic members"
+  section at the end. Take a look at the actual converter to see how errors are
+  handled.
+
+  Another example is the _HANDLE_TABLE converter. The _HANDLE_TABLE structure
+  includes a FreeLists member declared as a _HANDLE_TABLE_FREE_LIST[1], but the
+  true number of elements in the array is nt!ExpFreeListCount. The converter
+  can automagically expand that out.
+
+    New-DbgValueConverterInfo -TypeName 'nt!_HANDLE_TABLE' -Converter {
+        try
+        {
+            # N.B. We make a copy of the stock value, because it would be really bad if we
+            # modified the stock value!
+            # $_ is the symbol
+            $val = $_.GetStockValue().PSObject.Copy()
+
+            $commonParams = @{ 'InputObject' = $val; 'MemberType' = 'NoteProperty' }
+
+            try
+            {
+                $numFreeLists = dt nt!ExpFreeListCount
+                if( $null -ne $numFreeLists ) # not sure if this is possible. Is it in paged mem?
+                {
+                    # I believe this is what ExpFreeListCount gets initialized to. Hopefully this is valid...
+                    $numFreeLists = [Math]::Min( $Debugger.GetNumberProcessors(), 128 )
+                }
+
+                $s = $val.FreeLists.DbgGetSymbol()
+                $rightSized = $s.AsArray( $numFreeLists ).Value
+
+                $val.DbgReplaceMemberValue( 'FreeLists', $rightSized )
+            }
+            catch
+            {
+                # We could be looking at bad data.
+                return $null
+            }
+
+            return $val
+        }
+        finally { }
+    } # end _HANDLE_TABLE converter
+
+
+  Of course you can combine additive and member-tweaking techniques (you can
+  both add synthetic members as well as change existing members). The
+  nt!_EPROCESS converter is a good example of that.
+
+
+  4. Type-changing converters
+
+  DbgShell has pretty good Derived Type Detection (run "Get-Help
+  about_DerivedTypeDetection" for more info), but occasionally you can do an
+  even better job.
+
+  For instance, DbgShell attempts to infer the true type of a symbol value by
+  looking for vtables. But due to "COMDAT folding" (which is something that can
+  happen if you have multiple types that happen to have vtables that look
+  identical, so then the compiler/linker can eliminate duplicates), it might
+  get it wrong. If your objects contain explicit type metadata, you may be able
+  to determine the type of an object better than DbgShell can. And you can
+  encode that knowledge of how to use the embedded type metadata to determine
+  the true runtime type in a symbol value conversion script.
+
+  Here is an example, which has been simplified for expository purposes, mostly
+  by removing error handling.
+
+    New-DbgValueConverterInfo -TypeName 'CoreMessaging!Sys::Object' -Converter {
+
+        # $_ is the symbol
+        $sym = $_
+        $stockValue = $sym.GetStockValue()
+
+        $defTypeAddr = $stockValue.cn.m_pdefType.DbgGetPointer()
+        [UInt64] $offset = 0
+
+        $defTypeSym = $Debugger.GetSymbolByAddress( $defTypeAddr, [ref] $offset )
+
+        $realTypeName = $defTypeSym.Name
+        $idx = $realTypeName.IndexOf( '$R::s_defType' )
+        $realTypeName = $realTypeName.Remove( $idx )
+
+        if( $realTypeName -eq $sym.Type.Name )
+        {
+            # We don't always need to use the CN metadata--we might already
+            # have the right type.
+            return $null
+        }
+
+        $realType = dt "CoreMessaging!$realTypeName"
+
+        if( !$realType )
+        {
+            # Sometimes we don't get certain types in the PDB.
+            Write-Warning "CN metadata says the type is '$realTypeName', but we can't find that type."
+            # We'll have to just throw ourselves on the mercy of normal Derived Type
+            # Detection.
+            return $null
+        }
+
+        # The -NoConversion and -NoDerivedTypeDetection is because we want to
+        # avoid infinite recursion (by calling into this converter again) and to
+        # avoid undoing what we just did.
+        return (Get-DbgSymbolValue -Address $sym.Address `
+                                   -Type $realType `
+                                   -NameForNewSymbol $sym.Name `
+                                   -NoConversion `
+                                   -NoDerivedTypeDetection)
+    }
+
+  Note that when it decided it didn't need to do anything, or ran into trouble,
+  the converter returned $null to signal that it did not want to or was unable
+  to produce an object representing the symbol value.
+
+
+  5. Total Conversion converters
+
+  Sometimes the stock value for a symbol is basically unusable as-is. For
+  instance, STL containers (especially the tree-based ones!). In these cases,
+  you can supply a completely new value that is a better semantic
+  representation of the value.
+
+  The forward_list<T> converter is a relatively simple example:
+
+    New-DbgValueConverterInfo -TypeName '!std::forward_list<?*>' -Converter {
+
+        # $_ is the symbol
+        $stockValue = $_.GetStockValue()
+
+        # It's a unidirectional linked list.
+
+        $list = New-Object "System.Collections.Generic.List[PSObject]"
+
+        $curNode = $stockValue._Myhead
+        while( !$curNode.DbgIsNull() )
+        {
+            $list.Add( $curNode._Myval )
+            $curNode = $curNode._Next
+        }
+
+        $list = $list.AsReadOnly()
+
+        # Preserve the original ToString() so we get the type name 'n stuff:
+        Add-Member -InputObject $list `
+                   -MemberType ScriptMethod `
+                   -Name 'ToString' `
+                   -Value { $stockValue.ToString() }.GetNewClosure() `
+                   -Force
+
+        # Use Write-Collection to prevent PS from unrolling the collection.
+        Write-Collection -Collection $list
+    } # end forward_list converter
+
+  For more examples, take a look at the Debugger.Converters.stl.ps1 script.
+
+
+FEEDBACK
+
+    TBD:github link
+

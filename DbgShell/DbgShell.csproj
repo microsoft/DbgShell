@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{1D750DC1-690A-41CF-B678-BF699E807B28}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MS.DbgShell</RootNamespace>
+    <AssemblyName>DbgShell</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <NuGetPackageImportStamp>282884ca</NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\bin\Debug\x86\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>..\bin\Release\x86\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\bin\Debug\x64\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>..\bin\Release\x64\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <!--
+  <PropertyGroup>
+    <ApplicationIcon>DbgShell.ico</ApplicationIcon>
+  </PropertyGroup>
+  -->
+  <ItemGroup>
+    <Reference Include="Microsoft.PowerShell.ConsoleHost, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\..\Program Files\Reference Assemblies\Microsoft\WindowsPowerShell\3.0\Microsoft.PowerShell.ConsoleHost.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\..\Program Files\Reference Assemblies\Microsoft\WindowsPowerShell\3.0\System.Management.Automation.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ColorConsoleHost.cs" />
+    <Compile Include="ColorHostRawUserInterface.cs" />
+    <Compile Include="ColorHostUserInterface.cs" />
+    <Compile Include="ColorHostUserInterface.Other.cs" />
+    <Compile Include="ColorHostUserInterfaceProgress.cs" />
+    <Compile Include="ColorHostUserInterfacePrompt.cs" />
+    <Compile Include="ColorHostUserInterfaceSecurity.cs" />
+    <Compile Include="ColorUserInterfacePromptForChoice.cs" />
+    <Compile Include="CommandLineParameterParser.cs" />
+    <Compile Include="ConsoleControl.cs" />
+    <Compile Include="ConsoleTextWriter.cs" />
+    <Compile Include="HostUtilities.cs" />
+    <Compile Include="MainClass.cs" />
+    <Compile Include="MshHostUserInterface.cs" />
+    <Compile Include="PendingProgress.cs" />
+    <Compile Include="ProgressNode.cs" />
+    <Compile Include="ProgressPane.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="PSObjectSubstitute.cs" />
+    <Compile Include="PSVersionInfo.cs" />
+    <Compile Include="SpecialCharacters.cs" />
+    <Compile Include="Utils.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ClrMemDiag\Microsoft.Diagnostics.Runtime.csproj">
+      <Project>{a82126ca-23aa-41f1-8586-a5938d44d0a7}</Project>
+      <Name>Microsoft.Diagnostics.Runtime</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\DbgProvider\DbgProvider.csproj">
+      <Project>{605f65da-0d31-452a-816b-81bc118e6866}</Project>
+      <Name>DbgProvider</Name>
+      <Private>False</Private>
+      <!-- causes this dependency to not be copied to the output directory -->
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="DbgShell.ico" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
+  <Import Project="..\VersionInfo.csproj" />
+  <PropertyGroup>
+    <FileDescription>Main DbgShell EXE: implements the PowerShell host.</FileDescription>
+  </PropertyGroup>
+  <Import Project="..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets" Condition="Exists('..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets'))" />
+  </Target>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+      powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy RemoteSigned -Command ". '$(SolutionDir)PostBuildCopy.ps1' '$(ProjectDir)' '$(TargetDir)'; exit $LastExitCode"
+  </Target>
+  -->
+</Project>

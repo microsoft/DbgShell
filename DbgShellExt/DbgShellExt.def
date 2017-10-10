@@ -1,0 +1,24 @@
+EXPORTS
+
+    ;--------------------------------------------------------------------
+    ;
+    ; Well-known debugger extension functions
+    ;
+    ;--------------------------------------------------------------------
+
+    DebugExtensionInitialize       PRIVATE
+    DebugExtensionNotify           PRIVATE
+    DebugExtensionProvideValue     PRIVATE
+    DebugExtensionQueryValueNames  PRIVATE
+    DebugExtensionUninitialize     PRIVATE
+
+    ;--------------------------------------------------------------------
+    ;
+    ; Extension commands
+    ;
+    ;--------------------------------------------------------------------
+
+    dbgshell  PRIVATE
+    help      PRIVATE
+    internal_SwapMask PRIVATE
+

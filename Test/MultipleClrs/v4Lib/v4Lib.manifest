@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+    <assemblyIdentity type="win32"
+                      name="v4Lib"
+                      version="1.0.0.0" />
+    <clrClass clsid="{A3819EE3-8AB4-441C-BBCF-54F15CAA3565}"
+              progid="v4Lib.Sleeper"
+              threadingModel="Both"
+              name="v4Lib.Sleeper" >
+    </clrClass>
+    <!--
+    <dependency>
+        <dependentAssembly>
+            <assemblyIdentity type="win32"
+                              name="v2Lib"
+                              version="1.0.0.0" />
+        </dependentAssembly>
+    </dependency>
+    -->
+</assembly>

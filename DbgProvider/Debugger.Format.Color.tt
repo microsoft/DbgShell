@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<#@ template debug="true" hostspecific="true" language="C#" #>
+<#
+    Write( @"<!--
+
+    WARNING: This is generated code; do not edit directly
+
+-->" );
+#>
+<#@ include file="FormatTemplate.t4" #>
+<!--
+T4 info:
+Is Debug:   <#= isDebug #>
+Is 32-bit:  <#= is32Bit #>
+Is Color:   <#= isColor #>
+-->
+<#@ include file="Debugger.Format.ps1xml.in" #>

@@ -1,0 +1,34 @@
+
+#
+# Format definitions: these are analogous to the <view> entries in a .ps1xml,
+# except they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+# The definitions in this file are specifically for "debugee types"--
+# definitions of how to display values in the debuggee. The type names
+# typically have a "!" in them, and can be module-qualified (but do not have to
+# be). The alternate formatting engine can find these view definitions because
+# the alternate formatting engine use the "TypeNames" list of a PSObject to
+# look up view definitions, and the debugger module inserts the debuggee type
+# names into the "TypeNames" list of PSObjects that it generates to represent
+# objects in the debuggee.
+#
+
+Register-AltTypeFormatEntries {
+
+    New-AltTypeFormatEntry -TypeName '!ATL::CComAutoDeleteCriticalSection' {
+        New-AltSingleLineViewDefinition {
+            if( !$_.m_bInitialized )
+            {
+                return New-ColorString -Fore 'Yellow' -Content '(not initialized)'
+            }
+            else
+            {
+                return (Format-AltSingleLine -InputObject $_.m_sec)
+            }
+        } # end AltSingleLineViewDefinition
+    } # end Type ATL::CComAutoDeleteCriticalSection
+
+
+} # end TypeEntries
+

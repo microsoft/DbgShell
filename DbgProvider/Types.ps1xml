@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Types>
+  <!--
+    ClrMd objects get their data by using our IDataReader implementation that
+    we give to ClrMd. When our IDataReader makes dbgeng calls, it does them on
+    the dbgeng thread. Sometimes dbgeng calls back into the DAC (on the dbgeng
+    thread), but the DAC lock is held by the pipeline execution thread (where
+    the user is accessing a ClrMd object's property). This means deadlock.
+
+    To work around this, we replace some ClrMd object properties with new shim
+    properties that divert the call to the dbgeng thread. That way the DAC lock
+    is only needed by that thread, and we don't deadlock.
+
+  -->
+  <Type>
+    <Name>Microsoft.Diagnostics.Runtime.ClrThread</Name>
+    <Members>
+      <CodeProperty>
+        <Name>StackTrace</Name>
+        <GetCodeReference>
+          <TypeName>MS.Dbg.DbgProvider</TypeName>
+          <MethodName>GetClrStackTraceOnDbgEngThread</MethodName>
+        </GetCodeReference>
+      </CodeProperty>
+      <CodeProperty>
+        <Name>BlockingObjects</Name>
+        <GetCodeReference>
+          <TypeName>MS.Dbg.DbgProvider</TypeName>
+          <MethodName>GetBlockingObjectsOnDbgEngThread</MethodName>
+        </GetCodeReference>
+      </CodeProperty>
+    </Members>
+  </Type>
+  <Type>
+    <Name>Microsoft.Diagnostics.Runtime.ClrRuntime</Name>
+    <Members>
+      <CodeProperty>
+        <Name>Threads</Name>
+        <GetCodeReference>
+          <TypeName>MS.Dbg.DbgProvider</TypeName>
+          <MethodName>GetClrThreadsOnDbgEngThread</MethodName>
+        </GetCodeReference>
+      </CodeProperty>
+    </Members>
+  </Type>
+</Types>

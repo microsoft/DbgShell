@@ -1,0 +1,173 @@
+
+#
+# Format definitions: these are analogous to the <view> entries in a .ps1xml,
+# except they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+# The definitions in this file are specifically for "debugee types"--
+# definitions of how to display values in the debuggee. The type names
+# typically have a "!" in them, and can be module-qualified (but do not have to
+# be). The alternate formatting engine can find these view definitions because
+# the alternate formatting engine use the "TypeNames" list of a PSObject to
+# look up view definitions, and the debugger module inserts the debuggee type
+# names into the "TypeNames" list of PSObjects that it generates to represent
+# objects in the debuggee.
+#
+
+Register-AltTypeFormatEntries {
+
+    # We keep private, shared functions in FmtUtils.ps1. If you have a script block that
+    # needs to use them, be sure to use -CaptureContext, else they won't be available when
+    # the script block is run.
+    . "$PSScriptRoot\FmtUtils.ps1"
+
+
+    New-AltTypeFormatEntry -TypeName '!XPOINTF' {
+        New-AltSingleLineViewDefinition {
+            $sym = $_.DbgGetSymbol()
+            (New-ColorString).Append( $sym.Type.ColorName ).
+                              Append( ': x = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.x ).
+                              Append( ', y = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.y )
+        } # end AltSingleLineViewDefinition
+    } # end Type XPOINTF
+
+    New-AltTypeFormatEntry -TypeName '!XPOINTD' {
+        New-AltSingleLineViewDefinition {
+            $sym = $_.DbgGetSymbol()
+            (New-ColorString).Append( $sym.Type.ColorName ).
+                              Append( ': x = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.x ).
+                              Append( ', y = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.y )
+        } # end AltSingleLineViewDefinition
+    } # end Type XPOINTD
+
+
+    New-AltTypeFormatEntry -TypeName '!XRECTF_RB' {
+        New-AltSingleLineViewDefinition {
+            $sym = $_.DbgGetSymbol()
+
+            # CSS does top, right, bottom, left. Why did they start with left? Hm.
+            (New-ColorString).Append( $sym.Type.ColorName ).
+                              Append( ': L,T,R,B = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.left ).
+                              Append( ', ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.top ).
+                              Append( ', ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.right ).
+                              Append( ', ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.bottom )
+        } -CaptureContext # end AltSingleLineViewDefinition
+    } # end Type XRECTF_RB
+
+
+    New-AltTypeFormatEntry -TypeName '!XRECTF_WH' {
+        New-AltSingleLineViewDefinition {
+            $sym = $_.DbgGetSymbol()
+
+            (New-ColorString).Append( $sym.Type.ColorName ).
+                              Append( ': X,Y,W,H = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.X ).
+                              Append( ', ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.Y ).
+                              Append( ', ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.Width ).
+                              Append( ', ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.Height )
+        } -CaptureContext # end AltSingleLineViewDefinition
+    } # end Type XRECTF_WH
+
+
+    New-AltTypeFormatEntry -TypeName '!XSIZEF' {
+        New-AltSingleLineViewDefinition {
+            $sym = $_.DbgGetSymbol()
+
+            # CSS does top, right, bottom, left. Why did they start with left? Hm.
+            (New-ColorString).Append( $sym.Type.ColorName ).
+                              Append( ': width = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.width ).
+                              Append( ', height = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.height )
+        } -CaptureContext # end AltSingleLineViewDefinition
+    } # end Type XSIZEF
+
+
+    New-AltTypeFormatEntry -TypeName '!XGRIDLENGTH' {
+        New-AltSingleLineViewDefinition {
+            $sym = $_.DbgGetSymbol()
+
+            (New-ColorString).Append( $sym.Type.ColorName ).
+                              Append( ': type = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.type ).
+                              Append( ', value = ' ).
+                              AppendPushPopFg( [ConsoleColor]::Magenta, $_.value )
+        } # end AltSingleLineViewDefinition
+    } # end Type XGRIDLENGTH
+
+
+    New-AltTypeFormatEntry -TypeName 'Windows_UI_Xaml!CDependencyObject' {
+        New-AltSingleLineViewDefinition {
+            $type = $_.DbgGetOperativeSymbol().Type
+
+            $cs = (New-ColorString).Append( $type.ColorName ).Append( ': ' )
+            if( $_.Name ) {
+                $null = $cs.Append( '"' ).AppendPushPopFg( [ConsoleColor]::Cyan, $_.Name ).Append( '"' )
+            } else {
+                $null = $cs.AppendPushPopFg( [ConsoleColor]::DarkGray, "<unnamed>" )
+            }
+
+            if( $_.ClassName )
+            {
+                $null = $cs.Append( ' ClassName: ' ).
+                            AppendPushPopFg( [ConsoleColor]::Green, $_.ClassName )
+            }
+
+            if( $_.PSObject.TypeNames -contains 'Windows_UI_Xaml!CImageBase' )
+            {
+                if( ($_.m_pImageSource -ne 0) -and ($_.m_pImageSource.m_pstrSource -ne 0) )
+                {
+                    $null = $cs.Append( ' Source: ' ).
+                                AppendPushPopFg( [ConsoleColor]::Magenta, (poi $_.m_pImageSource.m_pstrSource) )
+                }
+            }
+            $cs
+        } # end AltSingleLineViewDefinition
+
+        # We want to define a custom table format, but let the custom view for base type
+        # DbgUdtValue take precedence. So we'll just ask for the DbgUdtValue's view and
+        # emit it again here.
+        $udtVdi = Get-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgUdtValue' `
+                                         -FormatInfoType ([MS.Dbg.Formatting.AltCustomViewDefinition])
+        $udtVdi.ViewDefinitionInfo.ViewDefinition
+
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Type' -Alignment Left -Width 22 -Script {
+                    $_.DbgGetOperativeSymbol().Type.ColorName
+                }
+                New-AltScriptColumn -Label 'Name' -Alignment Left -Width 30 -Script {
+                    New-ColorString -Content $_.Name -Fore 'Cyan'
+                }
+                New-AltScriptColumn -Label 'ClassName' -Alignment Left -Width 40 -TrimLocation 'Left' -Script {
+                    New-ColorString -Content $_.ClassName -Fore 'Green'
+                }
+                New-AltScriptColumn -Label 'Size' -Alignment Center -Script {
+                    $type = $_.DbgGetOperativeSymbol().Type
+                    if( !$type.Members.HasItemNamed( 'm_pLayoutStorage' ) -or ($_.m_pLayoutStorage -eq 0) )
+                    {
+                        return ''
+                    }
+
+                    $size = $_.m_pLayoutStorage.m_size
+                    (New-ColorString -Content $size.Width.ToString() -Fore White).
+                        AppendPushPopFg( [ConsoleColor]::DarkGray, ([char] 0x00d7) ).
+                        AppendPushPopFg( [ConsoleColor]::White, $size.Height.ToString() )
+                } # end Size column
+            } # End Columns
+        } # end Table view
+    } # end Type Windows_UI_Xaml!CDependencyObject
+} # end TypeEntries
+

@@ -1,0 +1,19 @@
+
+TOPIC
+    about_CustomFormatting
+
+SHORT DESCRIPTION
+
+    DbgShell includes a custom Formatting+Output (F+O) engine.
+
+LONG DESCRIPTION
+
+    Please see the MarkDown help file "CustomFormattingEngine.md" in the "doc" folder at
+    the root of the DbgShell installation.
+
+    TBD: generate help topics from .md help files.
+
+QUESTIONS/FEEDBACK
+
+    TBD:github link
+

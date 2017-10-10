@@ -1,0 +1,206 @@
+
+#
+# Format definitions: these are analogous to the <view> entries in a .ps1xml,
+# except they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+# The definitions in this file are specifically for "debugee types"--
+# definitions of how to display values in the debuggee. The type names
+# typically have a "!" in them, and can be module-qualified (but do not have to
+# be). The alternate formatting engine can find these view definitions because
+# the alternate formatting engine use the "TypeNames" list of a PSObject to
+# look up view definitions, and the debugger module inserts the debuggee type
+# names into the "TypeNames" list of PSObjects that it generates to represent
+# objects in the debuggee.
+#
+
+Register-AltTypeFormatEntries {
+
+    New-AltTypeFormatEntry -TypeName 'nt!_EPROCESS' {
+
+        # A note about single-line view definitions (AltSingleLineViewDefinition):
+        #
+        # These type of formatting definitions are "special", in that the
+        # Out-Default proxy will never choose to use the alternate formatting
+        # engine based on the presence of a single-line view definition--you
+        # have to call Format-AltSingleLine explicitly for these to be used.
+
+        New-AltSingleLineViewDefinition {
+            $cs = New-ColorString
+            $cs.Append( (Format-DbgAddress $_.DbgGetOperativeSymbol().Address) ).
+                Append( ' (0x' ).
+                Append( ($_.UniqueProcessId.DbgGetPointer().ToString( 'x' )) ).
+                Append( ') ' ).
+                AppendPushPopFg( [ConsoleColor]::White, $_.ImageFileName.DbgGetSymbol().ReadAs_szString() )
+        } # end AltSingleLineViewDefinition
+
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Address' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    Format-DbgAddress $_.DbgGetOperativeSymbol().Address
+                }
+
+              # New-AltScriptColumn -Label 'Ses' -Width 3 -Alignment Right -Script {
+              #     $_.Session.SessionId
+              # }
+
+             #  New-AltScriptColumn -Label 'PEB' -Width 17 -Alignment Left -Tag 'Address' -Script {
+             #      Format-DbgAddress $_.Peb.DbgGetPointer()
+             #  }
+
+                New-AltScriptColumn -Label 'Cid' -Width 5 -Alignment Right -Script {
+                    $_.UniqueProcessId.DbgGetPointer().ToString( 'x' )
+                }
+
+                New-AltScriptColumn -Label 'Parent' -Width 6 -Alignment Right -Script {
+                    $_.InheritedFromUniqueProcessId.DbgGetPointer().ToString( 'x' )
+                }
+
+                # TODO: HandleCount (virtual property), what else?
+
+                New-AltScriptColumn -Label 'Image' -Alignment Left -Script {
+                    # TODO: sym value converter should add FullImageName property
+                    # and make ImageFileName a string
+                    $_.ImageFileName.DbgGetSymbol().ReadAs_szString()
+                }
+            } # End Columns
+        } # end AltTableViewDefinition
+    } # end Type !_EPROCESS
+
+
+    New-AltTypeFormatEntry -TypeName 'ConverterApplied:_EPROCESS' {
+
+        New-AltSingleLineViewDefinition {
+            $cs = New-ColorString
+            $cs.Append( (Format-DbgAddress $_.DbgGetOperativeSymbol().Address) ).
+                Append( ' (0x' ).
+                Append( ($_.UniqueProcessId.DbgGetPointer().ToString( 'x' )) ).
+                Append( ') ' ).
+                AppendPushPopFg( [ConsoleColor]::White, $_.ImageFileName )
+        } # end AltSingleLineViewDefinition
+
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Address' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    Format-DbgAddress $_.DbgGetOperativeSymbol().Address
+                }
+
+                New-AltScriptColumn -Label 'Ses' -Width 3 -Alignment Right -Script {
+                    if( !$_.Session.DbgIsNull() )
+                    {
+                        if( 0 -eq $_.Session.SessionId )
+                        {
+                            New-ColorString -Content '0' -Fore Blue
+                        }
+                        else
+                        {
+                            $_.Session.SessionId
+                        }
+                    }
+                    else
+                    {
+                        '-'
+                    }
+                }
+
+                New-AltScriptColumn -Label 'Cid' -Width 5 -Alignment Right -Script {
+                    $_.UniqueProcessId.DbgGetPointer().ToString( 'x' )
+                }
+
+                New-AltScriptColumn -Label 'Parent' -Width 6 -Alignment Right -Script {
+                    $_.InheritedFromUniqueProcessId.DbgGetPointer().ToString( 'x' )
+                }
+
+                New-AltScriptColumn -Label 'Handles' -Width 7 -Alignment Right -Script {
+                    if( $null -eq $_.HandleCount )
+                    {
+                        return New-ColorString -Content '   -   ' -Foreground Magenta
+                    }
+                    $_.HandleCount
+                }
+
+                New-AltScriptColumn -Label 'Image' -Alignment Left -Script {
+                    if( $_.BreakOnTermination )
+                    {
+                        # It's a "critical" process (exit --> bugcheck).
+                        New-ColorString -Content $_.ImageFileName -Fore Magenta
+                    }
+                    else
+                    {
+                        $_.ImageFileName
+                    }
+                }
+
+                # TODO: Elapsed time? Commit charge? Virtual size? Thread count? GUI?
+                # User? Current process indicator?
+            } # End Columns
+        } # end AltTableViewDefinition
+    } # end Type ConverterApplied:_EPROCESS
+
+
+    New-AltTypeFormatEntry -TypeName 'nt!_ETHREAD' {
+
+        # A note about single-line view definitions (AltSingleLineViewDefinition):
+        #
+        # These type of formatting definitions are "special", in that the
+        # Out-Default proxy will never choose to use the alternate formatting
+        # engine based on the presence of a single-line view definition--you
+        # have to call Format-AltSingleLine explicitly for these to be used.
+
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).
+                Append( (Format-DbgTypeName 'ETHREAD') ).
+                Append( ' ' ).
+                Append( (Format-DbgAddress $_.DbgGetOperativeSymbol().Address) ).
+                Append( ' (' ).
+                AppendPushPopFg( [ConsoleColor]::DarkGray, ($_.Cid.UniqueProcess.DbgGetPointer().ToString( 'x' )) ).
+                Append( '.' ).
+                AppendPushPopFg( [ConsoleColor]::White, ($_.Cid.UniqueThread.DbgGetPointer().ToString( 'x' )) ).
+                Append( ') ' )
+
+            $t = dt nt!_KTHREAD_STATE
+            if( $t.ByName.Running -eq $_.Tcb.State )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Green, 'RUNNING' ).
+                          Append( ' on processor ' ).
+                          AppendPushPopFg( [ConsoleColor]::White, $_.Tcb.NextProcessor )
+            }
+            elseif( $t.ByName.Ready -eq $_.Tcb.State )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkGreen, 'Ready' ).
+                          Append( ' on processor ' ).
+                          Append( $_.Tcb.NextProcessor )
+            }
+            elseif( $t.ByName.Waiting -eq $_.Tcb.State )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'WAIT' )
+            }
+            else
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, $_.Tcb.State.ToColorStringSimple().ToString() )
+            }
+
+            return $cs
+        } # end AltSingleLineViewDefinition
+
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Address' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    Format-DbgAddress $_.DbgGetOperativeSymbol().Address
+                }
+
+                New-AltScriptColumn -Label 'Cid.Tid' -Width 9 -Alignment Right -Script {
+                    (New-ColorString -Content $_.Cid.UniqueProcess.DbgGetPointer().ToString( 'x' ) -Fore DarkGray).
+                        Append( '.' ).
+                        AppendPushPopFg( [ConsoleColor]::White, ($_.Cid.UniqueThread.DbgGetPointer().ToString( 'x' )) )
+                }
+            } # End Columns
+        } # end AltTableViewDefinition
+    } # end Type !_ETHREAD
+
+
+} # end TypeEntries
+

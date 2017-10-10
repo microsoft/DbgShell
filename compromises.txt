@@ -1,0 +1,21 @@
+
+DbgShell does not parse dbgeng output. Well, unless there is absolutely NO
+other way to get the information. Here is a list of those things we can't get
+any other way:
+
+    Set-DbgSymbolPath: no way to get the "expanded" symbol path except to
+    execute ".sympath" and grab the output.
+
+I parse the output of IDebugControlX.DisassembleWide to pull out the instruction name and to colorize stuff.
+I parse the output of "uf" because there's no other way to disassemble an entire function.
+
+In some cases, for "derived type detection", I parse the symbolic name of a thunk function to find the offset (like "ieframe![thunk]:CTabProcessReference::QueryInterface`adjustor{20}'"). Sometimes the data we need just isn't in the PDB in proper symbolic form (as exposed by dbghelp).
+
+A bunch of thread properties can only be obtained by parsing the output of the "~" command. (like SuspendCount)
+
+
+There is no API to get the timestamp of the last event, so I have to parse it out of ".lastevent" output.
+
+
+There is no API to get dbgeng-generated type info (DBG_GENERATED_TYPE), so sometimes we try to figure it out by parsing the output of "dv /t varname".
+

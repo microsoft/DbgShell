@@ -1,0 +1,45 @@
+
+Set-StrictMode -Version Latest
+
+function PrepareForTest()
+{
+    # Prepares a fresh virtual namespace for us to party on.
+    Push-Namespace
+
+    $TestContext = Get-TestContext
+
+    $pbs = $TestContext.Properties[ "PathBugginessStyle" ]
+    if( $pbs )
+    {
+        Write-Host "Using PathBugginessStyle: $pbs." -Fore Yellow
+        Set-PathBugginessStyle $pbs
+    }
+
+    $useProviderQualifiedWorkingDirectory = $TestContext.Properties[ "UseProviderQualifiedWorkingDirectory" ]
+    if( $useProviderQualifiedWorkingDirectory )
+    {
+        Write-Host "Using a provider-qualified working directory." -Fore Yellow
+        cd Debugger::\
+    }
+}
+
+function CleanupFromTest()
+{
+    # Throws away the current virtual namespace, getting rid of any potential leftovers.
+    Pop-Namespace
+} # end CleanupFromTest()
+
+
+# You might be tempted to factor out ALL common initialization code to put into
+# the 'TestInitialize' script block--but don't do it. This way, the tests
+# remain independenty executable (you can just dot-source them at the command
+# line, which is very useful for debugging them).
+$metadata = @{
+    "*.ps1" = @{
+        "TestInitialize" = { PrepareForTest }
+        "TestCleanup" = { CleanupFromTest }
+    };
+}
+
+Register-TestMetadata $metadata
+

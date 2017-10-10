@@ -1,0 +1,27 @@
+
+TOPIC
+    about_DerivedTypeDetection
+
+SHORT DESCRIPTION
+
+    DbgShell lets you see symbol values as they are, not just as they are declared.
+
+LONG DESCRIPTION
+
+    For instance, if you have a member field that is declared in source code as being an
+    IFoo*, but at runtime the member points at a CFooImpl, when you dump the object in
+    DbgShell, you'll see a CFooImpl.
+
+    It works by using vtable and base class information found in the PDB. It does not
+    require anything from you. However, if you run into some sort of problem (or just want
+    to see how good you have it), you can bypass it by using the "DbgSymbol.GetValue( bool
+    skipTypeConversion, bool skipDerivedTypeDetection )" method.
+
+    There is also a plug-in facility for cases where there is no symbolic relationship
+    between the detected vtable and the declared type (sometimes you get this with
+    generated code, for instance), but for most cases this should not be needed.
+
+QUESTIONS/FEEDBACK
+
+    TBD:github link
+

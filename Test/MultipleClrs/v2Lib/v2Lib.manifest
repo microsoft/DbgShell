@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+    <assemblyIdentity type="win32"
+                      name="v2Lib"
+                      version="1.0.0.0" />
+    <clrClass clsid="{14F82F54-9161-43C3-B212-E018988EC509}"
+              progid="v2Lib.Sleeper"
+              threadingModel="Both"
+              name="v2Lib.Sleeper"
+              runtimeVersion="v2.0.50727" >
+    </clrClass>
+</assembly>

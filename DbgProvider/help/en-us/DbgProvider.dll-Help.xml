@@ -1,0 +1,125 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<helpItems schema="maml">
+
+<!-- v 1.0.0.0 -->
+<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+  <command:details>
+    <command:name>
+                   Mount-DumpFile
+    </command:name>
+    <maml:description>
+      <maml:para>Loads a dump file for post-mortem debugging.</maml:para>
+    </maml:description>
+    <maml:copyright>
+      <maml:para></maml:para>
+    </maml:copyright>
+    <command:verb>Mount</command:verb>
+    <command:noun>DumpFile</command:noun>
+    <dev:version></dev:version>
+  </command:details>
+  <maml:description>
+    <maml:para>The Mount-DumpFile cmdlet loads a dump file for post-mortem debugging, similar to "windbg -z".
+    </maml:para>
+  </maml:description>
+  <!-- Cmdlet syntax section-->
+  <command:syntax>
+    <command:syntaxItem>
+      <maml:name>Mount-DumpFile</maml:name>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="true (ByValue)" position="1">
+        <maml:name>DumpFile</maml:name>
+        <maml:description>
+          <maml:para>Specifies the dump file to load.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">string</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="false" position="2">
+        <maml:name>TargetName</maml:name>
+        <maml:description>
+          <maml:para>Specifies the name which should be used to represent the dump file in the Debugger provider virtual namespace.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">string</command:parameterValue>
+      </command:parameter>
+    </command:syntaxItem>
+  </command:syntax>
+  <!-- Cmdlet parameter section  -->
+  <command:parameters>
+    <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="true (ByValue)" position="1">
+      <maml:name>DumpFile</maml:name>
+      <maml:description>
+        <maml:para>Specifies the dump file to load.</maml:para>
+      </maml:description>
+      <command:parameterValue required="true" variableLength="true">string</command:parameterValue>
+      <dev:type>
+        <maml:name>string</maml:name>
+        <maml:uri/>
+      </dev:type>
+      <dev:defaultValue></dev:defaultValue>
+    </command:parameter>
+    <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="false" position="2">
+      <maml:name>TargetName</maml:name>
+      <maml:description>
+        <maml:para>Specifies the name which should be used to represent the dump file in the Debugger provider virtual namespace.</maml:para>
+      </maml:description>
+      <command:parameterValue required="true" variableLength="true">string</command:parameterValue>
+      <dev:type>
+        <maml:name>string</maml:name>
+        <maml:uri/>
+      </dev:type>
+      <dev:defaultValue></dev:defaultValue>
+    </command:parameter>
+  </command:parameters>
+  <!-- Input - Output section-->
+  <command:inputTypes>
+    <command:inputType>
+      <dev:type>
+        <maml:name>System.String</maml:name>
+        <maml:uri/>
+        <maml:description />
+      </dev:type>
+      <maml:description>
+        <maml:para>
+          <!-- description  -->
+          This cmdlet accepts a string object as input that populates the DumpFile parameter.
+        </maml:para>
+      </maml:description>
+    </command:inputType>
+  </command:inputTypes>
+  <command:returnValues>
+    <command:returnValue>
+      <dev:type>
+        <maml:name>MS.Dbg.DbgContainer</maml:name>
+        <maml:uri />
+        <maml:description />
+      </dev:type>
+      <maml:description>
+        <maml:para>
+          <!-- description  -->
+          This cmdlet loads the specified dump file into the Debugger provider virtual namespace.
+        </maml:para>
+      </maml:description>
+    </command:returnValue>
+  </command:returnValues>
+  <!-- Error section-->
+  <command:terminatingErrors />
+  <command:nonTerminatingErrors />
+    <!-- Notes section  -->
+  <maml:alertSet>
+    <maml:title></maml:title>
+    <maml:alert>
+      <maml:para></maml:para>
+    </maml:alert>
+    <maml:alert>
+      <maml:para></maml:para>
+    </maml:alert>
+  </maml:alertSet>
+  <!-- Link section  -->
+  <maml:relatedLinks>
+    <maml:navigationLink>
+      <maml:linkText>Unmount-DumpFile</maml:linkText>
+      <maml:uri/>
+    </maml:navigationLink>
+  </maml:relatedLinks>
+</command:command>
+
+</helpItems>

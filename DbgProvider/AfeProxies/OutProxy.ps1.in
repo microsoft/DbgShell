@@ -1,0 +1,197 @@
+
+function PROXY_NAME
+{
+    [CmdletBinding( HelpUri = 'HELP_URI', RemotingCapability = 'None' )]
+    param( OUTSTRING_ONLY_PARAMS
+           [Parameter( ValueFromPipeline = $true )]
+           [PSObject] ${InputObject}
+         )
+
+    begin
+    {
+        [bool] $private:originalColorSupport = $HostSupportsColor
+        [bool] $private:enableDebugSpew = $false
+        if( ![string]::IsNullOrEmpty( $env:PROXY_SPEW_VAR ) )
+        {
+            $enableDebugSpew = $true
+        }
+
+        #[Console]::WriteLine( "PROXY_NAME proxy begin" )
+        try
+        {
+            $private:currentFormatInfo = $null
+            $private:currentSteppablePipeline = $null
+            # TODO: What if someone else is also trying to proxy PROXY_NAME?
+            OUT_WRAPPED_COMMAND = $ExecutionContext.InvokeCommand.GetCommand( 'PROXY_NAME', [System.Management.Automation.CommandTypes]::Cmdlet )
+
+            $private:outBuffer = $null
+            if( $PSBoundParameters.TryGetValue( 'OutBuffer', [ref] $outBuffer ) )
+            {
+                $PSBoundParameters[ 'OutBuffer' ] = 1
+            }
+            OUTSTRING_SPECIFIC_1
+        }
+        catch
+        {
+            $e = $_
+            [System.Console]::WriteLine( "PROXY_NAME begin: OH NOES: $e" )
+            throw
+        }
+        finally { }
+    } # end begin block
+
+    process
+    {
+        if( $enableDebugSpew )
+        {
+            [Console]::WriteLine( "        ======== PROXY_NAME proxy: process ========" )
+            [Console]::WriteLine( '        $PSBoundParameters:' )
+            foreach( $key in $PSBoundParameters.Keys )
+            {
+                $val = $PSBoundParameters[ $key ]
+                if( $null -eq $val ) { $val = "<null>" }
+                [Console]::WriteLine( "            [$($key)]: $($val)" )
+            }
+        }
+        try
+        {
+            $private:objToDealWith = $null
+            [bool] $private:bindUsingInputObject = $false
+            if( $null -eq $_ )
+            {
+                if( $enableDebugSpew )
+                {
+                    [Console]::WriteLine( "        SPEW_PREFIX: Dollar-underbar is null." )
+                }
+                $objToDealWith = $InputObject
+                $bindUsingInputObject = $true
+            }
+            else
+            {
+                if( $enableDebugSpew )
+                {
+                    [Console]::WriteLine( "        SPEW_PREFIX: Dollar-underbar object of type: {0}", $_.GetType().FullName )
+                }
+                $objToDealWith = $_
+                # Things get messed up in the child steppable pipeline if both $_ and
+                # $InputObject are set. (I don't know why; they're both set here...)
+                [void] $PSBoundParameters.Remove( 'InputObject' )
+            }
+
+            if( $null -eq $objToDealWith ) # TODO: Do I need to handle [System.Management.Automation.Internal.AutomationNull]::Value?
+            {
+                return
+            }
+
+            $private:enumerable = GetEnumerable $objToDealWith
+            if( $null -ne $enumerable )
+            {
+                $null = $PSBoundParameters.Remove( 'InputObject' )
+                Enumerate $enumerable | PROXY_NAME @PSBoundParameters
+                return
+            } # end if( it's enumerable )
+
+
+            $private:formatInfo = Get-AltFormatViewDef -ForObject $objToDealWith
+
+            if( $null -eq $formatInfo )
+            {
+                #[console]::WriteLine( "Did not find a formatInfo." )
+                if( ($null -ne $currentFormatInfo) -or ($null -eq $currentSteppablePipeline) )
+                {
+                    # Need to start up an PROXY_NAME pipeline
+                    if( $null -ne $currentSteppablePipeline )
+                    {
+                        $currentSteppablePipeline.End()
+                    }
+
+                    $global:HostSupportsColor = $false
+                    OUT_SCRIPT_COMMAND = { & OUT_WRAPPED_COMMAND @PSBoundParameters OUTSTRING_ONLY_PARAMS_VAR }
+                    $currentSteppablePipeline = OUT_SCRIPT_COMMAND.GetSteppablePipeline( $myInvocation.CommandOrigin )
+                    $currentSteppablePipeline.Begin( $PSCmdlet )
+                }
+                # else we keep using the $currentSteppablePipeline
+            }
+            else
+            {
+                if( ($null -eq $currentFormatInfo) -or
+                    ($currentFormatInfo -ne $formatInfo) )
+                {
+                    #[console]::WriteLine( "Starting a new pipeline for a known formatInfo of type {0}.", $formatInfo.GetType().FullName )
+                    # Need to start up a new pipeline for the new formatInfo.
+                    if( $null -ne $currentSteppablePipeline )
+                    {
+                        $currentSteppablePipeline.End()
+                        $global:HostSupportsColor = $originalColorSupport
+                    }
+
+                    $private:fullCmdName = $formatInfo.FormatCommand
+                    if( $null -ne $formatInfo.Module )
+                    {
+                        $fullCmdName = $formatInfo.Module + '\' + $fullCmdName
+                    }
+
+                    $private:formatCmd = $ExecutionContext.InvokeCommand.GetCommand( $fullCmdName, [System.Management.Automation.CommandTypes]::All )
+                    # TODO: what if we can't find it
+
+                    # TODO: comment below accurate?
+
+                    # Notice that we pipe the results to the original
+                    # PROXY_NAME, else we wouldn't see any output.
+                    $private:scriptCmd = { & $formatCmd -FormatInfo $formatInfo @PSBoundParameters | & OUT_WRAPPED_COMMAND OUTSTRING_ONLY_PARAMS_VAR }
+                    $currentSteppablePipeline = $scriptCmd.GetSteppablePipeline( $myInvocation.CommandOrigin )
+                    $currentSteppablePipeline.Begin( $PSCmdlet )
+                }
+                else
+                {
+                    #[console]::WriteLine( "Using existing pipeline for a known formatInfo of type {0}.", $currentFormatInfo.GetType().FullName )
+                }
+            }
+
+            # TODO: Assert $null -ne $currentSteppablePipeline
+            $private:currentFormatInfo = $formatInfo
+            if( $bindUsingInputObject )
+            {
+                $currentSteppablePipeline.Process( $null )
+            }
+            else
+            {
+                $currentSteppablePipeline.Process( $objToDealWith )
+            }
+        }
+        catch
+        {
+            $e = $_
+            [System.Console]::WriteLine( "PROXY_NAME: OH NOES: $e" )
+            $global:HostSupportsColor = $originalColorSupport
+            throw
+        }
+        finally { }
+    } # end process block
+
+    end
+    {
+        try
+        {
+            if( $null -ne $currentSteppablePipeline )
+            {
+                $currentSteppablePipeline.End()
+            }
+        }
+        catch
+        {
+            $e = $_
+            [System.Console]::WriteLine( "PROXY_NAME end: OH NOES: $e" )
+            throw
+        }
+        finally
+        {
+            $global:HostSupportsColor = $originalColorSupport
+        }
+    } # end end block
+<#
+.ForwardHelpTargetName PROXY_NAME
+.ForwardHelpCategory Cmdlet
+#>
+} # end PROXY_NAME proxy
+

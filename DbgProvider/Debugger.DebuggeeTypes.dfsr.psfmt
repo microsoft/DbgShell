@@ -1,0 +1,455 @@
+
+#
+# Format definitions: these are analogous to the <view> entries in a .ps1xml,
+# except they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+# The definitions in this file are specifically for "debugee types"--
+# definitions of how to display values in the debuggee. The type names
+# typically have a "!" in them, and can be module-qualified (but do not have to
+# be). The alternate formatting engine can find these view definitions because
+# the alternate formatting engine use the "TypeNames" list of a PSObject to
+# look up view definitions, and the debugger module inserts the debuggee type
+# names into the "TypeNames" list of PSObjects that it generates to represent
+# objects in the debuggee.
+#
+
+Register-AltTypeFormatEntries {
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!ScopedCS' {
+        New-AltSingleLineViewDefinition {
+            if( !$_.m_cs.IsLocked )
+            {
+                return (Format-DbgTypeName 'ScopedCS: ').AppendPushPopFg( [ConsoleColor]::Green, 'Not locked.' )
+            }
+            else
+            {
+                return (Format-DbgTypeName 'ScopedCS: ').AppendPushPopFg( [ConsoleColor]::Yellow, "LOCKED, by thread: $($_.m_cs.OwningThreadDbgId)" )
+            }
+        } # end AltSingleLineViewDefinition
+    } # end Type dfsrs!ScopedCS
+
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!ScopedLock' {
+        New-AltSingleLineViewDefinition {
+            if( $_.cs.DbgIsNull() )
+            {
+                return (Format-DbgTypeName 'ScopedLock: ').AppendPushPopFg( [ConsoleColor]::DarkGreen, '(not bound to a ScopedCS)' )
+            }
+            elseif( !$_.cs.m_cs.IsLocked )
+            {
+                return (Format-DbgTypeName 'ScopedLock: ').AppendPushPopFg( [ConsoleColor]::Green, 'Not locked.' )
+            }
+            else
+            {
+                return (Format-DbgTypeName 'ScopedLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, "LOCKED, by thread: $($_.cs.m_cs.OwningThreadDbgId)" )
+            }
+        } # end AltSingleLineViewDefinition
+    } # end Type dfsrs!ScopedLock
+
+
+    # Note that this view definition only applies if the CREWLock converter was applied.
+    New-AltTypeFormatEntry -TypeName 'ConverterApplied:dfsrs CREWLock' {
+        New-AltSingleLineViewDefinition {
+            if( $_.IsBeingModified )
+            {
+                return (Format-DbgTypeName 'CREWLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, 'Being modified!' )
+            }
+            elseif( (!$_.IsReadLocked) -and (!$_.IsWriteLocked) )
+            {
+                return (Format-DbgTypeName 'CREWLock: ').AppendPushPopFg( [ConsoleColor]::Green, 'Not locked.' )
+            }
+            elseif( $_.IsReadLocked )
+            {
+                return (Format-DbgTypeName 'CREWLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, 'LOCKED, shared.' )
+            }
+            else
+            {
+                return (Format-DbgTypeName 'CREWLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, "LOCKED, exclusive, by thread: $($_.OwningWriterThreadDbgId)" )
+            }
+        } # end AltSingleLineViewDefinition
+    } # end Type dfsrs!CREWLock
+
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!ScopedCrewLock' {
+        New-AltSingleLineViewDefinition {
+            if( !$_.cs.PSObject.TypeNames[ 0 ].Contains( '|' ) )
+            {
+                # The CREWLock converter was not applied so it won't have these extra,
+                # synthetic properties.
+                return $_.ToColorString()
+            }
+
+            if( $_.cs.IsBeingModified )
+            {
+                return (Format-DbgTypeName 'ScopedCrewLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, 'Being modified!' )
+            }
+            elseif( $_.cs.IsReadLocked )
+            {
+                return (Format-DbgTypeName 'ScopedCrewLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, 'Lock held by readers.' )
+            }
+            elseif( $_.cs.IsWriteLocked )
+            {
+                return (Format-DbgTypeName 'ScopedCrewLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, 'Lock held by a writer.' )
+            }
+            else
+            {
+                return (Format-DbgTypeName 'ScopedCrewLock: ').AppendPushPopFg( [ConsoleColor]::Green, 'Not locked.' )
+            }
+        } # end AltSingleLineViewDefinition
+    } # end Type dfsrs!ScopedCrewLock
+
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!ScopedAttachedCrewLock' {
+        New-AltSingleLineViewDefinition {
+            if( $_.cs.DbgIsNull() )
+            {
+                return (Format-DbgTypeName 'ScopedAttachedCrewLock: ').AppendPushPopFg( [ConsoleColor]::DarkGreen, '(not attached to a CREWLock)' )
+            }
+
+            if( !$_.cs.PSObject.TypeNames[ 0 ].Contains( '|' ) )
+            {
+                # The CREWLock converter was not applied so it won't have these extra,
+                # synthetic properties.
+                return $_.ToColorString()
+            }
+
+            if( $_.cs.IsBeingModified )
+            {
+                return (Format-DbgTypeName 'ScopedAttachedCrewLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, 'Being modified!' )
+            }
+            elseif( $_.cs.IsReadLocked )
+            {
+                return (Format-DbgTypeName 'ScopedAttachedCrewLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, 'Lock held by readers.' )
+            }
+            elseif( $_.cs.IsWriteLocked )
+            {
+                return (Format-DbgTypeName 'ScopedAttachedCrewLock: ').AppendPushPopFg( [ConsoleColor]::Yellow, 'Lock held by a writer.' )
+            }
+            else
+            {
+                return (Format-DbgTypeName 'ScopedAttachedCrewLock: ').AppendPushPopFg( [ConsoleColor]::Green, 'Not locked.' )
+            }
+        } # end AltSingleLineViewDefinition
+    } # end Type dfsrs!ScopedAttachedCrewLock
+
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!FilePath' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName 'FilePath: ').Append( (Format-AltSingleLine -InputObject $_.filePath) )
+        } # end AltSingleLineViewDefinition
+    } # end Type dfsrs!FilePath
+
+    <#
+    TODO: parameter states?
+
+#define PARAM_STATE_VALUE_UPDATED           0x0001   // Set whenever a value is successfully assigned.
+                                                     // this flag is used to detect changes and write
+                                                     // affected persist affected parameters.
+#define PARAM_STATE_NOT_PRESENT             0x0002   // Set if the parameter must be present, yet it
+                                                     // does not exist
+#define PARAM_STATE_VALUE_NOT_PRESENT       0x0004   // Set if the value must exist, yet it does not
+                                                     // exist. If it exists but invalid, then one of
+                                                     // the flags below is set instead.
+#define PARAM_STATE_INVALID_VALUE           0x0008   // Set if the parameter value if invalid
+#define PARAM_STATE_VALUE_OUT_OF_RANGE      0x0010   // Set if the parameter value is out of range
+#define PARAM_STATE_DUPLICATE               0x0020   // Set if the block is found twice in the file
+    #>
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::Parameter' {
+
+        New-AltSingleLineViewDefinition {
+            $cs = New-ColorString -Content $_.ToString()
+            if( !$_.context.DbgIsNull() )
+            {
+                Invoke-Script -File "$PSScriptRoot\Debugger.DebuggeeTypes.dfsr.psfmt.private"
+                $thatVal = _GetConfigParamVal $_
+                $thatVal = _GetConfigParamVal $_
+                $null = $cs.Append( " " ).
+                            AppendPushPopFgBg( [ConsoleColor]::White, [ConsoleColor]::DarkMagenta, $_.context.Name ).
+                            Append( " " ).
+                            Append( (Format-AltSingleLine -InputObject $thatVal) )
+            }
+
+            $cs
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+
+        <#
+        TODO: What I want (I think) is for Config::ParamBlock to get the custom view supplied by DbgUdtValue.
+        How can I get it?
+        #>
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Name' -Width 22 -Alignment Left -Script {
+                    if( $_.context.DbgIsNull() )
+                    {
+                       New-ColorString -Fore 'DarkGray' -Content "(unknown)"
+                    }
+                    else
+                    {
+                       New-ColorString -Fore 'White' -Back 'DarkMagenta' -Content $_.context.Name
+                    }
+                }
+                New-AltPropertyColumn -PropertyName 'updatedByWmi' -Label 'WMI' -Width 4 -Alignment Center
+                New-AltPropertyColumn -PropertyName 'State' -Alignment Center -Width 5
+                New-AltScriptColumn -Label 'Value' -Alignment Left -Script {
+                    Invoke-Script -File "$PSScriptRoot\Debugger.DebuggeeTypes.dfsr.psfmt.private"
+                    _GetConfigParamVal $_
+                    <#
+                    $val = $_
+                    switch( $val.type )
+                    {
+                        1 { # PARAM_TYPE_STRING
+                            $val.parameterValue
+                        }
+                        6  { # PARAM_TYPE_GUID
+                            $val.strGuid
+                        }
+                        7 { # (PARAM_TYPE_DATETIME)
+                            $val.strTime
+                        }
+                        8 { # PARAM_TYPE_SCHEDULE
+                            if( $val.isDefault )
+                            {
+                                'Default: ' + $val.strSchedule
+                            }
+                            else
+                            {
+                                'Custom: ' + $val.strSchedule
+                            }
+                        }
+                        0xb { # PARAM_TYPE_BLOCKLIST
+                            $val.blocks
+                        }
+                        0xa { # PARAM_TYPE_LIST
+                            $val.params.objects
+                        }
+                        default {
+                            $val.value
+                        }
+                    } # end switch( type )
+                    #>
+                } # end Value column
+            } # End Columns
+        } # end Table view
+    } # end Type dfsrs!Config::Parameter
+
+    New-AltTypeFormatEntry -TypeName @( 'dfsrs!Config::ReplicaSet', 'dfsrs!Config::Member') {
+        New-AltSingleLineViewDefinition {
+            (New-ColorString).Append( $_.ToColorString() ).
+                              Append( " " ).
+                              Append( $_.name.parameterValue ).
+                              MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::ReplicaSet, Member
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::Connection' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() )
+            if( $_.inbound.value -ne 0 )
+            {
+                $null = $cs.Append( ' from ' )
+            }
+            else
+            {
+                $null = $cs.Append( ' to ' )
+            }
+            $null = $cs.Append( $_.partnerName.parameterValue )
+            if( 0 -eq $_.enabled.value )
+            {
+                $null = $cs.Append( (New-ColorString -Content ' DISABLED' -Fore 'Yellow') )
+            }
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::Connection
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::VolumeConfig' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() )
+            if( !$_.volume.DbgIsNull() )
+            {
+                $null = $cs.Append( ' for volume: ' ).
+                            Append( (Format-AltSingleLine -InputObj $_.volume.DbgFollowPointers()) )
+            }
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::VolumeConfig
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::Volume' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() ).
+                                    Append( ' ' ).
+                                    Append( $_.path.path )
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::Volume
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::ContentSet' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() ).
+                                    Append( ' ' ).
+                                    Append( $_.name.parameterValue )
+            if( 0 -ne $_.readOnly.value )
+            {
+                $null = $cs.Append( ' ' ).
+                            Append( (New-ColorString -Content ' RO ' -Fore 'DarkRed' -Back 'Gray') )
+            }
+            if( 0 -ne $_.isPrimary.value )
+            {
+                $null = $cs.Append( ' ' ).
+                            Append( (New-ColorString -Content 'PRIMARY' -Fore 'Yellow' -Back 'DarkBlue') )
+            }
+            if( 0 -eq $_.enabled.value )
+            {
+                $null = $cs.Append( ' ' ).
+                            Append( (New-ColorString -Content 'DISABLED' -Fore 'Yellow') )
+            }
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::ContentSet
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::ReplicaSetConfig' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() )
+            if( !$_.replica.DbgIsNull() )
+            {
+                $null = $cs.Append( ' for replica: ' ).
+                            Append( (Format-AltSingleLine -InputObj $_.replica.DbgFollowPointers()) )
+            }
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::ReplicaSetConfig
+
+    <#
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::Machine' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() )
+            # Is there any other interesting info for a "machine"?
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::Machine
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::MachineConfig' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() )
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::MachineConfig
+    #>
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::Debug' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() ).
+                                    Append( ' logSeverity ' ).
+                                    AppendPushPopFg( [ConsoleColor]::Green, $_.logSeverity.value.ToString() )
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::Debug
+
+    <#
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::SysVol' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() ).
+                                    Append( 'what' )
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::SysVol
+    #>
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Config::AdDn' {
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( $_.ToColorString() ).
+                                    Append( ' ' ).
+                                    Append( (Format-AltSingleLine -InputObject $_.dn) )
+            return $cs.MakeReadOnly()
+        }
+    } # end Type dfsrs!Config::SysVol
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!FileId' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName 'FileId: ').Append( (Format-AltSingleLine -InputObject $_.fileId) )
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+    } # end Type dfsrs!FileId
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!FHandle' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName 'FHandle: ').Append( (Format-AltSingleLine -InputObject $_.handle) )
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+    } # end Type dfsrs!FHandle
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!FileHandle' {
+        New-AltSingleLineViewDefinition {
+            $cs = (Format-DbgTypeName 'FileHandle: ').AppendPushPopFg( [ConsoleColor]::DarkCyan, $_.handle.DbgGetPointer().ToString( 'x' ) )
+            if( $_.openedForWrite )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, ' R/W' )
+            }
+            else
+            {
+                $cs = $cs.Append( ' RO' )
+            }
+            $cs
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+    } # end Type dfsrs!FileHandle
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!VolumeId' {
+        New-AltSingleLineViewDefinition {
+            $cs = (Format-DbgTypeName 'VolumeId: ').Append( (Format-AltSingleLine -InputObject $_.volumePath) )
+            if( $_.isMountPoint -or $_.isClusteredVolume )
+            {
+                $null = $cs.Append( ' (' )
+                if( $_.isMountPoint )
+                {
+                    $null = $cs.Append( 'mountPoint' )
+                    if( $_.isClusteredVolume )
+                    {
+                        $null = $cs.Append( ', ' )
+                    }
+                }
+
+                if( $_.isClusteredVolume )
+                {
+                    $null = $cs.Append( 'clustered' )
+                }
+                $null = $cs.Append( ')' )
+            }
+            $cs
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+    } # end Type dfsrs!VolumeId
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!ContentSetInfo' {
+        New-AltSingleLineViewDefinition {
+            if( 0 -ne $_.state )
+            {
+                # Should I include the RG name in here, too?
+                (Format-DbgTypeName 'ContentSetInfo: ').Append( (Format-AltSingleLine -InputObject $_.contentSetName) )
+            }
+            else
+            {
+                (Format-DbgTypeName 'ContentSetInfo: ').AppendPushPopFg( [ConsoleColor]::DarkGray, '<uninitialized>' )
+            }
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+    } # end Type dfsrs!ContentSetInfo
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!ReplicaSetManager' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName 'ReplicaSetManager: ').Append( (Format-AltSingleLine -InputObject $_.replicaSetName) )
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+    } # end Type dfsrs!ReplicaSetManager
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!Usn' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName 'Usn: ').Append( (Format-AltSingleLine -InputObject $_.usn) )
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+    } # end Type dfsrs!Usn
+
+
+    New-AltTypeFormatEntry -TypeName 'dfsrs!TRANS_ENTRY' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName 'TRANS_ENTRY: ').Append( "(0x$($_.tsn.ToString('x')),$($_.selfTokenCount),$($_.transferedTokenCount))" )
+        }.GetNewClosure() # end AltSingleLineViewDefinition
+    } # end Type dfsrs!TRANS_ENTRY
+
+} # end TypeEntries
+

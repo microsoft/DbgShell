@@ -1,0 +1,486 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <OldToolsVersion>4.0</OldToolsVersion>
+    <UpgradeBackupLocation />
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{B0BCC5C0-6034-4CF2-AD13-CE818A0BBD39}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MS.Dbg</RootNamespace>
+    <AssemblyName>DbgProvider</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\bin\Debug\x86\Debugger</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>..\bin\Release\x86\Debugger</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\bin\Debug\x64\Debugger</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>..\bin\Release\x64\Debugger</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\WindowsPowerShell\3.0\System.Management.Automation.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="internal\AnsiColorWriter.cs" />
+    <Compile Include="internal\BlockingCollectionHolder.cs" />
+    <Compile Include="internal\CaStringUtil.cs" />
+    <Compile Include="internal\CircularBuffer.cs" />
+    <Compile Include="internal\CtrlCInterceptor.cs" />
+    <Compile Include="internal\DbgValueCache.cs" />
+    <Compile Include="internal\DbgValueConversionManagerInfo.cs" />
+    <Compile Include="internal\Disposable.cs" />
+    <Compile Include="internal\IActionQueue.cs" />
+    <Compile Include="internal\Native\DbgHelp.cs" />
+    <Compile Include="internal\Native\CV_HREG_e.cs" />
+    <Compile Include="internal\ObjectPool.cs" />
+    <Compile Include="internal\PipelineCallback.cs" />
+    <Compile Include="internal\PluginManager.cs" />
+    <Compile Include="internal\PsContextHelper.cs" />
+    <Compile Include="internal\PSLazyPropertyInfo.cs" />
+    <Compile Include="internal\RunspaceSettings.cs" />
+    <Compile Include="internal\ScriptLoader.cs" />
+    <Compile Include="internal\SimplePSPropertyInfo.cs" />
+    <Compile Include="internal\SortedList.cs" />
+    <Compile Include="internal\TypeNameMatchList.cs" />
+    <Compile Include="public\ClrStackFrameCloneable.cs" />
+    <Compile Include="public\CmdletProviderBase.cs" />
+    <Compile Include="public\Commands\AddDbgExtensionCommand.cs" />
+    <Compile Include="public\Commands\AliasCommands.cs" />
+    <Compile Include="public\Commands\BreakpointListCommands.cs" />
+    <Compile Include="public\Commands\FindWindbgDirCommand.cs" />
+    <Compile Include="public\Commands\GetClrHeapCommand.cs" />
+    <Compile Include="public\Commands\GetClrObjectCommand.cs" />
+    <Compile Include="public\Commands\GetDbgEffectiveProcessorTypeCommand.cs" />
+    <Compile Include="public\Commands\GetDbgNearSymbolCommand.cs" />
+    <Compile Include="public\Commands\GetDbgShellLogCommand.cs" />
+    <Compile Include="public\Commands\InvokeDbgExtensionCommand.cs" />
+    <Compile Include="public\Commands\OutDbgEngCommand.cs" />
+    <Compile Include="public\Commands\RegisterDbgPlugin.cs" />
+    <Compile Include="public\Commands\RemoveDbgExtensionCommand.cs" />
+    <Compile Include="public\Commands\RemoveDbgValueConverterInfoCommand.cs" />
+    <Compile Include="public\Commands\SetDbgEffectiveProcessorTypeCommand.cs" />
+    <Compile Include="public\Commands\SetDbgStackFrameCommand.cs" />
+    <Compile Include="public\Commands\TransformationAttributes.cs" />
+    <Compile Include="public\Commands\AssemblyCommands.cs" />
+    <Compile Include="public\Commands\ConnectDbgServerCommand.cs" />
+    <Compile Include="public\Commands\DbgUModeThreadCommands.cs" />
+    <Compile Include="public\Commands\DisconnectDbgProcessCommand.cs" />
+    <Compile Include="public\Commands\GetDbgSymbol.cs" />
+    <Compile Include="public\Commands\GetDbgSymbolPathCommand.cs" />
+    <Compile Include="public\Commands\GetDbgSymbolValue.cs" />
+    <Compile Include="public\Commands\GetDbgTypeInfoCommand.cs" />
+    <Compile Include="public\Commands\GetDbgValueConverterInfoCommand.cs" />
+    <Compile Include="public\Commands\InitializeDbgSymbolsCommand.cs" />
+    <Compile Include="public\Commands\ReadDbgMemoryCommand.cs" />
+    <Compile Include="public\Commands\SetDbgSymbolPathCommand.cs" />
+    <Compile Include="public\Commands\StartDbgProcessCommand.cs" />
+    <Compile Include="public\Commands\UpdateDbgValueScriptConvertersCommand.cs" />
+    <Compile Include="public\Commands\WaitForBangDbgShellCommand.cs" />
+    <Compile Include="public\Commands\WriteDbgDumpFileCommand.cs" />
+    <Compile Include="public\Commands\WriteDbgMemoryCommand.cs" />
+    <Compile Include="public\Commands\WriteDbgShellLogCommand.cs" />
+    <Compile Include="public\DbgPluginInterfaces.cs" />
+    <Compile Include="public\Debugger\BitHelper.cs" />
+    <Compile Include="public\Debugger\ClrObject.cs" />
+    <Compile Include="public\Debugger\CreateProcessConsoleOption.cs" />
+    <Compile Include="public\Debugger\CvRegMap.cs" />
+    <Compile Include="public\Debugger\DbgAlias.cs" />
+    <Compile Include="public\Debugger\DbgDisassembly.cs" />
+    <Compile Include="public\Debugger\DbgEngAlreadyRunningException.cs" />
+    <Compile Include="public\Debugger\DbgEngContext.cs" />
+    <Compile Include="public\Debugger\DbgEngContextSaver.cs" />
+    <Compile Include="public\Debugger\DbgEngDebugger.cs" />
+    <Compile Include="public\Debugger\DbgEngIllegalNestingException.cs" />
+    <Compile Include="public\Debugger\DbgEngThread.cs" />
+    <Compile Include="public\Debugger\DbgFunction.cs" />
+    <Compile Include="public\Debugger\DbgKModeTarget.cs" />
+    <Compile Include="public\Debugger\DbgKmProcessInfo.cs" />
+    <Compile Include="public\Debugger\DbgLastEventInfo.cs" />
+    <Compile Include="public\Debugger\DbgManagedFunction.cs" />
+    <Compile Include="public\Debugger\DbgMemory.cs" />
+    <Compile Include="public\Debugger\DbgMemoryAccessException.cs" />
+    <Compile Include="public\DbgValueConversionManager.cs" />
+    <Compile Include="public\Debugger\DbgNativeFunction.cs" />
+    <Compile Include="public\Debugger\DbgNearSymbol.cs" />
+    <Compile Include="public\Debugger\DbgShellDebugClientDataReader.cs" />
+    <Compile Include="public\Debugger\DbgSourceLineInfo.cs" />
+    <Compile Include="public\Debugger\DbgSystemInfo.cs" />
+    <Compile Include="public\Debugger\DbgTarget.cs" />
+    <Compile Include="public\Debugger\DbgUModeProcess.cs" />
+    <Compile Include="public\Debugger\DbgUnknownFunction.cs" />
+    <Compile Include="public\Debugger\DbgValueScriptConverter.cs" />
+    <Compile Include="public\Debugger\DbgLocalSymbol.cs" />
+    <Compile Include="public\Debugger\DbgSimpleSymbol.cs" />
+    <Compile Include="public\Debugger\DbgMemberSymbol.cs" />
+    <Compile Include="public\Debugger\DbgPublicSymbol.cs" />
+    <Compile Include="public\Debugger\DebugOutputCallbacks.cs" />
+    <Compile Include="public\Debugger\DefaultDerivedTypeDetectionPlugin.cs" />
+    <Compile Include="public\Debugger\Enums.cs" />
+    <Compile Include="public\Debugger\HoldingPipelineCallback.cs" />
+    <Compile Include="public\Debugger\ModuleVersionInfo.cs" />
+    <Compile Include="public\Debugger\SymbolTransformRecord.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgArrayTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgBaseClassTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgBaseClassTypeInfoBase.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgBaseTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgClrTypeTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgDataInheritedMemberTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgDataMemberTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgDataMemberTypeInfoBase.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgDataStaticMemberTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgDataTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgEnumTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgFunctionArgTypeTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgFunctionTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgFunctionTypeTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgGeneratedTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgNamedTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgNullTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgPointerTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgTemplateInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgTypedefTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgUdtTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgVirtualBaseClassTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgVTableShapeTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\DbgVTableTypeInfo.cs" />
+    <Compile Include="public\Debugger\TypeInfo\InstanceLayout.cs" />
+    <Compile Include="public\Formatting\AltFormattingManager.cs" />
+    <Compile Include="public\Formatting\AltFormattingManagerInfo.cs" />
+    <Compile Include="public\ColorString.cs" />
+    <Compile Include="public\Commands\ConnectProcessCommand.cs" />
+    <Compile Include="public\Commands\DbgBaseCommand.cs" />
+    <Compile Include="public\Commands\DbgBaseCommandCallback.cs" />
+    <Compile Include="public\Commands\DbgEventFilterCommands.cs" />
+    <Compile Include="public\Commands\ExecutionBaseCommand.cs" />
+    <Compile Include="public\Commands\GetDbgModuleInfoCommand.cs" />
+    <Compile Include="public\Commands\GetDbgRegisterSetCommand.cs" />
+    <Compile Include="public\Commands\GetDbgStackCommand.cs" />
+    <Compile Include="public\Commands\GetDbgLocalSymbol.cs" />
+    <Compile Include="public\Commands\InvokeDbgEngCommand.cs" />
+    <Compile Include="public\Commands\InvokeScriptCommand.cs" />
+    <Compile Include="public\Commands\MountDbgDumpFileCommand.cs" />
+    <Compile Include="public\Commands\ResumeProcessCommand.cs" />
+    <Compile Include="public\Commands\SetDbgBreakpointCommand.cs" />
+    <Compile Include="public\Commands\TestStuffCommand.cs" />
+    <Compile Include="public\ContentCommands.cs" />
+    <Compile Include="public\DbgProviderException.cs" />
+    <Compile Include="internal\ExceptionGuard.cs" />
+    <Compile Include="internal\LogManager.cs" />
+    <Compile Include="internal\MulticulturalString.cs" />
+    <Compile Include="internal\NamespaceItem.cs" />
+    <Compile Include="internal\Native\EtwDefinitions.cs" />
+    <Compile Include="internal\Native\NativeMethods.cs" />
+    <Compile Include="internal\RegistryUtils.cs" />
+    <Compile Include="public\DbgProviderItem.cs" />
+    <Compile Include="public\Debugger\DbgEngException.cs" />
+    <Compile Include="public\Debugger\DbgEventArgs.cs" />
+    <Compile Include="public\Debugger\DbgSymbolGroup.cs" />
+    <Compile Include="public\Debugger\DbgValue.cs" />
+    <Compile Include="public\Debugger\DebuggerObject.cs" />
+    <Compile Include="public\Debugger\DbgEventFilter.cs" />
+    <Compile Include="public\Debugger\DbgExceptionEventFilter.cs" />
+    <Compile Include="public\Debugger\DbgFieldInfo.cs" />
+    <Compile Include="public\Debugger\DbgModuleInfo.cs" />
+    <Compile Include="public\Debugger\RealDebugEventCallbacks.cs" />
+    <Compile Include="public\Debugger\DbgRegisterInfo.cs" />
+    <Compile Include="public\Debugger\DbgRegisterSetBase.cs" />
+    <Compile Include="public\Debugger\DbgEngineEventFilter.cs" />
+    <Compile Include="public\Debugger\DbgStackFrameInfo.cs" />
+    <Compile Include="public\Debugger\DbgStackInfo.cs" />
+    <Compile Include="public\Debugger\DbgUModeThreadInfo.cs" />
+    <Compile Include="public\Debugger\DbgSymbol.cs" />
+    <Compile Include="public\Debugger\SymbolIdentity.cs" />
+    <Compile Include="public\Formatting\AltCustomViewDefinition.cs" />
+    <Compile Include="public\Formatting\AltListViewDefinition.cs" />
+    <Compile Include="public\Formatting\AltSingleLineViewDefinition.cs" />
+    <Compile Include="public\Formatting\AltTableViewDefinition.cs" />
+    <Compile Include="public\Formatting\FormatAltCustomCommand.cs" />
+    <Compile Include="public\Formatting\FormatAltListCommand.cs" />
+    <Compile Include="public\Formatting\FormatAltSingleLineCommand.cs" />
+    <Compile Include="public\Formatting\FormatAltTableCommand.cs" />
+    <Compile Include="public\Formatting\FormatBaseCommand.cs" />
+    <Compile Include="public\Formatting\GetAltFormatViewDefCommand.cs" />
+    <Compile Include="public\Formatting\GetAltTypeFormatEntryCommand.cs" />
+    <Compile Include="public\Formatting\RegisterAltTypeFormatEntry.cs" />
+    <Compile Include="public\Formatting\RemoveAltTypeFormatEntryCommand.cs" />
+    <Compile Include="public\Formatting\SetAltFormatDefaultViewDefCommand.cs" />
+    <Compile Include="public\Formatting\UpdateAltFormatDataCommand.cs" />
+    <Compile Include="public\FreezableBitArray.cs" />
+    <Compile Include="public\NameIndexableList.cs" />
+    <Compile Include="public\ProviderInfoBase.cs" />
+    <Compile Include="public\PsContext.cs" />
+    <Compile Include="public\PsIndexedDictionary.cs" />
+    <Compile Include="Resources.cs" />
+    <Compile Include="DbgDriveInfo.cs" />
+    <Compile Include="public\DbgProvider.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="internal\TreeNode.cs" />
+    <Compile Include="internal\Util.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="resources.resx" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Debugger.ArgumentCompleters.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.ArgumentCompleters.shared.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.clr.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.COM.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.Cui.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.dfsr.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.NT.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.stl.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.tlx.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.utl.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.win32.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.WinRT.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.wrl.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Converters.xaml.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.atl.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.clr.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.cui.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.dfsr.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.dfsr.psfmt.private">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.NT.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.Win32.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.wrl.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.DebuggeeTypes.xaml.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.Format.ps1xml.in">
+    </None>
+    <None Include="GetPsContextFunc.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="KernelMode.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="OtherUtils.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="packages.config" />
+    <None Include="Types.ps1xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <T4Transform Include="Debugger.Format.Color.tt">
+      <OutputFilePath>$(OutputPath)</OutputFilePath>
+      <!-- Where the generated file should go -->
+    </T4Transform>
+    <T4Transform Include="Debugger.Format.tt">
+      <OutputFilePath>$(OutputPath)</OutputFilePath>
+      <!-- Where the generated file should go -->
+    </T4Transform>
+    <None Include="Debugger.Formatting.psm1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.psd1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.psfmt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Debugger.psm1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- Append these to the FileWrites group so that they will get deleted upon executing the 'Clean' target. -->
+    <FileWrites Include="$(OutputPath)Debugger.Format.ps1xml">
+      <Visible>false</Visible>
+      <!-- so that it won't show up in the Solution Explorer -->
+    </FileWrites>
+    <FileWrites Include="$(OutputPath)Debugger.Format.Color.ps1xml">
+      <Visible>false</Visible>
+      <!-- so that it won't show up in the Solution Explorer -->
+    </FileWrites>
+    <FileWrites Include="$(TrackerLogDirectory)*.tlog">
+      <Visible>false</Visible>
+      <!-- so that it won't show up in the Solution Explorer -->
+    </FileWrites>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ClrMemDiag\Microsoft.Diagnostics.Runtime.csproj">
+      <Project>{A82126CA-23AA-41F1-8586-A5938D44D0A7}</Project>
+      <Name>Microsoft.Diagnostics.Runtime</Name>
+      <Private>False</Private>
+      <!-- causes this dependency to not be copied to the output directory (because it already gets put there) -->
+    </ProjectReference>
+    <ProjectReference Include="..\DbgEngWrapper\DbgEngWrapper.vcxproj">
+      <Project>{a4e07664-17d3-4c70-8c07-dc0f6a743b06}</Project>
+      <Name>DbgEngWrapper</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Help\en-us\about_Color.help.txt" />
+    <Content Include="Help\en-us\about_CustomFormatting.help.txt" />
+    <Content Include="Help\en-us\about_CustomSymbolValueConversion.help.txt" />
+    <Content Include="Help\en-us\about_DbgShell.help.txt" />
+    <Content Include="Help\en-us\about_DbgShell_GettingStarted.help.txt" />
+    <Content Include="Help\en-us\about_DerivedTypeDetection.help.txt" />
+    <Content Include="Help\en-us\about_HowTo_Write_a_Symbol_Value_Converter.help.txt" />
+    <Content Include="Help\en-us\about_MemoryCommands.help.txt" />
+    <Content Include="Help\en-us\DbgProvider.dll-Help.xml" />
+    <Compile Include="public\Debugger\DbgBreakpointInfo.cs" />
+    <None Include="FmtUtils.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="FormatTemplate.t4" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>cscript.exe "$(SolutionDir)xslTransform.js" //NOLOGO "$(ProjectDir)Resources.resx" "$(SolutionDir)ResourcesTransform.xslt" &gt; "$(ProjectDir)Resources.cs"</PreBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy RemoteSigned -Command "$LastExitCode = -1; . '$(ProjectDir)PostBuild.ps1' '$(ProjectDir)' '$(PlatformName)' '$(TargetDir)'; exit $LastExitCode"</PostBuildEvent>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      This is how we can pass parameters to the T4 engine, so that 'parameter' directives will work. Ex:
+
+        <#@ parameter type="System.String" name="PlatformName" #>
+    -->
+    <T4ParameterValues Include="SolutionDir">
+      <Value>$(SolutionDir)</Value>
+      <Visible>false</Visible>
+      <!-- so that it won't show up in the Solution Explorer -->
+    </T4ParameterValues>
+    <T4ParameterValues Include="Configuration">
+      <Value>$(Configuration)</Value>
+      <Visible>false</Visible>
+    </T4ParameterValues>
+    <T4ParameterValues Include="PlatformName">
+      <Value>$(PlatformName)</Value>
+      <Visible>false</Visible>
+    </T4ParameterValues>
+  </ItemGroup>
+  <PropertyGroup>
+    <TransformOnBuild>true</TransformOnBuild>
+    <!-- Other properties can be inserted here -->
+  </PropertyGroup>
+  <Import Project="..\packages\Unofficial.Microsoft.DebuggerBinaries.10.0.16232.1000\build\Unofficial.Microsoft.DebuggerBinaries.targets" Condition="Exists('..\packages\Unofficial.Microsoft.DebuggerBinaries.10.0.16232.1000\build\Unofficial.Microsoft.DebuggerBinaries.targets')" />
+  <Import Project="..\VersionInfo.csproj" />
+  <PropertyGroup>
+    <FileDescription>Core DbgShell binary: implements the PowerShell provider and C# object model.</FileDescription>
+  </PropertyGroup>
+  <Import Project="..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.15.0.0\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets" Condition="Exists('..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.15.0.0\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets')" />
+  <Import Project="..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets" Condition="Exists('..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets'))" />
+    <Error Condition="!Exists('..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.15.0.0\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.15.0.0\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets'))" />
+  </Target>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

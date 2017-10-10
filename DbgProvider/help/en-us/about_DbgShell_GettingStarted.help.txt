@@ -1,0 +1,30 @@
+
+TOPIC
+    about_DbgShell_GettingStarted
+
+SHORT DESCRIPTION
+
+    DbgShell is a PowerShell front-end for the Windows debuggers.
+
+    For more background information, run Get-Help about_DbgShell.
+
+LONG DESCRIPTION
+
+    Please see the MarkDown help file "Color.md" in the "doc" folder at the
+    root of the DbgShell installation.
+
+    TBD: generate help topics from .md help files.
+
+
+ADDITIONAL HELP TOPICS
+
+    Get-Help about_DbgShell
+    Get-Help about_MemoryCommands
+    Get-Help about_CustomFormatting
+    Get-Help about_Color
+    Get-Help about_DerivedTypeDetection
+
+QUESTIONS/FEEDBACK
+
+    TBD:github link
+

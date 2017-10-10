@@ -1,0 +1,957 @@
+
+#
+# Format definitions: these are analogous to the <view> entries in a .ps1xml,
+# except they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+# The definitions in this file are specifically for "debugee types"--
+# definitions of how to display values in the debuggee. The type names
+# typically have a "!" in them, and can be module-qualified (but do not have to
+# be). The alternate formatting engine can find these view definitions because
+# the alternate formatting engine use the "TypeNames" list of a PSObject to
+# look up view definitions, and the debugger module inserts the debuggee type
+# names into the "TypeNames" list of PSObjects that it generates to represent
+# objects in the debuggee.
+#
+
+Register-AltTypeFormatEntries {
+
+    #
+    # Native stuff (like stuff in clr.dll)
+    #
+
+    # SString represents a string, but it could be represented several different ways.
+    #
+    # It might be better to use a converter instead of a view definition 9especially good
+    # for scripting scenarios), but there are some flags that we might want to look at.
+    # There is a WCHAR* m_asStr member on most definitions, which hopefully covers the
+    # scripting scenario well enough (because that /will/ get converted to a string). If
+    # not we could use a converter to just add a member to the "stock" value, which would
+    # read it as a string, using the proper representation.
+    New-AltTypeFormatEntry -TypeName '!SString' {
+        New-AltSingleLineViewDefinition {
+            if( $_.m_buffer.DbgIsNull() )
+            {
+                return [string]::Empty
+            }
+
+            $representation = $_.m_flags -band 0x07 # REPRESENTATION_MASK
+            [string] $str = $null
+            if( 0x04 -eq $representation ) {        # REPRESENTATION_UNICODE
+                $str = $_.m_buffer.DbgGetSymbol().ReadAs_pwszString()
+            }
+            elseif( 0x01 -eq $representation ) {    # REPRESENTATION_ASCII
+                $str = $_.m_buffer.DbgGetSymbol().ReadAs_pszString()
+            }
+            elseif( 0x03 -eq $representation ) {    # REPRESENTATION_UTF8
+                $str = $_.m_buffer.DbgGetSymbol().ReadAs_putf8szString()
+            }
+            elseif( 0x07 -eq $representation ) {    # REPRESENTATION_ANSI
+                # TODO: BUGBUG: This is probably wrong (code page)
+                $str = $_.m_buffer.DbgGetSymbol().ReadAs_pszString()
+            }
+            else {
+                # Probably just an empty string.
+                if( (0 -ne $representation) -or ($_.m_size -gt 2) ) {
+                    # (it could be a type derived from SString)
+                    return (New-ColorString).Append( $_.DbgGetSymbol().Type.ColorName ).
+                                             AppendPushPopFg( [ConsoleColor]::Yellow, " <warning: unknown string representation>" )
+                }
+                $str = [string]::Empty
+            }
+
+            return (New-ColorString -Content '"').AppendPushPopFg( [ConsoleColor]::Cyan, $str ).Append( '"' )
+        } # end AltSingleLineViewDefinition
+    } # end Type SString
+
+    # This is the base class for a lot of things, like ReleaseHolder
+    New-AltTypeFormatEntry -TypeName '!HolderBase<?>' {
+        New-AltSingleLineViewDefinition {
+            Format-AltSingleLine -InputObject $_.m_value
+        } # end AltSingleLineViewDefinition
+    } # end Type HolderBase
+
+    # ADID: Stands for AppDomainID, I think.
+    New-AltTypeFormatEntry -TypeName '!ADID' {
+        New-AltSingleLineViewDefinition {
+            Format-AltSingleLine -InputObject $_.m_dwId
+        } # end AltSingleLineViewDefinition
+    } # end Type ADID
+
+    New-AltTypeFormatEntry -TypeName '!AppDomain' {
+        New-AltSingleLineViewDefinition {
+            $sym = $_.DbgGetSymbol()
+            $cs = (New-ColorString).Append( $sym.Type.ColorName ).
+                                    Append( ' ' ).
+                                    AppendPushPopFg( [ConsoleColor]::Green, $_.m_friendlyName.m_asStr ).
+                                    Append( ' (Id ' ).
+                                    Append( $_.m_dwId.m_dwId.ToString() ).
+                                    Append( ') ' ).
+                                    Append( $_.m_stage.ToColorStringSimple() )
+
+            return $cs
+        } # end AltSingleLineViewDefinition
+    } # end Type AppDomain
+
+
+
+    #
+    # ClrMd stuff
+    #
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrStackFrame' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -Property 'Kind' -Width 13 -Alignment Right
+                New-AltScriptColumn -Label 'StackPointer' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    Format-DbgAddress $_.get_StackPointer()
+                }
+                New-AltScriptColumn -Label 'InstructionPointer' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    Format-DbgAddress $_.get_InstructionPointer()
+                }
+                New-AltPropertyColumn -Property 'DisplayString' -Alignment Left
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Kind'
+            New-AltScriptListItem -Label 'InstructionPointer' {
+                Format-DbgAddress $_.get_InstructionPointer()
+            }
+            New-AltScriptListItem -Label 'StackPointer' {
+                Format-DbgAddress $_.get_StackPointer()
+            }
+            New-AltPropertyListItem -PropertyName 'DisplayString'
+            New-AltPropertyListItem -PropertyName 'Method'
+        } # end List view
+    } # end Type Microsoft.Diagnostics.Runtime.ClrStackFrame
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ILToNativeMap' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'ILOffset' -Width 16 -Alignment Right -Script {
+                    <#
+                        CLRDATA_IL_OFFSET_NO_MAPPING    = -1,
+                            CLRDATA_IL_OFFSET_PROLOG    = -2,
+                            CLRDATA_IL_OFFSET_EPILOG    = -3
+                    #>
+                    $ilOffset = $_.ILOffset
+                    if( -1 -eq $ilOffset ) {
+                        '(no mapping)  -1'
+                    } elseif( -2 -eq $ilOffset ) {
+                        '(prolog)  -2'
+                    } elseif( -3 -eq $ilOffset ) {
+                        '(epilog)  -3'
+                    } else {
+                        $ilOffset.ToString()
+                    }
+                }
+                New-AltScriptColumn -Label 'StartAddress' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    Format-DbgAddress $_.StartAddress
+                }
+                New-AltScriptColumn -Label 'EndAddress' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    Format-DbgAddress $_.EndAddress
+                }
+                New-AltScriptColumn -Label '(Size)' -Width 10 -Alignment Left -Script {
+                    $_.EndAddress - $_.StartAddress
+                }
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'ILOffset' {
+                <#
+                    CLRDATA_IL_OFFSET_NO_MAPPING    = -1,
+                        CLRDATA_IL_OFFSET_PROLOG    = -2,
+                        CLRDATA_IL_OFFSET_EPILOG    = -3
+                #>
+                $ilOffset = $_.ILOffset
+                if( -1 -eq $ilOffset ) {
+                    '-1 (no mapping)'
+                } elseif( -2 -eq $ilOffset ) {
+                    '-2 (prolog)'
+                } elseif( -3 -eq $ilOffset ) {
+                    '-3 (epilog)'
+                } else {
+                    $ilOffset.ToString()
+                }
+            }
+            New-AltScriptListItem -Label 'StartAddress' {
+                Format-DbgAddress $_.StartAddress
+            }
+            New-AltScriptListItem -Label 'EndAddress' {
+                Format-DbgAddress $_.EndAddress
+            }
+            New-AltScriptListItem -Label '(Size)' {
+                $_.EndAddress - $_.StartAddress
+            }
+        } # end List view
+    } # end Type Microsoft.Diagnostics.Runtime.ILToNativeMap
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrMethod' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -Property 'MetadataToken' -Width 13 -Alignment Right -FormatString '0x{0:x}'
+                New-AltPropertyColumn -Property 'CompilationType' -Label 'CType' -Width 5 -Alignment Center
+                New-AltScriptColumn -Label 'NativeCode' -Width 17 -Tag 'Address' {
+                    Format-DbgAddress $_.get_NativeCode()
+                }
+                #New-AltPropertyColumn -Property 'Name' -Width 28 -Alignment Left
+                New-AltScriptColumn -Label 'Name' -Alignment Left -TrimLocation Left -Script {
+                    $sb = New-Object 'System.Text.StringBuilder'
+                    # Can Type be null for special cases or something?
+                    $t = $_.get_Type()
+                    if( $t )
+                    {
+                        # Maybe we don't need to shorten...
+                      # $lastDotIdx = $t.Name.LastIndexOf( '.' )
+                      # if( $lastDotIdx -gt 0 )
+                      # {
+                      #     $null = $sb.Append( $t.Name.Substring( $lastDotIdx + 1 ) )
+                      # }
+                      # else
+                      # {
+                            $null = $sb.Append( $t.Name )
+                      # }
+                        $null = $sb.Append( '.' )
+                    }
+                    $null = $sb.Append( $_.get_Name() )
+                    $sb.ToString()
+                }
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Name'
+            New-AltScriptListItem -Label 'NativeCode' {
+                # TODO: Un-jitted things show up as -1, not 0? Is 0 used, and if so, what
+                # does it mean? I could format differently based on that.
+                Format-DbgAddress $_.get_NativeCode()
+            }
+            New-AltPropertyListItem -PropertyName 'CompilationType'
+            New-AltPropertyListItem -PropertyName 'MetadataToken' -FormatString '0x{0:x}'
+            New-AltScriptListItem -Label '(Other Flags)' {
+                $cs = New-ColorString
+
+                if( $_.get_IsPublic() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsPublic ' )
+                }
+                if( $_.get_IsPrivate() ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsPrivate ' )
+                }
+                if( $_.get_IsInternal() ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsInternal ' )
+                }
+                if( $_.get_IsProtected() ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsProtected ' )
+                }
+
+                if( $_.get_IsStatic() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsStatic ' )
+                }
+                if( $_.get_IsFinal() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsFinal ' )
+                }
+                if( $_.get_IsVirtual() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsVirtual ' )
+                }
+                if( $_.get_IsAbstract() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsAbstract ' )
+                }
+                if( $_.get_IsPInvoke() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsPInvoke ' )
+                }
+                if( $_.get_IsSpecialName() ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsSpecialName ' )
+                }
+                if( $_.get_IsRTSpecialName() ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, 'IsRTSpecialName ' )
+                }
+                $cs
+            }
+            New-AltScriptListItem -Label 'ILOffsetMap' {
+                $ilom = $_.get_ILOffsetMap()
+                if( $ilom ) {
+                    [string]::Format( '{0} entries', $ilom.Length )
+                } else {
+                    '-'
+                }
+            }
+            New-AltPropertyListItem -PropertyName 'Type'
+        } # end List view
+
+        New-AltSingleLineViewDefinition {
+            $_.GetFullSignature()
+        } # end AltSingleLineViewDefinition
+    } # end Type Microsoft.Diagnostics.Runtime.ClrMethod
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrType' {
+
+        function GetStructuralCategory( $type )
+        {
+            [int] $numSet = 0
+            if( $type.get_IsObjectReference() ) {
+                New-ColorString -Content 'Object Reference' -Fore Green
+                $numSet += 1
+            }
+
+            if( $type.get_IsValueClass() ) {
+                New-ColorString -Content 'Value Class' -Fore DarkYellow
+                $numSet += 1
+            }
+
+            if( $type.get_IsPrimitive() ) {
+                New-ColorString -Content 'Primitive' -Fore White
+                $numSet += 1
+            }
+
+            if( 1 -ne $numSet ) {
+                throw "I expected it to be one of: obj ref, value class, or primitive."
+            }
+        } # end GetStructuralCategory
+
+        function GetTypeCategory( $type )
+        {
+            [int] $numSet = 0
+            if( $type.get_IsString() ) {
+                New-ColorString -Content 'String' -Fore Cyan
+                $numSet += 1
+            }
+            if( $type.get_IsException() ) {
+                New-ColorString -Content 'Exception' -Fore Yellow
+                $numSet += 1
+            }
+            if( $type.get_IsEnum() ) {
+                New-ColorString -Content 'Enum'
+                $numSet += 1
+            }
+            if( $type.get_IsArray() ) {
+                New-ColorString -Content 'Array' -Fore DarkYellow
+                $numSet += 1
+            }
+            if( $type.get_IsInterface() ) {
+                New-ColorString -Content 'Interface' -Fore White
+                $numSet += 1
+            }
+            if( $type.get_IsRuntimeType() ) {
+                New-ColorString -Content 'RuntimeType' -Fore Green
+                $numSet += 1
+            }
+
+            if( $numSet -gt 1 ) {
+                throw "I expected zero or one of these to be true."
+            } elseif( 0 -eq $numSet ) {
+                New-ColorString -Content 'Object' -Fore DarkGray
+            }
+        } # end GetTypeCategory
+
+        New-AltListViewDefinition -ListItems {
+            #New-AltPropertyListItem -PropertyName 'Name'
+            New-AltScriptListItem -Label 'Name' {
+                Format-DbgTypeName $_.Name
+            }
+            New-AltPropertyListItem -PropertyName 'MetadataToken' -FormatString '0x{0:x}'
+            New-AltScriptListItem -Label 'MethodTable' {
+                Format-DbgAddress $_.MethodTable
+            }
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'Heap'
+            New-AltPropertyListItem -PropertyName 'ElementType'
+            New-AltPropertyListItem -PropertyName 'ElementSize'
+            New-AltPropertyListItem -PropertyName 'BaseType'
+            New-AltPropertyListItem -PropertyName 'BaseSize'
+            New-AltPropertyListItem -PropertyName 'Interfaces'
+            New-AltPropertyListItem -PropertyName 'HasSimpleValue'
+            New-AltPropertyListItem -PropertyName 'Shared'
+          # New-AltPropertyListItem -PropertyName 'IsObjectReference'
+          # New-AltPropertyListItem -PropertyName 'IsValueClass'
+          # New-AltPropertyListItem -PropertyName 'IsPrimitive'
+            New-AltPropertyListItem -PropertyName 'ContainsPointers'
+            New-AltScriptListItem -Label '(Structural Category)' {
+                GetStructuralCategory $_
+            } -CaptureContext
+            New-AltScriptListItem -Label '(Type category)' {
+                GetTypeCategory $_
+            } -CaptureContext
+            New-AltScriptListItem -Label '(Type Flags)' {
+                $cs = New-ColorString
+                if( $_.get_IsFinalizable() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'IsFinalizable ' )
+                }
+                if( $_.get_IsFree() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'IsFree ' )
+                }
+
+                $cs
+            }
+            New-AltScriptListItem -Label '(Access Flags)' {
+                $cs = New-ColorString
+
+                if( $_.get_IsPublic() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsPublic ' )
+                }
+                if( $_.get_IsPrivate() ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsPrivate ' )
+                }
+                if( $_.get_IsInternal() ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsInternal ' )
+                }
+                if( $_.get_IsProtected() ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'IsProtected ' )
+                }
+
+                if( $_.get_IsSealed() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, 'IsSealed ' )
+                }
+                if( $_.get_IsAbstract() ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, 'IsAbstract ' )
+                }
+
+                $cs
+            }
+
+            New-AltPropertyListItem -PropertyName 'Fields'
+            New-AltPropertyListItem -PropertyName 'StaticFields'
+            New-AltPropertyListItem -PropertyName 'ThreadStaticFields'
+            New-AltPropertyListItem -PropertyName 'Methods'
+            New-AltPropertyListItem -PropertyName 'ComponentType'
+        } # end List view
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Name' -Alignment Left -Width 40 {
+                    Format-DbgTypeName $_.Name
+                }
+                New-AltPropertyColumn -Property 'Module' -Width 20 -Alignment Right
+                New-AltPropertyColumn -Property 'MetadataToken' -Width 13 -Alignment Right -FormatString '0x{0:x}'
+                New-AltPropertyColumn -Property 'BaseSize' -Width 8 -Alignment Right
+                New-AltScriptColumn -Label '(StructCat)' -Width 16 {
+                    GetStructuralCategory $_
+                } -CaptureContext
+                New-AltScriptColumn -Label '(TypeCat)' -Width 11 {
+                    GetTypeCategory $_
+                } -CaptureContext
+            } # End Columns
+        } # end Table view
+
+        New-AltSingleLineViewDefinition {
+            #(New-ColorString -Content 'ClrType: ').Append( (Format-DbgTypeName $_.Name) )
+            Format-DbgTypeName $_.Name
+        } # end AltSingleLineViewDefinition
+    } # end Type Microsoft.Diagnostics.Runtime.ClrType
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.ClrObject' {
+        New-AltTableViewDefinition {
+            New-AltScriptColumn -Label 'TypeName' {
+                Format-DbgTypeName $_.ClrType.Name
+            }
+            New-AltScriptColumn -Label 'Value' {
+                if ($_.ClrType.HasSimpleValue) {
+                    $_.ClrType.GetValue($_.Address)
+                }
+                else {
+                    Format-DbgAddress $_.Address
+                }
+            }
+        }
+        New-AltSingleLineViewDefinition {
+            $cs = (New-ColorString).Append( (Format-DbgAddress $_.Address) ).
+                  Append( ' ' ).
+                  Append( (Format-DbgTypeName $_.ClrType.Name) )
+
+            if ($_.ClrType.HasSimpleValue) {
+                $cs = $cs.Append( ' ' ).Append( $_.ClrType.GetValue($_.Address) )
+            }
+
+            $cs
+        }
+    }
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrInterface' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'Name' {
+                Format-DbgTypeName $_.Name
+            }
+            New-AltPropertyListItem -PropertyName 'BaseInterface'
+        } # end List view
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Name' -Alignment Left -Script {
+                    Format-DbgTypeName $_.Name
+                }
+                New-AltPropertyColumn -Property 'BaseInterface' -Alignment Left
+            } # End Columns
+        } # end Table view
+
+        New-AltSingleLineViewDefinition {
+            Format-DbgTypeName $_.Name
+        } # end AltSingleLineViewDefinition
+    } # end Type Microsoft.Diagnostics.Runtime.ClrInterface
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrModule' {
+
+        function GetShortHighlightedName( $clrMod )
+        {
+            Format-DbgModuleName ([system.io.path]::GetFileNameWithoutExtension( $clrMod.Name ))
+        }
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Name' -Width 64 -Alignment Right -Script {
+                    GetShortHighlightedName $_
+                } -CaptureContext
+                New-AltScriptColumn -Label 'ImageBase' -Alignment Left -Width 17 -Tag 'Address' -Script {
+                    Format-DbgAddress $_.get_ImageBase()
+                }
+                New-AltPropertyColumn -Property 'Size' -Alignment Right -Width 9 -FormatString '0x{0:x}'
+                New-AltScriptColumn -Label 'PdbLoaded' -Alignment Center -Width 9 -Script {
+                    if( $_.get_IsPdbLoaded() ) {
+                        'True'
+                    } else {
+                        New-ColorString -Content '-' -Fore DarkBlue
+                    }
+                }
+                New-AltScriptColumn -Label 'Dynamic' -Alignment Center -Width 7 -Script {
+                    if( $_.get_IsDynamic() ) {
+                        New-ColorString -Content 'DYNAMIC' -Fore Magenta
+                    } else {
+                        New-ColorString -Content 'no' -Fore DarkBlue
+                    }
+                }
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Name'
+            New-AltPropertyListItem -PropertyName 'AssemblyName'
+            New-AltPropertyListItem -PropertyName 'FileName'
+            New-AltScriptListItem -Label 'ImageBase' {
+                Format-DbgAddress $_.get_ImageBase()
+            }
+            New-AltPropertyListItem -PropertyName 'Size' -FormatString '0x{0:x}'
+            New-AltScriptListItem -Label 'MetadataAddress' {
+                Format-DbgAddress $_.get_MetadataAddress()
+            }
+            New-AltPropertyListItem -PropertyName 'MetadataLength' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'MetadataImport'
+            New-AltScriptListItem -Label 'AssemblyId' {
+                Format-DbgAddress $_.get_AssemblyId()
+            }
+            New-AltPropertyListItem -PropertyName 'Revision'
+            New-AltPropertyListItem -PropertyName 'DebuggingMode'
+            New-AltPropertyListItem -PropertyName 'IsFile'
+            New-AltPropertyListItem -PropertyName 'IsDynamic'
+            New-AltPropertyListItem -PropertyName 'IsPdbLoaded'
+            New-AltPropertyListItem -PropertyName 'PdbInterface'
+        } # end List view
+
+        New-AltSingleLineViewDefinition {
+            GetShortHighlightedName $_
+        } -CaptureContext # end AltSingleLineViewDefinition
+    } # end Type Microsoft.Diagnostics.Runtime.ClrModule
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrThread' {
+
+        function GetThreadCategoryString( $clrThread, [bool] $short )
+        {
+            [int] $numSet = 0
+            $cs = $null
+
+            if( $clrThread.get_IsBackground() -and !$short ) {
+                $cs = New-ColorString -Content 'Background: ' -Fore DarkCyan
+            } else {
+                $cs = New-ColorString
+            }
+
+            if( $clrThread.IsFinalizer ) {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, 'Finalizer' )
+                $numSet += 1
+            }
+            if( $clrThread.IsGC ) {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Green, 'GC' )
+                $numSet += 1
+            }
+            if( $clrThread.IsDebuggerHelper ) {
+                if( $short ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkYellow, 'DbgHelper' )
+                } else {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkYellow, 'DebuggerHelper' )
+                }
+                $numSet += 1
+            }
+            if( $clrThread.IsThreadpoolTimer ) {
+                if( $short ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'TpTimer' )
+                } else {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'ThreadpoolTimer' )
+                }
+                $numSet += 1
+            }
+            if( $clrThread.IsThreadpoolCompletionPort ) {
+                if( $short ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkCyan, 'TpComplPort' )
+                } else {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkCyan, 'ThreadpoolCompletionPort' )
+                }
+                $numSet += 1
+            }
+            if( $clrThread.IsThreadpoolWorker ) {
+                if( $short ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::White, 'TpWorker' )
+                } else {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::White, 'ThreadpoolWorker' )
+                }
+                $numSet += 1
+            }
+            if( $clrThread.IsThreadpoolWait ) {
+                if( $short ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'TpWait' )
+                } else {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'ThreadpoolWait' )
+                }
+                $numSet += 1
+            }
+            if( $clrThread.IsThreadpoolGate ) {
+                if( $short ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkRed, 'TpGate' )
+                } else {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkRed, 'ThreadpoolGate' )
+                }
+                $numSet += 1
+            }
+            if( $clrThread.IsShutdownHelper ) {
+                if( $short ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Red, 'ShutdownHelper' )
+                } else {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Red, 'ShutdownHlp' )
+                }
+                $numSet += 1
+            }
+
+            if( 0 -eq $numSet ) {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkGray, '(user)' )
+            }
+
+            $cs
+        } # end GetThreadCategoryString()
+
+        function GetThreadStateString( $clrThread )
+        {
+            $cs = $null
+            if( $clrThread.IsAlive ) {
+                $cs = New-ColorString -Content 'Alive' -Fore Green
+            } else {
+                $cs = New-ColorString -Content 'Dead' -Fore DarkRed
+            }
+
+            if( $clrThread.IsSuspendingEE ) {
+                $cs = $cs.Append( (New-ColorString -Content ' SuspendingEE' -Color Magenta) )
+            }
+            if( $clrThread.IsGCSuspendPending ) {
+                $cs = $cs.Append( (New-ColorString -Content ' GCSuspendPending' -Color Cyan) )
+            }
+            if( $clrThread.IsUserSuspended ) {
+                $cs = $cs.Append( (New-ColorString -Content ' UserSuspended' -Color Yellow) )
+            }
+            if( $clrThread.IsDebugSuspended ) {
+                $cs = $cs.Append( (New-ColorString -Content ' DebugSuspended' -Color DarkYellow) )
+            }
+            if( $clrThread.IsUnstarted ) {
+                $cs = $cs.Append( (New-ColorString -Content ' Unstarted' -Color DarkGray) )
+            }
+            if( $clrThread.IsAborted ) {
+                $cs = $cs.Append( (New-ColorString -Content ' Aborted' -Color Red) )
+            }
+            if( $clrThread.IsAbortRequested ) {
+                $cs = $cs.Append( (New-ColorString -Content ' AbortRequested' -Color DarkRed) )
+            }
+
+            $cs
+        } # end GetThreadStateString()
+
+        function GetThreadComStateString( $clrThread, [bool] $short )
+        {
+            if( $clrThread.IsCoInitialized )
+            {
+                if( $clrThread.IsSTA ) {
+                    New-ColorString -Content 'STA' -Fore Yellow
+                } elseif( $clrThread.IsMTA ) {
+                    New-ColorString -Content 'MTA' -Fore Green
+                } else {
+                    throw "Can a managed thread be CoInitialized, but not MTA or STA? (or is this bad data?)"
+                }
+            }
+            else
+            {
+                if( $short ) {
+                    New-ColorString -Content '---' -Fore DarkGray
+                } else {
+                    New-ColorString -Content '(not CoInitialized)' -Fore DarkGray
+                }
+                if( $clrThread.IsSTA -or $clrThread.IsMTA ) {
+                    throw "Bad data? Thread is STA or MTA, but not CoInitialized."
+                }
+            }
+        } # end GetThreadComStateString()
+
+        function GetLockCountString( $clrThread )
+        {
+            if( $clrThread.get_LockCount() -eq 0 ) {
+                New-ColorString -Content '0' -Fore Green
+            } else {
+                New-ColorString -Content $clrThread.get_LockCount().ToString() -Fore Yellow
+            }
+        }
+
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -Property 'ManagedThreadId' -Label 'mId' -Alignment Right -Width 4
+                # TODO: I bet I need to manually 'x' it out for dead threads
+                New-AltPropertyColumn -Property 'OSThreadId' -Label 'OSId' -Alignment Right -Width 7 -FormatString '{0:x}'
+                New-AltScriptColumn -Label 'Address' -Alignment Center -Width 17 -Tag 'Address' -Script {
+                    Format-DbgAddress $_.get_Address()
+                }
+                New-AltScriptColumn -Label 'Locks' -Alignment Right -Width 5 -Script {
+                    GetLockCountString $_
+                } -CaptureContext
+                New-AltScriptColumn -Label 'Live' -Alignment Center -Width 4 -Script {
+                    if( $_.get_IsAlive() ) {
+                        New-ColorString -Content ([char] 0x221a) -Fore Green
+                    } else {
+                        New-ColorString -Content 'X' -Fore DarkRed
+                    }
+                }
+                New-AltScriptColumn -Label 'BG' -Alignment Right -Width 2 -Script {
+                    if( $_.get_IsBackground() ) {
+                        'Y'
+                    } else {
+                        New-ColorString -Content 'n' -Fore Blue
+                    }
+                }
+                New-AltScriptColumn -Label '(Category)' -Alignment Center -Width 11 -Script {
+                    GetThreadCategoryString $_ $true
+                } -CaptureContext
+                New-AltScriptColumn -Label 'COM' -Alignment Center -Width 3 -Script {
+                    GetThreadComStateString $_ $true
+                } -CaptureContext
+                New-AltScriptColumn -Label 'AppDomain' -Alignment Center -Width 17 -Tag 'Address' -Script {
+                    Format-DbgAddress $_.get_AppDomain()
+                }
+                New-AltPropertyColumn -Property 'CurrentException' -Alignment Left
+            } # End Columns
+        } # end Table view
+
+
+        New-AltListViewDefinition -ListItems {
+            # TODO: Where is the 'Name' property?
+
+            New-AltPropertyListItem -PropertyName 'ManagedThreadId' -FormatString '{0:x}'
+            # TODO: I bet I need to manually 'x' it out for dead threads
+            New-AltPropertyListItem -PropertyName 'OSThreadId' -FormatString '{0:x}'
+            New-AltScriptListItem -Label 'Address' {
+                Format-DbgAddress $_.get_Address()
+            }
+            New-AltScriptListItem -Label '(Category)' {
+                GetThreadCategoryString $_
+            } -CaptureContext
+            New-AltScriptListItem -Label 'StackBase' {
+                Format-DbgAddress $_.get_StackBase()
+            }
+            New-AltScriptListItem -Label 'StackLimit' {
+                Format-DbgAddress $_.get_StackLimit()
+            }
+            New-AltScriptListItem -Label '(State)' {
+                GetThreadStateString $_
+            } -CaptureContext
+            New-AltScriptListItem -Label '(COM State)' {
+                GetThreadComStateString $_
+            } -CaptureContext
+            New-AltScriptListItem -Label 'Teb' {
+                Format-DbgAddress $_.get_Teb()
+            }
+            New-AltPropertyListItem -PropertyName 'GcMode'
+            # TODO: Instead of just displaying the AppDomain address... I could
+            # use Types.ps1xl to actually put the clr!AppDomain object in here.
+            New-AltScriptListItem -Label 'AppDomain' {
+                Format-DbgAddress $_.get_AppDomain()
+            }
+            New-AltScriptListItem -Label 'LockCount' {
+                GetLockCountString $_
+            } -CaptureContext
+            # TODO: need to find a thread like this so I can figure a better way to format it.
+            New-AltPropertyListItem -PropertyName 'CurrentException'
+            New-AltPropertyListItem -PropertyName 'StackTrace'
+            New-AltPropertyListItem -PropertyName 'BlockingObjects'
+        } # end List view
+
+
+        New-AltSingleLineViewDefinition {
+            $cs = New-ColorString -Content 'Thread:' -Fore Black -Back DarkCyan
+            $cs = $cs.Append( ' ' ).Append( $_.get_ManagedThreadId().ToString() )
+            $cs = $cs.Append( ' (' ).Append( $_.get_OSThreadId().ToString( 'x' ) ).Append( ') ' )
+            $cs = $cs.Append( (GetThreadStateString $_) ).Append( ' ' )
+            $cs = $cs.Append( (GetThreadCategoryString $_) ).Append( ' ' )
+            $cs = $cs.Append( (GetThreadComStateString $_) ).Append( ' ' )
+            $cs = $cs.Append( 'LockCount: ' ).Append( (GetLockCountString $_) )
+
+            $cs
+        } -CaptureContext # end AltSingleLineViewDefinition
+    } # end Type Microsoft.Diagnostics.Runtime.ClrThread
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrException' {
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Type'
+            New-AltPropertyListItem -PropertyName 'Message'
+            New-AltScriptListItem -Label 'Address' {
+                Format-DbgAddress $_.get_Address()
+            }
+            New-AltPropertyListItem -PropertyName 'StackTrace'
+            New-AltPropertyListItem -PropertyName 'HResult' -FormatString '{0:x8}'
+            New-AltPropertyListItem -PropertyName 'Inner'
+        } # end List view
+
+        New-AltSingleLineViewDefinition {
+            # TODO: Managed type name shortening
+            $cs = Format-DbgTypeName $_.get_Type().get_Name()
+            $cs = $cs.Append( ': "' ).Append( $_.get_Message() ).Append( '"' )
+
+            $cs
+        } -CaptureContext # end AltSingleLineViewDefinition
+    } # end Type Microsoft.Diagnostics.Runtime.ClrException
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrRuntime' {
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label '(Type)' {
+                Format-DbgTypeName $_.GetType().get_FullName()
+            }
+            New-AltPropertyListItem -PropertyName 'ClrInfo'
+          # New-AltPropertyListItem -PropertyName 'Threads'
+            New-AltScriptListItem -Label 'Threads' {
+                $_.get_Threads() | %{ $_.get_OSThreadId().ToString( 'x' ) }
+            }
+            New-AltPropertyListItem -PropertyName 'ServerGC'
+            New-AltPropertyListItem -PropertyName 'HeapCount'
+            New-AltPropertyListItem -PropertyName 'PointerSize'
+            New-AltPropertyListItem -PropertyName 'AppDomains'
+            New-AltPropertyListItem -PropertyName 'IsSingleDomain'
+            New-AltScriptListItem -Label 'ArrayMethodTable' {
+                Format-DbgAddress $_.get_ArrayMethodTable()
+            }
+            New-AltScriptListItem -Label 'ExceptionMethodTable' {
+                Format-DbgAddress $_.get_ExceptionMethodTable()
+            }
+            New-AltScriptListItem -Label 'ObjectMethodTable' {
+                Format-DbgAddress $_.get_ObjectMethodTable()
+            }
+            New-AltScriptListItem -Label 'StringMethodTable' {
+                Format-DbgAddress $_.get_StringMethodTable()
+            }
+            New-AltScriptListItem -Label 'FreeMethodTable' {
+                Format-DbgAddress $_.get_FreeMethodTable()
+            }
+            New-AltPropertyListItem -PropertyName 'SystemDomain'
+            New-AltPropertyListItem -PropertyName 'SharedDomain'
+            New-AltPropertyListItem -PropertyName 'DataTarget'
+            New-AltPropertyListItem -PropertyName 'DataReader'
+        } # end List view
+    } # end Type Microsoft.Diagnostics.Runtime.ClrRuntime
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrAppDomain' {
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Name'
+            New-AltPropertyListItem -PropertyName 'Id'
+            New-AltScriptListItem -Label 'Address' {
+                Format-DbgAddress $_.get_Address()
+            }
+            New-AltPropertyListItem -PropertyName 'ApplicationBase'
+            New-AltPropertyListItem -PropertyName 'ConfigurationFile'
+            New-AltPropertyListItem -PropertyName 'Modules'
+        } # end List view
+
+        New-AltSingleLineViewDefinition {
+            $name = $_.get_Name()
+            if( [String]::IsNullOrEmpty( $name ) ) {
+                $name = $_.get_Id().ToString()
+            }
+
+            New-ColorString -Content $name -Fore Magenta -Back DarkBlue
+        } # end AltSingleLineViewDefinition
+    } # end Type Microsoft.Diagnostics.Runtime.ClrAppDomain
+
+
+  # New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrHeap' {
+  # } # end Type Microsoft.Diagnostics.Runtime.ClrHeap
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrSegment' {
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'Start' {
+                Format-DbgAddress $_.get_Start()
+            }
+            New-AltScriptListItem -Label 'End' {
+                Format-DbgAddress $_.get_End()
+            }
+         #  New-AltPropertyListItem -PropertyName 'Length' # TODO: format byte size
+            New-AltScriptListItem -Label 'Length' {
+                $len = $_.get_Length()
+                [String]::Format( '0x{0:x} ({1})', $len, (Format-DbgByteSize $len) )
+            }
+            New-AltPropertyListItem -PropertyName 'Heap'
+            New-AltPropertyListItem -PropertyName 'ProcessorAffinity'
+            New-AltPropertyListItem -PropertyName 'IsLarge'
+            New-AltPropertyListItem -PropertyName 'IsEphemeral'
+            New-AltScriptListItem -Label 'CommittedEnd' {
+                Format-DbgAddress $_.get_CommittedEnd()
+            }
+            New-AltScriptListItem -Label 'ReservedEnd' {
+                Format-DbgAddress $_.get_ReservedEnd()
+            }
+            New-AltScriptListItem -Label 'FirstObject' {
+                Format-DbgAddress $_.get_FirstObject()
+            }
+            New-AltScriptListItem -Label 'Gen0Start' {
+                Format-DbgAddress $_.get_Gen0Start()
+            }
+         #  New-AltPropertyListItem -PropertyName 'Gen0Length'
+            New-AltScriptListItem -Label 'Gen0Length' {
+                $len = $_.get_Gen0Length()
+                [String]::Format( '0x{0:x} ({1})', $len, (Format-DbgByteSize $len) )
+            }
+            New-AltScriptListItem -Label 'Gen1Start' {
+                Format-DbgAddress $_.get_Gen1Start()
+            }
+          # New-AltPropertyListItem -PropertyName 'Gen1Length'
+            New-AltScriptListItem -Label 'Gen1Length' {
+                $len = $_.get_Gen1Length()
+                [String]::Format( '0x{0:x} ({1})', $len, (Format-DbgByteSize $len) )
+            }
+            New-AltScriptListItem -Label 'Gen2Start' {
+                Format-DbgAddress $_.get_Gen2Start()
+            }
+          # New-AltPropertyListItem -PropertyName 'Gen2Length'
+            New-AltScriptListItem -Label 'Gen2Length' {
+                $len = $_.get_Gen2Length()
+                [String]::Format( '0x{0:x} ({1})', $len, (Format-DbgByteSize $len) )
+            }
+        } # end List view
+
+      # New-AltSingleLineViewDefinition {
+      # } # end AltSingleLineViewDefinition
+    } # end Type Microsoft.Diagnostics.Runtime.ClrSegment
+} # end TypeEntries
+

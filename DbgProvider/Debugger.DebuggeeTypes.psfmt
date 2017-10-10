@@ -1,0 +1,328 @@
+
+#
+# Format definitions: these are analogous to the <view> entries in a .ps1xml,
+# except they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+# The definitions in this file are specifically for "debugee types"--
+# definitions of how to display values in the debuggee. The type names
+# typically have a "!" in them, and can be module-qualified (but do not have to
+# be), but the definitions in this file are for .NET primitive values, which
+# symbol value conversion may have translated a symbol value into.
+#
+# The alternate formatting engine can find these view definitions because the
+# alternate formatting engine use the "TypeNames" list of a PSObject to look up
+# view definitions.
+#
+
+Register-AltTypeFormatEntries {
+
+    New-AltTypeFormatEntry -TypeName 'System.String' {
+        New-AltSingleLineViewDefinition {
+            # Hacky, but I think this view definition would be over-broad
+            # otherwise. The problem with using the debugger type is that
+            # strings aren't very well specified... is "char*" a pointer to a
+            # zero-terminated string, or to just one char, or what? And on top
+            # of that, we strip off the '*' when putting the debugger type in
+            # the TypeNames, because we dereference the pointer for the user.
+            if( $null -eq $_.PSObject.Methods[ 'DbgGetSymbol' ] )
+            {
+                return $_
+            }
+
+            $cs = (New-ColorString -Content '"').AppendPushPopFg( [ConsoleColor]::Cyan, $_ ).Append( '"' )
+
+            $cs
+        } # end AltSingleLineViewDefinition
+
+        # TODO: Investigate filing a bug to change PS behavior. The problem occurs when
+        # you have a string wrapped in a custom PSObject with modified TypeNames (this is
+        # in a normal shell):
+        #
+        #       PS C:\Users\danthom> $pso = New-Object System.Management.Automation.PSObject -arg @( [string] 'hi' )
+        #       PS C:\Users\danthom> $pso
+        #       hi
+        #       PS C:\Users\danthom> $pso.PSObject.TypeNames.Insert( 0, "asdf" )
+        #       PS C:\Users\danthom> $pso
+        #
+        #                                                                                    Length
+        #                                                                                    ------
+        #                                                                                         2
+        #
+        #       PS C:\Users\danthom>
+        #
+        # Curiously Get-FormatData does not return anything for System.String, so it must
+        # be a hard-coded thing. My workaround is to have this formatting definition. But
+        # it doesn't give the exact same behavior as a normal string value (TODO 2: I
+        # might be able to change the alt formatting engine to give these same results,
+        # though):
+        #
+        #       PS C:\Users\danthom> $normalString = "hi"
+        #       PS C:\Users\danthom> $normalString
+        #       hi
+        #       PS C:\Users\danthom> $normalString | fl
+        #       hi
+        #       PS C:\Users\danthom> $normalString | ft
+        #       hi
+        #       PS C:\Users\danthom> $normalString | fl -for
+        #
+        #
+        #       Length : 2
+        #
+        #
+        #
+        #       PS C:\Users\danthom> $normalString | ft -force
+        #
+        #                                                                                      Length
+        #                                                                                      ------
+        #                                                                                           2
+        #
+        #
+        #       PS C:\Users\danthom>
+        #
+        New-AltCustomViewDefinition {
+            if( $null -ne $_ )
+            {
+                $_.ToString()
+            }
+            else
+            {
+                $_
+            }
+        }
+
+        # TODO: In normal PowerShell, explicitly sending a primitive value (like a string
+        # or int) through Format-List or Format-Table just prints out the value, /unless/
+        # -Force is used (in which case you get a not-very-useful generated viwe). But in
+        # our custom formatting engine, if you, for instance, send an int explicitly to
+        # Format-AltTable, you'll get the crummy view. So the TODO is to figure out a way
+        # to just spit the primitive out (unless -force is used, I guess). It may not be
+        # quite straightforward because it's not like we can do it with normal view
+        # definitions--it'll have to be a special case somewhere.
+    } # end Type System.String
+
+
+    New-AltTypeFormatEntry -TypeName 'System.Guid' {
+        New-AltSingleLineViewDefinition {
+          # # Hacky, but I think this view definition would be over-broad
+          # # otherwise.
+          # if( $null -eq $_.PSObject.Methods[ 'DbgGetSymbol' ] )
+          # {
+          #     return $_
+          # }
+
+            $cs = New-ColorString -Foreground DarkGreen -Content $_.ToString()
+
+            $cs
+        } # end AltSingleLineViewDefinition
+    } # end Type System.Guid
+
+
+    New-AltTypeFormatEntry -TypeName 'System.UInt64' {
+
+        #[Console]::WriteLine( "Get-PsContext: current module context is: $($ExecutionContext.SessionState.Module)" )
+        #$host.EnterNestedPrompt()
+        function fmtUlong( $ulong ) {
+            if( $ulong -lt 10 ) { return $ulong.ToString() }
+            return [string]::Format( '0x{0}', ([MS.Dbg.DbgProvider]::FormatUInt64( $ulong, $true )) )
+        }
+
+        New-AltSingleLineViewDefinition {
+            fmtUlong $_
+        } -CaptureContext # end AltSingleLineViewDefinition
+
+        New-AltCustomViewDefinition {
+            fmtUlong $_
+        } -CaptureContext # end AltCustomViewDefinition
+    } # end Type System.UInt64
+
+    New-AltTypeFormatEntry -TypeName 'System.UInt32' {
+        New-AltSingleLineViewDefinition {
+            # Native enums are almost always backed by ints, but this could be an enum.
+            if( $null -ne $_.PSObject.Methods[ 'DbgGetSymbol' ] )
+            {
+                # It could have been converted.
+                if( $null -ne $_.PSObject.Methods[ 'DbgGetOperativeSymbol' ] )
+                {
+                    $sym = $_.DbgGetOperativeSymbol()
+                }
+                else
+                {
+                    $sym = $_.DbgGetSymbol()
+                }
+
+                if( $sym.IsEnum )
+                {
+                    return $_.ToString() # Because we've given enums a custom ToString that prints enumerand values
+                }
+            }
+
+            if( $_ -lt 10 ) { return $_.ToString() }
+            return [string]::Format( '0x{0:x}', $_ )
+        } # end AltSingleLineViewDefinition
+    } # end Type System.UInt32
+
+    New-AltTypeFormatEntry -TypeName 'System.UInt16' {
+        New-AltSingleLineViewDefinition {
+            # Native enums are almost always backed by ints, but this could be an enum.
+            if( $null -ne $_.PSObject.Methods[ 'DbgGetSymbol' ] )
+            {
+                # It could have been converted.
+                if( $null -ne $_.PSObject.Methods[ 'DbgGetOperativeSymbol' ] )
+                {
+                    $sym = $_.DbgGetOperativeSymbol()
+                }
+                else
+                {
+                    $sym = $_.DbgGetSymbol()
+                }
+
+                if( $sym.IsEnum )
+                {
+                    return $_.ToString() # Because we've given enums a custom ToString that prints enumerand values
+                }
+            }
+
+            if( $_ -lt 10 ) { return $_.ToString() }
+            return [string]::Format( '0x{0:x4}', $_ )
+        } # end AltSingleLineViewDefinition
+    } # end Type System.UInt16
+
+    New-AltTypeFormatEntry -TypeName 'System.Byte' {
+        New-AltSingleLineViewDefinition {
+            # Native enums are almost always backed by ints, but this could be an enum.
+            if( $null -ne $_.PSObject.Methods[ 'DbgGetSymbol' ] )
+            {
+                # It could have been converted.
+                if( $null -ne $_.PSObject.Methods[ 'DbgGetOperativeSymbol' ] )
+                {
+                    $sym = $_.DbgGetOperativeSymbol()
+                }
+                else
+                {
+                    $sym = $_.DbgGetSymbol()
+                }
+
+                if( $sym.IsEnum )
+                {
+                    return $_.ToString() # Because we've given enums a custom ToString that prints enumerand values
+                }
+            }
+
+            if( $_ -lt 10 ) { return $_.ToString() }
+            return [string]::Format( '0x{0:x2}', $_ )
+        } # end AltSingleLineViewDefinition
+    } # end Type System.UInt8
+
+
+    New-AltTypeFormatEntry -TypeName 'System.Int64' {
+        New-AltSingleLineViewDefinition {
+            if( $_ -lt 10 ) { return $_.ToString() }
+            return [string]::Format( '0n{0}', $_ )
+        } # end AltSingleLineViewDefinition
+    } # end Type System.Int64
+
+    New-AltTypeFormatEntry -TypeName 'System.Int32' {
+        New-AltSingleLineViewDefinition {
+            # Native enums are almost always backed by ints, so this could be an enum.
+            if( $null -ne $_.PSObject.Methods[ 'DbgGetSymbol' ] )
+            {
+                # It could have been converted.
+                if( $null -ne $_.PSObject.Methods[ 'DbgGetOperativeSymbol' ] )
+                {
+                    $sym = $_.DbgGetOperativeSymbol()
+                }
+                else
+                {
+                    $sym = $_.DbgGetSymbol()
+                }
+
+                if( $sym.IsEnum )
+                {
+                    return $_.ToString() # Because we've given enums a custom ToString that prints enumerand values
+                }
+            }
+
+            if( $_ -lt 10 ) { return $_.ToString() }
+            return [string]::Format( '0n{0}', $_ )
+        } # end AltSingleLineViewDefinition
+    } # end Type System.Int32
+
+    New-AltTypeFormatEntry -TypeName 'System.Int16' {
+        New-AltSingleLineViewDefinition {
+            # Native enums are almost always backed by ints, but this could be an enum.
+            if( $null -ne $_.PSObject.Methods[ 'DbgGetSymbol' ] )
+            {
+                # It could have been converted.
+                if( $null -ne $_.PSObject.Methods[ 'DbgGetOperativeSymbol' ] )
+                {
+                    $sym = $_.DbgGetOperativeSymbol()
+                }
+                else
+                {
+                    $sym = $_.DbgGetSymbol()
+                }
+
+                if( $sym.IsEnum )
+                {
+                    return $_.ToString() # Because we've given enums a custom ToString that prints enumerand values
+                }
+            }
+
+            if( $_ -lt 10 ) { return $_.ToString() }
+            #return [string]::Format( '0n{0:d4}', $_ )
+            return [string]::Format( '0n{0}', $_ )
+        } # end AltSingleLineViewDefinition
+    } # end Type System.Int16
+
+    New-AltTypeFormatEntry -TypeName 'System.SByte' {
+        New-AltSingleLineViewDefinition {
+            # Native enums are almost always backed by ints, but this could be an enum.
+            if( $null -ne $_.PSObject.Methods[ 'DbgGetSymbol' ] )
+            {
+                # It could have been converted.
+                if( $null -ne $_.PSObject.Methods[ 'DbgGetOperativeSymbol' ] )
+                {
+                    $sym = $_.DbgGetOperativeSymbol()
+                }
+                else
+                {
+                    $sym = $_.DbgGetSymbol()
+                }
+
+                if( $sym.IsEnum )
+                {
+                    return $_.ToString() # Because we've given enums a custom ToString that prints enumerand values
+                }
+            }
+
+            if( $_ -lt 10 ) { return $_.ToString() }
+            return [string]::Format( '0n{0:d2}', $_ )
+        } # end AltSingleLineViewDefinition
+    } # end Type System.Int8
+
+    New-AltTypeFormatEntry -TypeName '!<bitfield>' {
+        New-AltSingleLineViewDefinition {
+            if( $_ -is [bool] )
+            {
+                $_
+            }
+            else
+            {
+                $bitfieldLen = $_.DbgGetSymbol().MemberInfo.BitfieldLength
+                $asStr = [System.Convert]::ToString( $_, 2 ) # base 2
+                $zeroesNeeded = $bitfieldLen - $asStr.Length
+                if( $zeroesNeeded -gt 0 )
+                {
+                    $asStr = (New-Object 'System.String' -Arg @( [char] '0', $zeroesNeeded )) + $asStr
+                }
+                if( $bitfieldLen -gt 4 )
+                {
+                    $asStr += [String]::Format( " (0x{0:x})", $_ )
+                }
+                return '0y' + $asStr
+            }
+        } # end AltSingleLineViewDefinition
+    } # end Type <bitfield>
+} # end TypeEntries
+

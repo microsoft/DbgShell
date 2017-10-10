@@ -1,0 +1,2391 @@
+
+#
+# This file defines format view definitions for various types used by the
+# Debugger module, for use by the alternate formatting engine.
+#
+# Format definitions are analogous to the <view> entries in a .ps1xml, except
+# they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+
+Register-AltTypeFormatEntries {
+
+    # We keep private, shared functions in FmtUtils.ps1. If you have a script block that
+    # needs to use them, be sure to use -CaptureContext, else they won't be available when
+    # the script block is run.
+    . "$PSScriptRoot\FmtUtils.ps1"
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgSymbol' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Name' -Width 25 -Alignment Left -Script {
+                    if( $_.get_IsValueUnavailable() )
+                    {
+                        # This 'dims' symbol names whose values aren't available.
+                        New-ColorString -Content $_.get_Name() -Foreground DarkGray
+                    }
+                    else
+                    {
+                        $_.get_Name()
+                    }
+                }
+                # I'm not sure if this 'BasicType' stuff is really useful for anything
+             #  New-AltScriptColumn -Label 'BasicType' -Width 10 -Alignment Center -Script {
+             #      $_.Type.BasicType
+             #  }
+                New-AltScriptColumn -Label 'Type' -Width 25 -Alignment Left -Script { Get-TypeName( $_ ) } -CaptureContext
+                # DbgProvider can use the 'Address' tag to find columns that it
+                # wants to resize depending on target address width.
+                New-AltScriptColumn -Label 'Location' -Width 10 -Alignment Center -Tag 'Address' -Script {
+                    if( $_.get_IsValueUnavailable() )
+                    {
+                        if( $_.get_IsMetadataUnavailable() )
+                        {
+                            New-ColorString -Content " - " -Foreground Blue
+                        }
+                        else
+                        {
+                            assert $_.get_IsMemoryUnavailable()
+                            Format-DbgAddress $_.get_Address() -DefaultFgColor Yellow
+                        }
+                    }
+                    elseif( $_.get_IsValueInRegister() )
+                    {
+                        New-ColorString -Foreground Cyan -Content ("@" + $_.get_Register().get_Name())
+                    }
+                    elseif( $_.get_IsConstant() )
+                    {
+                        New-ColorString -Content "constant" -Foreground Blue
+                    }
+                    else
+                    {
+                        Format-DbgAddress $_.get_Address()
+                    }
+                }
+                New-AltScriptColumn -Label 'Size' -Width 8 -Alignment Left -Script {
+                    if( $_.get_IsValueUnavailable() )
+                    {
+                        ''
+                    }
+                    else
+                    {
+                        $size = $_.get_Type().get_Size()
+                        if( 0 -eq $size )
+                        {
+                            New-ColorString -Foreground DarkGray -Content '0'
+                        }
+                        else
+                        {
+                            [string]::Format( "0x{0:x}", $size )
+                        }
+                    }
+                }
+                New-AltScriptColumn -Label 'Value' -Alignment Left -Script {
+                    # I'm torn on this... but I think it's nicer to just leave
+                    # it empty when the value isn't available--looks cleaner.
+                    #Summarize-SymValue -InputObject $_.get_Value()
+                    if( $_.get_IsValueUnavailable() )
+                    {
+                        ''
+                    }
+                    else
+                    {
+                        Format-AltSingleLine -InputObject $_.get_Value()
+                    }
+                }
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Name'
+            New-AltPropertyListItem -PropertyName 'IsValueUnavailable'
+            New-AltScriptListItem -Label 'Location' -Script {
+                if( $_.get_IsValueUnavailable() )
+                {
+                    if( $_.get_IsMetadataUnavailable() )
+                    {
+                        New-ColorString -Content " - " -Foreground Blue
+                    }
+                    else
+                    {
+                        assert $_.get_IsMemoryUnavailable()
+                        Format-DbgAddress $_.get_Address() -DefaultFgColor Yellow
+                    }
+                }
+                elseif( $_.get_IsValueInRegister() )
+                {
+                    New-ColorString -Foreground Cyan -Content ("@" + $_.get_Register().get_Name())
+                }
+                elseif( $_.get_IsConstant() )
+                {
+                    New-ColorString -Content "constant" -Foreground Blue
+                }
+                else
+                {
+                    Format-DbgAddress $_.get_Address()
+                }
+            }
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltScriptListItem -Label 'Type' -Script {
+                if( $null -eq $_.get_Type() )
+                {
+                    New-ColorString -Foreground Yellow -Content "{<type unavailable>}"
+                }
+                else
+                {
+                    "{" +
+                    $_.get_Type().get_Name() +
+                    ", size 0x" +
+                    $_.get_Type().get_Size().ToString( "x" ) +
+                    "}"
+                }
+            }
+            New-AltScriptListItem -Label 'Children' -Script {
+                if( $_.get_IsValueUnavailable() )
+                {
+                    New-ColorString -Content " - " -Foreground Blue
+                }
+                else
+                {
+                    $_.get_Children().Count
+                }
+            }
+            New-AltScriptListItem -Label 'PathString' -Script {
+                if( $_.get_IsValueUnavailable() )
+                {
+                    New-ColorString -Content " - " -Foreground Blue
+                }
+                else
+                {
+                    $_.get_PathString()
+                }
+            }
+            New-AltScriptListItem -Label 'Value' -Script {
+                # I'm torn on this... but I think it's nicer to just leave
+                # it empty when the value isn't available--looks cleaner.
+                #Summarize-SymValue -InputObject $_.get_Value()
+                if( $_.get_IsValueUnavailable() )
+                {
+                    ''
+                }
+                else
+                {
+                    Format-AltSingleLine -InputObject $_.get_Value()
+                }
+            }
+        } # end List view
+    } # end Type MS.Dbg.DbgSymbol
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgEventArgs' {
+        New-AltCustomViewDefinition {
+            $_.get_Message()
+        } # end AltCustomViewDefinition
+    } # end Type MS.Dbg.DbgEventArgs
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgEngineEventFilter' {
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'FriendlyName' -Width 20 -Alignment Right -Script {
+                    if( $_.get_ExecutionOption() -eq 'BREAK' )
+                    {
+                        (New-ColorString).AppendPushFgBg( [ConsoleColor]::White, [ConsoleColor]::DarkRed ).Append( $_.get_FriendlyName() )
+                    }
+                    else
+                    {
+                        $_.get_FriendlyName()
+                    }
+                }
+                New-AltPropertyColumn -PropertyName 'Name' -Width 6 -Alignment Center
+                New-AltScriptColumn -Label 'Exec. Option' -Width 12 -Alignment Center -Script {
+                    $content = $_.get_ExecutionOption().ToString()
+                    switch( $_.ExecutionOption )
+                    {
+                        'BREAK' { (New-ColorString).AppendPop().Append( (New-ColorString -Foreground Red -Content 'BREAK') ) }
+                        'IGNORE' { New-ColorString -Foreground Blue -Content 'Ignore' }
+                        'OUTPUT' { New-ColorString -Foreground Cyan -Content 'Output' }
+                        default { $_.ExecutionOption }
+                    }
+                }
+                New-AltPropertyColumn -PropertyName 'ContinueOption' -Label 'Cont. Option' -Width 16 -Alignment Left
+                New-AltPropertyColumn -PropertyName 'Argument' -Width 26 -Alignment Left
+                New-AltPropertyColumn -PropertyName 'Command' -Alignment Left
+            } # End Columns
+        } # end Table view
+    } # end Type MS.Dbg.DbgEngineEventFilter
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgExceptionEventFilter' {
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                #New-AltPropertyColumn -PropertyName 'FriendlyName' -Width 30 -Alignment Left
+                New-AltScriptColumn -Label 'FriendlyName' -Width 30 -Alignment Left -Script {
+                    if( $_.get_ExecutionOption() -eq 'BREAK' )
+                    {
+                        (New-ColorString).AppendPushFgBg( [ConsoleColor]::White, [ConsoleColor]::DarkRed ).Append( $_.get_FriendlyName() )
+                    }
+                    elseif( $_.ExecutionOption -eq 'SECOND_CHANCE_BREAK' )
+                    {
+                        (New-ColorString).AppendPushFgBg( [ConsoleColor]::White, [ConsoleColor]::DarkYellow ).Append( $_.get_FriendlyName() )
+                    }
+                    else
+                    {
+                        # I don't have a conditional POP where I want the
+                        # background color to go back to default, so I need to
+                        # a do a PUSH here too.
+                        (New-ColorString).AppendPush().Append( $_.get_FriendlyName() )
+                    }
+                }
+                New-AltPropertyColumn -PropertyName 'Name' -Width 6 -Alignment Center
+                New-AltPropertyColumn -PropertyName 'ExceptionCode' -Label 'Code' -Width 10 -Alignment Center -FormatString ((New-ColorString -Content '[{0:x8}]').AppendPop())
+                New-AltScriptColumn -Label 'Exec. Option' -Width 12 -Alignment Center -Script {
+                    $content = $_.get_ExecutionOption().ToString()
+                    switch( $_.ExecutionOption )
+                    {
+                        'SECOND_CHANCE_BREAK' { New-ColorString -Foreground Yellow -Content "2nd-Chance" }
+                        'BREAK' { New-ColorString -Foreground Red -Content 'BREAK' }
+                        'IGNORE' { New-ColorString -Foreground Blue -Content 'Ignore' }
+                        default { $_.ExecutionOption }
+                    }
+                }
+                New-AltPropertyColumn -PropertyName 'ContinueOption' -Label 'Cont. Option' -Width 16 -Alignment Left
+                New-AltPropertyColumn -PropertyName 'Command' -Alignment Left
+                New-AltPropertyColumn -PropertyName 'SecondCommand' -Alignment Left
+            } # End Columns
+        } # end Table view
+    } # end Type MS.Dbg.DbgExceptionEventFilter
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgBreakpointInfo' {
+
+        New-AltTableViewDefinition {
+
+            New-AltColumns {
+                # N.B. To access these variables from a script block, you'll
+                # need to "capture" them using -CaptureContext.
+                $enabled = New-ColorString -Foreground Green -Content "E"
+                $enabledDeferred = New-ColorString -Foreground Yellow -Content "e"
+                $disabled = New-ColorString -Foreground Magenta -Content "d"
+                $disabledDeferred = New-ColorString -Foreground Red -Content "D"
+
+                New-AltPropertyColumn -PropertyName 'Id' -Width 4 -Alignment Right
+                New-AltScriptColumn -Label 'Status' -Width 6 -Alignment Center -Script {
+                    if( $_.get_IsEnabled() )
+                    {
+                        if( $_.get_IsDeferred() )
+                        {
+                            $enabledDeferred
+                        }
+                        else
+                        {
+                            $enabled
+                        }
+                    }
+                    else
+                    {
+                        if( $_.get_IsDeferred() )
+                        {
+                            $disabledDeferred
+                        }
+                        else
+                        {
+                            $disabled
+                        }
+                    }
+                } -CaptureContext
+                New-AltScriptColumn -Label 'Offset' -Width 10 -Alignment Center -Tag 'Address' -Script {
+                    if( $_.get_Offset() -eq [UInt64]::MaxValue )
+                    {
+                        return New-ColorString -Foreground DarkRed -Content "-----"
+                    }
+
+                    Format-DbgAddress $_.get_Offset()
+                }
+                New-AltScriptColumn -Label 'PassCount' -Width 9 -Alignment Center -Script {
+                    [string]::Format( "{0}/{1}", $_.get_NativeParams().CurrentPassCount, $_.NativeParams.PassCount )
+                }
+                New-AltScriptColumn -Label 'MatchThread' -Width 11 -Alignment Center -Script {
+                    if( $_.get_NativeParams().MatchThread -eq 4294967295 )
+                    {
+                        if( $_.get_Flags().HasFlag( [Microsoft.Diagnostics.Runtime.Interop.DEBUG_BREAKPOINT_FLAG]::DEFERRED ) )
+                        {
+                            New-ColorString -Foreground Yellow -Content '-'
+                        }
+                        else
+                        {
+                            '***'
+                        }
+                    }
+                    else
+                    {
+                        $_.NativeParams.MatchThread.ToString( 'x' ) # TODO: is this an address or an id or what? i think for user mode it's the tid
+                    }
+                }
+                New-AltScriptColumn -Label 'Symbol' -Alignment Left -Script {
+                    if( $_.get_Flags().HasFlag( [Microsoft.Diagnostics.Runtime.Interop.DEBUG_BREAKPOINT_FLAG]::DEFERRED ) )
+                    {
+                        New-ColorString -Foreground Yellow -Content ([string]::Format( "({0})", $_.get_SymbolicName() ))
+                    }
+                    else
+                    {
+                        $_.get_SymbolicName()
+                    }
+                }
+                New-AltScriptColumn -Label 'Command' -Alignment Left -Script {
+                    $sbc = $_.get_ScriptBlockCommand()
+                    if( $null -ne $sbc )
+                    {
+                        # TODO: Would be nice to colorize the same that PSReadLine would.
+                        $str = $sbc.ToString().Trim() -replace "`n[ ]*", " \ "
+                        (New-ColorString -Content 'PS> ' -Fore Cyan).Append( $str )
+                    }
+                    else
+                    {
+                        $dbgEngCmd = $_.get_DbgEngCommand()
+                        if( $dbgEngCmd )
+                        {
+                            (New-ColorString -Content '(dbgeng) ' -Fore DarkGray).Append( $dbgEngCmd )
+                        }
+                        else
+                        {
+                            ''
+                        }
+                    }
+                }
+
+                New-AltTableFooter -Alignment Center -Script {
+                    (New-ColorString -Background Cyan -Foreground Black -Content 'Legend:').
+                        Append( ' ' ).
+                        Append( $enabled ).
+                        Append( ': Enabled, ' ).
+                        Append( $enabledDeferred ).
+                        Append( ': Enabled but deferred, ' ).
+                        Append( $disabled ).
+                        Append( ': Disabled, ' ).
+                        Append( $disabledDeferred ).
+                        Append( ': Disabled and deferred' )
+                } -CaptureContext
+            } # End Columns
+        } # end Table view
+    } # end Type MS.Dbg.DbgBreakpointInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgModuleInfo' {
+
+        function GetModName( $m )
+        {
+            $name = $m.get_Name()
+            if( !$name.StartsWith( '<unknown_', [StringComparison]::OrdinalIgnoreCase ) )
+            {
+                return Format-DbgModuleName $name
+            }
+            # Will we need to try other names?
+            # Let's not make it look like a normal module name.
+            return $m.get_ImageName()
+        }
+
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Name' -Width 20 -Alignment Left -Script {
+                    return GetModName $_
+                } -CaptureContext
+                New-AltScriptColumn -Label 'Start' -Width 8 -Alignment Center -Tag 'Address' -Script {
+                    Format-DbgAddress $_.get_BaseAddress()
+                }
+                New-AltScriptColumn -Label 'End' -Width 8 -Alignment Center -Tag 'Address' -Script {
+                    Format-DbgAddress ($_.get_BaseAddress() + $_.Size)
+                }
+
+                New-AltPropertyColumn -PropertyName 'SymbolStatus' -Label 'Symbol Status' -Width 21 -Alignment Center
+
+                New-AltScriptColumn -Label 'Company' -Width 22 -Alignment Left -Script {
+                    $cn = $_.get_VersionInfo().CompanyName
+                    if( $cn )
+                    {
+                        if( $cn -ne 'Microsoft Corporation' )
+                        {
+                            New-ColorString -Content $cn -Fore White
+                        }
+                        else
+                        {
+                            $cn
+                        }
+                    }
+                }
+
+                New-AltScriptColumn -Label 'Version' -Alignment Left -Script {
+                    $fv = $_.get_VersionInfo().FileVersion
+                    if( $fv ) { $fv.ToString() }
+                }
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'Name' -Script {
+                Format-DbgModuleName $_.Name
+            }
+            New-AltScriptListItem -Label 'BaseAddress' -Script {
+                Format-DbgAddress $_.BaseAddress
+            }
+            New-AltPropertyListItem -PropertyName 'Size' -FormatString '{0:x8}'
+            New-AltPropertyListItem -PropertyName 'ImageName'
+            New-AltPropertyListItem -PropertyName 'LoadedImageName'
+            New-AltPropertyListItem -PropertyName 'MappedImageName'
+            New-AltPropertyListItem -PropertyName 'SymbolFileName'
+            New-AltPropertyListItem -PropertyName 'CheckSum' -FormatString '{0:x}'
+            New-AltPropertyListItem -PropertyName 'Flags'
+            New-AltPropertyListItem -PropertyName 'SymbolType'
+            New-AltPropertyListItem -PropertyName 'TimeDateStamp'
+            New-AltPropertyListItem -PropertyName 'VersionInfo'
+            New-AltPropertyListItem -PropertyName 'SymbolStatus'
+            New-AltPropertyListItem -PropertyName 'IsUnloaded'
+        } # end list view
+
+        New-AltCustomViewDefinition {
+            (New-ColorString).Append( (Format-DbgAddress $_.get_BaseAddress()) ).
+                              Append( ' ' ).
+                              Append( (Format-DbgAddress ($_.get_BaseAddress() + $_.Size)) ).
+                              Append( '  ' ).
+                              Append( (Pad (GetModName $_) 12) ).
+                              Append( '  ' ).
+                              Append( (Pad $_.get_SymbolStatus() 21) ).
+                              Append( '  ' ).
+                              Append( $_.get_SymbolFileName() )
+
+            $vi = $_.get_VersionInfo()
+            [string] $strFileVer = $vi.FileVersion
+            [string] $ffiFileVer = ''
+            [string] $ffiProdVer = ''
+            [string] $ffiFlags = ''
+            [string] $ffiOs = ''
+            [string] $ffiFiletype = ''
+            [string] $ffiFileDate = ''
+            if( $vi.FixedFileInfo )
+            {
+                $ffiFileVer = $vi.FixedFileInfo.FileVersion.ToString()
+                $ffiProdVer = $vi.FixedFileInfo.ProductVersion.ToString()
+                $ffiFlags = $vi.FixedFileInfo.Flags.ToString()
+                $ffiOs = $vi.FixedFileInfo.OS.ToString()
+                $ffiFiletype = $vi.FixedFileInfo.FileType.ToString()
+                $fd = $vi.FixedFileInfo.FileDate
+                $ft = $fd.ToFileTime()
+                $ffiFileDate = [string]::Format( '{0:x8}.{1:x8}', (($ft -band 0xffffffff00000000) -shr 32), ($ft -band 0x00000000ffffffff) )
+                if( 0 -ne $ft )
+                {
+                    $ffiFileDate += [string]::Format( ' ({2})', $fd.ToString( 'F' ) )
+                }
+            }
+
+            [int] $lcid = 0
+            [string] $lcidDisplay = '<none>'
+            [int] $cp = 0
+            [string] $cpDisplay = '<none>'
+
+            if( $null -ne $vi.Language )
+            {
+                $lcid = $vi.Language.LCID
+                $lcidDisplay = $vi.Language.DisplayName
+            }
+
+            if( $null -ne $vi.CharSet )
+            {
+                # or should we use CharSet.CodePage?
+                $cp = $vi.CharSet.WindowsCodePage
+                $cpDisplay = $vi.CharSet.EncodingName
+            }
+
+            [string] $translations = [string]::Format( '{0:x4}.{1:x4} ({2}, {3})',
+                                                       $lcid,
+                                                       $cp,
+                                                       $lcidDisplay,
+                                                       $cpDisplay )
+
+            $imgPath = $_.get_LoadedImageName()
+            (New-ColorString -Fore Cyan -Content '    Loaded symbol image file: ').Append( [System.IO.Path]::GetFileName( $imgPath ) )
+            (New-ColorString -Fore Cyan -Content '    Image path: ').Append( $imgPath )
+            (New-ColorString -Fore Cyan -Content '    Image name: ').Append( 'can someone please tell danthom how to get this?' )
+
+            (New-ColorString -Fore Cyan -Content '    Timestamp:        ').Append( [string]::Format( '{0} ({1:x})', $_.TimeDateStamp.ToLocalTime().ToString( "ddd MMM dd HH':'mm':'ss yyyy" ), $_.TimeDateStampRaw ) )
+            (New-ColorString -Fore Cyan -Content '    CheckSum:         ').Append( $_.CheckSum.ToString( 'x8' ) )
+            (New-ColorString -Fore Cyan -Content '    ImageSize:        ').Append( $_.Size.ToString( 'x8' ) )
+            (New-ColorString -Fore Cyan -Content '    File version:     ').Append( $ffiFileVer )
+            (New-ColorString -Fore Cyan -Content '    Product version:  ').Append( $ffiProdVer )
+            (New-ColorString -Fore Cyan -Content '    File flags:       ').Append( $ffiFlags )
+            (New-ColorString -Fore Cyan -Content '    File OS:          ').Append( $ffiOs )
+            (New-ColorString -Fore Cyan -Content '    File type:        ').Append( $ffiFiletype )
+            (New-ColorString -Fore Cyan -Content '    File date:        ').Append( $ffiFileDate )
+            (New-ColorString -Fore Cyan -Content '    Translations:     ').Append( $translations )
+            (New-ColorString -Fore Cyan -Content '    CompanyName:      ').Append( $vi.CompanyName )
+            (New-ColorString -Fore Cyan -Content '    ProductName:      ').Append( $vi.ProductName )
+            (New-ColorString -Fore Cyan -Content '    InternalName:     ').Append( $vi.InternalName )
+            (New-ColorString -Fore Cyan -Content '    OriginalFilename: ').Append( $vi.OriginalFilename )
+            (New-ColorString -Fore Cyan -Content '    ProductVersion:   ').Append( $vi.ProductVersion )
+            (New-ColorString -Fore Cyan -Content '    FileVersion:      ').Append( $vi.FileVersion )
+            (New-ColorString -Fore Cyan -Content '    FileDescription:  ').Append( $vi.FileDescription )
+            (New-ColorString -Fore Cyan -Content '    LegalCopyright:   ').Append( $vi.LegalCopyright )
+        } -CaptureContext # end custom view
+    } # end Type MS.Dbg.DbgModuleInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgUModeThreadInfo' {
+
+        [string] $rightTri = [char] 0x25ba
+
+        $curThreadMarker = (New-ColorString -Content ' ').Append( (New-ColorString -Content $rightTri -Background Black -Foreground Green) )
+
+        $curAndEventThreadMarker = (New-ColorString -Content '#' -Background Black -Foreground Red).Append( (New-ColorString -Content $rightTri -Background Black -Foreground Green) )
+
+        $eventThreadMarker = (New-ColorString -Content '# ' -Background Black -Foreground Red)
+
+        function GetOsPidTidString( $thread )
+        {
+            $p = $thread.Debugger.GetTargetForContext( $thread.Context )
+            [string]::Format( '{0:x}.{1:x}', $p.get_OsProcessId(), $thread.get_Tid() )
+        } # end GetOsPidTidString()
+
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'M' -Width 3 -Alignment 'Right' -Script {
+                    [bool] $isCurrent = $_.get_IsCurrentThread()
+                    [bool] $isEvent = $_.get_IsEventThread()
+
+                    if( $isCurrent -and $isEvent ) {
+                        $curAndEventThreadMarker
+                    } elseif( $isCurrent ) {
+                        $curThreadMarker
+                    } elseif( $isEvent ) {
+                        $eventThreadMarker
+                    }
+                } -CaptureContext
+                New-AltPropertyColumn -Label 'Id' -PropertyName 'DebuggerId' -Width 5 -Alignment 'Center'
+                New-AltScriptColumn -Label 'Pid.Tid' -Width 11 -Alignment 'Left' -Script {
+                    GetOsPidTidString $_
+                } -CaptureContext
+                New-AltPropertyColumn -Label 'Sus' -PropertyName 'SuspendCount' -Width 3 -Alignment 'Center'
+                New-AltScriptColumn -Label 'TEB' -Width 8 -Alignment Center -Tag 'Address' -Script {
+                    Format-DbgAddress $_.get_TebAddress()
+                }
+                New-AltPropertyColumn -Label 'Temp' -PropertyName 'FrozenStatus' -Width 8 -Alignment 'Center'
+
+                # TODO: Need to get suspend count and frozen or not. Like this:
+                #    .  0  Id: 1718.1938 Suspend: 1 Teb: 7ffdf000 Unfrozen
+                #       1  Id: 1718.11b4 Suspend: 1 Teb: 7ffde000 Unfrozen
+                #       2  Id: 1718.1fe8 Suspend: 1 Teb: 7ffdd000 Unfrozen
+                #       3  Id: 1718.1c18 Suspend: 1 Teb: 7ffdc000 Unfrozen
+                #    #  4  Id: 1718.1480 Suspend: 1 Teb: 7ffdb000 Unfrozen
+                #
+                # Although I'd probably prefer to have some annotations instead (like
+                # "threadpool thread", "GC thread", etc.)
+
+                New-AltTableFooter -Alignment Center -Script {
+                    (New-ColorString -Background Cyan -Foreground Black -Content 'Legend:').
+                        Append( ' ' ).
+                        Append( $curThreadMarker ).
+                        Append( ' : current thread, ' ).
+                        Append( $eventThreadMarker ).
+                        Append( ': last event thread' )
+                } -CaptureContext
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'DebuggerId'
+            New-AltPropertyListItem -Label '[OS] Tid' -PropertyName 'Tid' -FormatString '{0:x}'
+            New-AltScriptListItem -Label 'TebAddress' {
+                Format-DbgAddress $_.get_TebAddress()
+            }
+            New-AltPropertyListItem -PropertyName 'Teb'
+            New-AltPropertyListItem -PropertyName 'SuspendCount'
+            New-AltPropertyListItem -PropertyName 'IsCurrentThread'
+            New-AltPropertyListItem -PropertyName 'IsEventThread'
+            New-AltPropertyListItem -PropertyName 'FrozenStatus'
+            New-AltPropertyListItem -PropertyName 'StartSymbol'
+            New-AltScriptListItem -Label 'StartAddress' {
+                Format-DbgAddress $_.get_StartAddress()
+            }
+            New-AltPropertyListItem -PropertyName 'Priority'
+            New-AltPropertyListItem -PropertyName 'PriorityClass'
+            New-AltPropertyListItem -PropertyName 'Affinity' -Format '{0:x}'
+        } # end List view
+
+        New-AltSingleLineViewDefinition {
+            [bool] $isCurrent = $_.get_IsCurrentThread()
+            [bool] $isEvent = $_.get_IsEventThread()
+
+            $cs = New-ColorString
+            if( $isCurrent -and $isEvent ) {
+                $cs = $cs.Append( $curAndEventThreadMarker )
+            } elseif( $isCurrent ) {
+                $cs = $cs.Append( $curThreadMarker )
+            } elseif( $isEvent ) {
+                $cs = $cs.Append( $eventThreadMarker )
+            } else {
+                $cs = $cs.Append( '  ' )
+            }
+
+            $cs = $cs.Append( $_.get_DebuggerId().ToString().PadLeft( 3 ) )
+            $cs = $cs.Append( ' Id: ' ).Append( (GetOsPidTidString $_) )
+            $cs = $cs.Append( ' Suspend: ' ).Append( $_.get_SuspendCount() )
+            $cs = $cs.Append( ' ' ).Append( $_.get_FrozenStatus() ).Append( ' ' )
+
+            $t = $null
+            try
+            {
+                $t = $_.get_Teb()
+            }
+            catch
+            {
+                # probably don't have symbols for ntdll
+            }
+
+            if( $null -eq $t )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Red, "<no TEB>" )
+            }
+            else
+            {
+                $cs = $cs.Append( ($_.get_Teb() | Format-AltSingleLine) )
+            }
+
+            $cs
+        } -CaptureContext # end single-line view
+    } # end Type MS.Dbg.DbgUModeThreadInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgStackInfo' {
+        New-AltCustomViewDefinition {
+         #  $currentThread = $_.Debugger.GetCurrentThread()
+         #  $eventThread = $_.Debugger.GetEventThread()
+
+         #  $marker = "   "
+         #  if( $currentThread -eq $_.get_Thread() )
+         #  {
+         #      $marker = " . "
+         #  }
+         #  elseif( $eventThread -eq $_.Thread )
+         #  {
+         #      $marker = " # "
+         #  }
+
+         #  '' # blank line
+         #  [string]::Format( "{0} {1}  Pid/Tid: {2:x}.{3:x}",
+         #                    $marker,
+         #                    $_.Thread.Debuggerid,
+         #          # BUGBUG: Need to get the OS process ID for the thread, not current
+         #                    $_.Debugger.GetProcessSystemId(),
+         #                    $_.Thread.Tid ) # TODO: other thread info?
+         #  '' # blank line
+
+            [int] $frameNum = 0
+            foreach( $frame in $_.EnumerateStackFrames() )
+            {
+                # TODO: What to do about frames that are longer than the
+                # console width? Right now thwy are getting wrapped, using
+                # word-breaking, which looks fairly bad (because there are such
+                # long stretches with no good place to break). Maybe we should
+                # auto-truncate (and add "...")? But then maybe info is lost...
+                # so maybe we want to do our own wrapping? Hmm... this bears
+                # more consideration.
+                #[string]::Format( '{0:x2} {1}', $frameNum, $frame )
+                (New-ColorString -Content ([string]::Format( '{0:x2} ', $frameNum ))).Append( $frame.ToColorString() )
+                $frameNum = $frameNum + 1
+            }
+        } # end AltCustomViewDefinition
+    } # end Type MS.Dbg.DbgStackInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgStackFrameInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'FrameNumber' {
+                Format-AltSingleLine -InputObject $_.get_FrameNumber()
+            }
+            New-AltScriptListItem -Label 'SymbolName' {
+                [MS.Dbg.DbgProvider]::ColorizeSymbol( $_.get_SymbolName() )
+            }
+            New-AltScriptListItem -Label 'Displacement' {
+                Format-AltSingleLine -InputObject $_.get_Displacement()
+            }
+            New-AltPropertyListItem -PropertyName 'IsFrameInline'
+            New-AltScriptListItem -Label 'ReturnAddress' {
+                if( $_.IsFrameInline )
+                {
+                    if( $Debugger.TargetIs32Bit )
+                    {
+                        New-ColorString -Content '--------' -Fore DarkGray
+                    }
+                    else
+                    {
+                        New-ColorString -Content '--------`--------' -Fore DarkGray
+                    }
+                }
+                else
+                {
+                    Format-DbgAddress $_.get_ReturnAddress()
+                }
+            }
+            New-AltScriptListItem -Label 'InstructionPointer' {
+                Format-DbgAddress $_.get_InstructionPointer()
+            }
+            New-AltScriptListItem -Label 'StackPointer' {
+                if( $_.IsFrameInline )
+                {
+                    New-ColorString -Content '(Inline Function)' -Fore DarkGray
+                }
+                else
+                {
+                    Format-DbgAddress $_.get_StackPointer()
+                }
+            }
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'Function'
+            New-AltPropertyListItem -PropertyName 'Caller'
+            New-AltPropertyListItem -PropertyName 'Callee'
+            New-AltPropertyListItem -PropertyName 'Context'
+            New-AltPropertyListItem -PropertyName 'Path'
+            New-AltPropertyListItem -PropertyName 'NativeFrameEx'
+            New-AltScriptListItem -Label 'RegisterSet' {
+                $_.get_RegisterSet().ToColorString()
+            }
+        } # end List view
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+
+                New-AltScriptColumn -Label 'Child-SP' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    if( $_.IsFrameInline )
+                    {
+                        if( $Debugger.TargetIs32Bit )
+                        {
+                            New-ColorString -Content '(Inline)' -Fore DarkGray
+                        }
+                        else
+                        {
+                            New-ColorString -Content '(Inline Function)' -Fore DarkGray
+                        }
+                    }
+                    else
+                    {
+                        Format-DbgAddress $_.get_StackPointer()
+                    }
+                }
+
+                New-AltScriptColumn -Label 'RetAddr' -Width 17 -Alignment Left -Tag 'Address' -Script {
+                    if( $_.IsFrameInline )
+                    {
+                        if( $Debugger.TargetIs32Bit )
+                        {
+                            New-ColorString -Content '--------' -Fore DarkGray
+                        }
+                        else
+                        {
+                            New-ColorString -Content '--------`--------' -Fore DarkGray
+                        }
+                    }
+                    else
+                    {
+                        Format-DbgAddress $_.get_ReturnAddress()
+                    }
+                }
+
+                New-AltScriptColumn -Label 'Call Site' -Alignment Left -Script {
+                    $_.ToColorString()
+                }
+            } # End Columns
+        } # end Table view
+    } # end Type MS.Dbg.DbgStackFrameInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgFieldInfo' {
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                # TODO: If it's a static, the offset should display differently
+                New-AltPropertyColumn -PropertyName 'Offset' -Width 10 -Alignment Right -FormatString '+0x{0:x3}'
+                New-AltPropertyColumn -PropertyName 'Name' -Width 30 -Alignment Left
+                New-AltScriptColumn -Label 'Type' -Width 35 -Alignment Left -Script {
+                    Get-TypeName( $_ )
+                } -CaptureContext
+                New-AltPropertyColumn -PropertyName 'Size' -Width 7 -Alignment Left -FormatString '0x{0:x}'
+
+                # N.B. To access these variables from a script block, you'll
+                # need to "capture" them using -CaptureContext.
+                $StaticFlag   = New-ColorString -Foreground DarkYellow -Content "S"
+                $ConstantFlag = New-ColorString -Foreground DarkCyan -Content "C"
+                $ArrayFlag    = New-ColorString -Foreground DarkGreen -Content "A"
+                $PointerFlag  = New-ColorString -Foreground DarkMagenta -Content "P"
+                New-AltScriptColumn -Label 'Flags' -Alignment Center -Width 5 -Script {
+                    $cs = New-ColorString -Content ''
+                    [bool] $haveFlag = $false
+                    if( $_.get_IsStatic() )
+                    {
+                        $cs = $cs.Append( $StaticFlag )
+                        $haveFlag = $true
+                    }
+                    else { $cs = $cs.Append( ' ' ) }
+
+                    if( $_.get_IsConstant() )
+                    {
+                        $cs = $cs.Append( $ConstantFlag )
+                        $haveFlag = $true
+                    }
+                    else { $cs = $cs.Append( ' ' ) }
+
+                    if( $_.get_IsArray() )
+                    {
+                        $cs = $cs.Append( $ArrayFlag )
+                        $haveFlag = $true
+                    }
+                    else { $cs = $cs.Append( ' ' ) }
+
+                    if( $_.get_IsPointer() )
+                    {
+                        $cs = $cs.Append( $PointerFlag )
+                        $haveFlag = $true
+                    }
+                    else { $cs = $cs.Append( ' ' ) }
+
+                    if( !$haveFlag )
+                    {
+                        $cs = New-ColorString -Foreground DarkBlue -Content '-'
+                    }
+                    $cs
+                } -CaptureContext # N.B. Closure required to get $StaticFlag, et al.
+
+                New-AltTableFooter -Alignment Center -Script {
+                    (New-ColorString -Background Cyan -Foreground Black -Content 'Flags legend:').
+                        Append( ' ' ).
+                        Append( $StaticFlag ).
+                        Append( ': Static, ' ).
+                        Append( $ConstantFlag ).
+                        Append( ': Constant, ' ).
+                        Append( $ArrayFlag ).
+                        Append( ': Array, ' ).
+                        Append( $PointerFlag ).
+                        Append( ': Pointer' )
+                } -CaptureContext # N.B. Closure required to get $StaticFlag, et al.
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Name'
+            # TODO: If it's a static, the offset should display differently
+            New-AltPropertyListItem -PropertyName 'Offset' -FormatString '+0x{0:x3}'
+            New-AltScriptListItem -Label 'Type' -Script {
+                Get-TypeName( $_ )
+            } -CaptureContext
+            New-AltPropertyListItem -PropertyName 'Size' -FormatString '0x{0:x}'
+            New-AltScriptListItem -Label 'Flags' -Script {
+                $cs = New-ColorString -Content ''
+                if( $_.get_IsStatic() )
+                {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkYellow, "Static " )
+                }
+                if( $_.get_IsConstant() )
+                {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkCyan, "Constant " )
+                }
+                if( $_.get_IsArray() )
+                {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkGreen, "Array " )
+                }
+                if( $_.get_IsPointer() )
+                {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkMagenta, "Pointer " )
+                }
+                if( $cs.get_Length() -eq 0 )
+                {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkBlue, "(none)" )
+                }
+                $cs
+            }
+        } # end list view
+    } # end Type MS.Dbg.DbgFieldInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.Interop.DEBUG_SYMBOL_ENTRY' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'ModuleBase' -Script {
+                Format-DbgAddress $_.ModuleBase
+            }
+            New-AltScriptListItem -Label 'Address' -Script {
+                Format-DbgAddress $_.Offset
+            }
+            New-AltPropertyListItem -PropertyName 'Id'     -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'Size'   -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'TypeId' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'Token'
+            New-AltPropertyListItem -PropertyName 'Arg64'  -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'Arg32'  -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'Tag'
+        } # end list view
+    } # end Type MS.Dbg.DEBUG_SYMBOL_ENTRY
+
+
+    # TODO: Need to have a special function/cmdlet/something for displaying symbol values, which can nest/recurse.
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgUdtValue' {
+        New-AltCustomViewDefinition {
+            $sym = $_.DbgGetSymbol()
+
+            [bool] $truncate = [string]::IsNullOrEmpty( [Environment]::GetEnvironmentVariable( 'DbgShell_DontTruncateUdtView' ) )
+            [int] $truncWidth = $Host.UI.RawUI.BufferSize.Width - 1
+
+            <# I think this name stuff is too much... you probably just typed the name.
+               On the other hand, maybe you /didn't/ just type the name--maybe you did something like "$locals[11].Value",
+               or some other scripty thing. Hm... what to do, what to do...
+            #>
+
+            $cs = New-ColorString -Content 'Name: '
+
+            $cs = $cs.AppendPushPopFgBg( [ConsoleColor]::Black, [ConsoleColor]::DarkCyan, $sym.get_Name() )
+
+            if( $sym.get_NonDerefPathElements() -gt 1 )
+            {
+                # Sometimes the PathString gets really long (like when we've been
+                # iterating through a std::forward_list: "...->_Next->_Next->_Next->_Next->_Next->...".
+                # So we'll truncate it, but trim from the center, so you can see both the
+                # beginning and the end of the path.
+                $widthLeft = $Host.UI.RawUI.BufferSize.Width - $cs.Length - 1
+                $pathCs = (New-ColorString -Content ' ').
+                            AppendPushFg( [ConsoleColor]::DarkGray ).
+                            Append( $sym.PathString ).
+                            Append( ')' ).
+                            AppendPop()
+
+                $pathCs = [MS.Dbg.ColorString]::Truncate( $pathCs, $widthLeft, $true, 'Center' )
+                $null = $cs.Append( $pathCs )
+            }
+
+            if( $sym -is [MS.Dbg.DbgLocalSymbol] )
+            {
+                $cs = $cs.AppendLine().AppendPushPopFg( [ConsoleColor]::Blue, 'Local UDT @ ' )
+            }
+            else
+            {
+                $cs = $cs.AppendLine().AppendPushPopFg( [ConsoleColor]::Blue, 'UDT @ ' )
+            }
+
+            if( $sym.get_IsValueInRegister() )
+            {
+                $cs = $cs.Append( (New-ColorString -Foreground Cyan -Content ('@' + $sym.get_Register().get_Name())) )
+            }
+            else
+            {
+                $cs = $cs.Append( (Format-DbgAddress $sym.get_Address() $sym.Debugger) )
+            }
+
+
+            [bool] $symbolWasTransformed = $_.DbgGetSymbol() -ne $_.DbgGetOperativeSymbol()
+
+            # This is a little weird, as right now, the operative type is already
+            # displayed on the line above. Do I want to put that back the way it was?
+            function AppendSymbolHistoryStuff()
+            {
+                $detectedTypeSym = $_.DbgGetOperativeSymbol()
+                <# assert #> if( $detectedTypeSym -eq $_.DbgGetSymbol() ) { throw "Assert: no derived type detected?" }
+
+                # It gets a little too crazy trying to display the entire symbol transformation
+                # history for more than a simple case... let's just direct users to take a look
+                # themselves.
+
+                $history = $_.DbgGetSymbolHistory()
+
+                if( ($history.Count -gt 2) -or ($history[ 1 ] -isnot [MS.Dbg.DtdRecord]) )
+                {
+                    $cs = $cs.Append( 'Displayed object is ' ).
+                              AppendPushPopFg( [ConsoleColor]::Yellow, 'type: ' ).
+                              Append( (Format-DbgTypeName $detectedTypeSym.Type.Name) ).
+                              Append( ' ' ).
+                              AppendPushPopFgBg( [ConsoleColor]::Black, [ConsoleColor]::Blue, '(see symbol history)' )
+                }
+                else
+                {
+                    Assert ($history[ 1 ] -is [MS.Dbg.DtdRecord])
+
+                    $cs = $cs.Append( 'Detected ' ).
+                              AppendPushPopFg( [ConsoleColor]::Yellow, 'derived' ).
+                              Append( ' type ' ).
+                              Append( (Format-DbgTypeName $detectedTypeSym.Type.Name) )
+
+                    $offset = (([Int64] $detectedTypeSym.Address) - ([Int64] $sym.Address))
+                    if( $offset -ne 0 )
+                    {
+                        $sign = '+'
+                        if( $offset -lt 0 )
+                        {
+                            $sign = '-'
+                            $offset = [Math]::Abs( $offset )
+                        }
+
+                        $csSuffix = New-ColorString -Fore Black `
+                                                    -Back Yellow `
+                                                    -Content ([String]::Format( '{0}0x{1:x}', $sign, $offset ))
+
+                        $cs = $cs.Append( ', at offset ' ).
+                                  Append( $csSuffix )
+                    }
+                }
+            } # end function AppendSymbolHistoryStuff
+
+            # If there is a single-line view definition for this object, let's
+            # use that to display a nice "summary" of the value. If not, we'll
+            # just display the type. (We don't want to do both, because usually
+            # the single-line view includes the type, and we don't want the
+            # redundant info.)
+            $slfi = Get-AltTypeFormatEntry -InputObject $_ -FormatInfoType MS.Dbg.Formatting.AltSingleLineViewDefinition | Select-Object -First 1
+            if( ($null -ne $slfi) -and !$sym.IsValueUnavailable )
+            {
+                if( $symbolWasTransformed )
+                {
+                    # But if we detected a derived type, let's still let the user know.
+                    # assert $sym is not in a register
+                    $cs = $cs.Append( ' (' )
+                    AppendSymbolHistoryStuff
+                    $cs = $cs.Append( ')' )
+                }
+                $cs = $cs.Append( ': ' ).Append( (Format-AltSingleLine -InputObject $_ -View $slfi) )
+            }
+            else
+            {
+                if( $symbolWasTransformed )
+                {
+                    $cs = $cs.Append( ' ' )
+                    AppendSymbolHistoryStuff
+                }
+                else
+                {
+                    $cs = $cs.Append( ' Type ' ).Append( (Format-DbgTypeName $sym.get_Type().get_Name()) )
+                }
+            }
+
+            assert (!$sym.get_IsPointer()) # if it were a pointer, it would be a DbgPointerValue, not a DbgUdtValue
+
+
+            $cs
+
+            #
+            # (done with the 'header')
+            #
+
+            $statics = $null
+            $members = New-Object System.Collections.Generic.List[System.Management.Automation.PSPropertyInfo]
+            $dynamicProps = $null
+
+            foreach( $prop in $_.PSObject.Properties )
+            {
+                if( $null -eq (Get-Member -Name 'FieldInfo' -InputObject $prop) )
+                {
+                    # This was something stuck onto the symbol value by a symbol value
+                    # conversion script; not something that is actually a member of the
+                    # variable (it's not something you would see in windbg--it has no
+                    # offset, etc.).
+                    if( !$dynamicProps )
+                    {
+                        $dynamicProps = New-Object System.Collections.Generic.List[System.Management.Automation.PSPropertyInfo]
+                    }
+                    $dynamicProps.Add( $prop )
+                    continue
+                }
+
+                # TODO: Put an IsStatic property back on... this is ugly
+                if( $prop.get_FieldInfo().IsStatic )
+                {
+                    if( !$statics )
+                    {
+                        $statics = New-Object System.Collections.Generic.List[System.Management.Automation.PSPropertyInfo]
+                    }
+                    $statics.Add( $prop )
+                    continue
+                }
+
+                $members.Add( $prop )
+            } # end foreach( property )
+
+            if( $statics -and ($statics.Count -gt 0) )
+            {
+                New-ColorString -Content 'Statics:' -Foreground Cyan
+                foreach( $static in $statics )
+                {
+                    $cs = New-ColorString -Content '   ='
+                    if( $static.get_Symbol().IsValueUnavailable )
+                    {
+                        #TODO: Debug this
+                        $cs = $cs.Append( 'BUG: How could a static not be available?  ' )
+                        $cs = $cs.Append( $static.FieldInfo.Name )
+                        $cs
+                        continue
+                    }
+                    $cs = $cs.Append( (Format-DbgAddress $static.Symbol.Address $static.Symbol.Debugger) ).Append( ' ' )
+                    $cs = $cs.Append( (Pad $static.FieldInfo.Name 29) ).Append( ' : ' )
+                    try
+                    {
+                        $cs = $cs.Append( (Summarize-SymValue $static.get_Value()) )
+                    }
+                    catch
+                    {
+                        $problem = $_
+                        $cs = $cs.Append( (New-ColorString -Fore 'Red' -Content $problem.ToString()) )
+                    }
+
+                    if( $truncate ) {
+                        [MS.Dbg.ColorString]::Truncate( $cs, $truncWidth )
+                    } else {
+                        $cs
+                    }
+                } # end foreach( static )
+            } # end if( there are statics to display )
+
+            if( $members.Count -gt 0 )
+            {
+                if( $statics -and ($statics.Count -gt 0) )
+                {
+                    # We only need to have this label if there are statics preceding the members.
+                    New-ColorString -Content 'Members:' -Foreground Cyan
+                }
+
+                foreach( $mem in $members )
+                {
+                    if( $mem.get_Symbol().IsValueUnavailable )
+                    {
+                        $cs = $cs.Append( $mem.FieldInfo.Name )
+                        $cs
+                        continue
+                    }
+                    $cs = New-ColorString -Content '   +0x'
+                    $cs = $cs.Append( $mem.FieldInfo.Offset.ToString( "x3" ) ).Append( ' ' )
+                    $cs = $cs.Append( (Pad $mem.FieldInfo.Name 29) ).Append( ' : ' )
+                    try
+                    {
+                        $cs = $cs.Append( (Summarize-SymValue $mem.get_Value()) )
+                    }
+                    catch
+                    {
+                        $problem = $_
+                        $cs = $cs.Append( (New-ColorString -Fore 'Red' -Content $problem.ToString()) )
+                    }
+
+                    if( $truncate ) {
+                        [MS.Dbg.ColorString]::Truncate( $cs, $truncWidth )
+                    } else {
+                        $cs
+                    }
+                } # end foreach( member )
+            } # end if( there are members to display )
+
+            if( $dynamicProps -and ($dynamicProps.Count -gt 0) )
+            {
+                New-ColorString -Content 'Synthetic (debugger-generated) properties:' -Foreground Cyan
+
+                foreach( $mem in $dynamicProps )
+                {
+                    $cs = New-ColorString -Content '   '
+                    $cs = $cs.Append( (Pad $mem.Name 36) ).Append( ' : ' )
+                    try
+                    {
+                        $cs = $cs.Append( (Format-AltSingleLine -InputObject $mem.Value) )
+                    }
+                    catch
+                    {
+                        $problem = $_
+                        $cs = $cs.Append( (New-ColorString -Fore 'Red' -Content $problem.ToString()) )
+                    }
+
+                    if( $truncate ) {
+                        [MS.Dbg.ColorString]::Truncate( $cs, $truncWidth )
+                    } else {
+                        $cs
+                    }
+                } # end foreach( member )
+            } # end if( there are dynamicProps to display )
+        } # end AltCustomViewDefinition
+    } # end Type MS.Dbg.DbgUdtValue
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgPointerValue' {
+        New-AltSingleLineViewDefinition {
+            $_.ToColorString()
+        } # end single-line view
+
+        New-AltCustomViewDefinition {
+            $sym = $_.DbgGetSymbol()
+            if( $sym.IsThreadLocal ) {
+                $cs = (New-ColorString -Foreground 'Blue' -Background 'White' -Content 'Pointer').
+                        Append( ' ' ).
+                        AppendPushPopFgBg( [ConsoleColor]::Yellow, [ConsoleColor]::DarkBlue, '(ThreadLocal)' ).
+                        Append( ':' )
+            } else {
+                $cs = (New-ColorString -Foreground 'Blue' -Background 'White' -Content 'Pointer:')
+            }
+            [void] $cs.Append( ' (' )
+            if( $sym.get_IsValueUnavailable() )
+            {
+                # Actually, we should never get here, because if the value is
+                # unavailable, we should not be able to have a DbgPointerValue in the
+                # first place.
+                [void] $cs.AppendPushPopFg( [ConsoleColor]::Blue, '-' )
+            }
+            elseif( $sym.get_IsValueInRegister() )
+            {
+                [void] $cs.AppendPushPopFg( [ConsoleColor]::Cyan, ("@" + $sym.get_Register().get_Name()) )
+            }
+            else
+            {
+                [void] $cs.Append( (Format-DbgAddress $sym.get_Address()) )
+            }
+            [void] $cs.Append( ') ' )
+            [void] $cs.Append( $_.ToColorString() )
+            $cs
+
+            # Follow the pointer(s):
+            $ultimatePointee = $_.DbgFollowPointers()
+
+            # Many pointees don't have more to contribute to the display, so we'll only
+            # show more for UDTs.
+            #
+            # We don't just check "-is [MS.Dbg.DbgUdtValue]" because symbol value
+            # may have yielded something else instead.
+            if( $ultimatePointee -and $ultimatePointee.DbgGetSymbol().IsUdt )
+            {
+                # Sending it to Out-String is the original way I had it. But then in
+                # commit a1d7c9fa I changed it to Format-AltCustom, with the explanation
+                # "[b]ecause if the default view for the pointee is a table view, it looks
+                # a little bit crazy." But I'm going to have to go back to the "crazy"
+                # view, because symbol value conversion might yield something that doesn't
+                # have a custom view definition.
+                #$ultimatePointee | Out-String -Stream
+                Out-String -Stream -InputObject $ultimatePointee
+            }
+            # and maybe array values?
+        }
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Pointer' -Width 10 -Alignment Center -Tag 'Address' -Script {
+                    Format-DbgAddress $_.DbgGetPointer()
+                }
+                New-AltScriptColumn -Label 'Value' -Alignment Left -Script {
+                    if( $_.DbgIsNull() )
+                    {
+                        Format-DbgAddress 0 # "(null)"
+                    }
+                    else
+                    {
+                        Format-AltSingleLine -InputObject $_.DbgGetPointee()
+                    }
+                }
+            } # End Columns
+        } # end Table view
+    } # end type MS.Dbg.DbgPointerValue
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.Commands.AltTypeFormatEntryPair' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -PropertyName 'TypeName' -Alignment Left
+                New-AltScriptColumn -Label 'ViewDefinitionInfo' -Alignment Left -Script {
+                    $_.get_ViewDefinitionInfo().get_ViewDefinition().GetType().FullName
+                }
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'TypeName'
+            New-AltScriptListItem -Label 'ViewDefinitionInfo.ViewDefinition' -Script {
+                $_.get_ViewDefinitionInfo().get_ViewDefinition().GetType().FullName
+            }
+            New-AltScriptListItem -Label 'ViewDefinitionInfo.SourceScript' -Script {
+                $_.ViewDefinitionInfo.SourceScript
+            }
+        } # end list view
+    } # end Type MS.Dbg.Formatting.Commands.AltTypeFormatEntryPair
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.Column' {
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Column Type' -Width 11 -Alignment Center -Script {
+                    if( $_ -is [MS.Dbg.Formatting.ScriptColumn] )
+                    {
+                        New-ColorString -Foreground DarkYellow -Content 'Script'
+                    }
+                    else
+                    {
+                        New-ColorString -Foreground DarkMagenta -Content 'Property'
+                    }
+                }
+                New-AltPropertyColumn -PropertyName 'Label' -Width 25
+                New-AltScriptColumn -Label 'PropertyName' -Width 25 -Alignment Center -Script {
+                    if( $_ -is [MS.Dbg.Formatting.ScriptColumn] )
+                    {
+                        New-ColorString -Foreground DarkGray -Content 'n/a'
+                    }
+                    else
+                    {
+                        $_.get_PropertyName()
+                    }
+                }
+                New-AltScriptColumn -Label 'Width' -Width 5 -Alignment Center -Script {
+                    if( $_.get_Width() -eq 0  )
+                    {
+                        New-ColorString -Foreground DarkGray -Content '*'
+                    }
+                    else
+                    {
+                        $_.Width
+                    }
+                }
+                New-AltPropertyColumn -PropertyName 'Alignment' -Width 11 -Alignment Center
+                New-AltPropertyColumn -PropertyName 'Tag' -Width 15 -Alignment Center
+                New-AltScriptColumn -Label 'FormatString' -Alignment Center -Script {
+                    if( $_ -is [MS.Dbg.Formatting.ScriptColumn] )
+                    {
+                        New-ColorString -Foreground DarkGray -Content 'n/a'
+                    }
+                    else
+                    {
+                        if( $_.get_FormatString() )
+                        {
+                            '''' + $_.FormatString + ''''
+                        }
+                    }
+                }
+            } # End Columns
+        } # end Table view
+    } # end Type MS.Dbg.Formatting.Column
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.ScriptColumn' {
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Label'
+            New-AltPropertyListItem -PropertyName 'Width'
+            New-AltPropertyListItem -PropertyName 'Tag'
+            New-AltPropertyListItem -PropertyName 'Alignment'
+            New-AltScriptListItem -Label 'Script' {
+                RenderScript $_.get_Script()
+            }
+        } # end list view
+    } # end type MS.Dbg.Formatting.ScriptColumn
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.PropertyColumn' {
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Label'
+            New-AltPropertyListItem -PropertyName 'Width'
+            New-AltPropertyListItem -PropertyName 'Tag'
+            New-AltPropertyListItem -PropertyName 'PropertyName'
+            New-AltPropertyListItem -PropertyName 'FormatString'
+        } # end list view
+    } # end type MS.Dbg.Formatting.PropertyColumn
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.AltTableViewDefinition' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label '(Type)' -Script {
+                HighlightTypeName $_
+            }
+            New-AltPropertyListItem -PropertyName 'FormatCommand'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'ShowIndex'
+            New-AltScriptListItem -Label 'Columns' -Script {
+                foreach( $c in $_.get_Columns() )
+                {
+                    $c.get_Label()
+                }
+            }
+            New-AltPropertyListItem -PropertyName 'GroupBy'
+            New-AltPropertyListItem -PropertyName 'ProduceGroupByHeader'
+            New-AltPropertyListItem -PropertyName 'Footer'
+        } # end list view
+    } # end type MS.Dbg.Formatting.AltTableViewDefinition
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.AltListViewDefinition' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label '(Type)' -Script {
+                HighlightTypeName $_
+            }
+            New-AltPropertyListItem -PropertyName 'FormatCommand'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltScriptListItem -Label 'ListItems' -Script {
+                foreach( $c in $_.get_ListItems() )
+                {
+                    $c.get_Label()
+                }
+            }
+        } # end list view
+    } # end type MS.Dbg.Formatting.AltListViewDefinition
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.AltCustomViewDefinition' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label '(Type)' -Script {
+                HighlightTypeName $_
+            }
+            New-AltScriptListItem -Label 'Script' {
+                RenderScript $_.get_Script()
+            }
+        } # end list view
+    } # end type MS.Dbg.Formatting.AltCustomViewDefinition
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.AltSingleLineViewDefinition' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label '(Type)' -Script {
+                HighlightTypeName $_
+            }
+            New-AltScriptListItem -Label 'Script' {
+                RenderScript $_.get_Script()
+            }
+        } # end list view
+    } # end type MS.Dbg.Formatting.AltSingleLineViewDefinition
+
+
+    <# I think this view is not useful, because the information is not useful
+      for the user--it lacks the information of which type each view is for.
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Formatting.ViewDefinitionInfo' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -PropertyName 'ViewDefinition' -Width 40 -Alignment Left
+                # TODO: better file truncation (so you can see the file name, if not the whole path)
+                New-AltPropertyColumn -PropertyName 'SourceScript' -Alignment Left
+            }
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'ViewDefinition' -Script {
+                HighlightTypeName $_.ViewDefinition
+            }
+            New-AltPropertyListItem -PropertyName 'SourceScript'
+        } # end list view
+    } # end type MS.Dbg.Formatting.ViewDefinitionInfo
+    #>
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgNamedTypeInfo' {
+        New-AltSingleLineViewDefinition {
+            $_.get_ColorName()
+        } # end single-line view
+    } # end type MS.Dbg.DbgNamedTypeInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgPointerTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'Size'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'IsReference'
+            New-AltPropertyListItem -PropertyName 'PointeeType'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgPointerTypeInfo
+
+    function script:GenerateCommonUdtListItems()
+    {
+        New-AltScriptListItem -Label 'SymTag' {
+            New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+        }
+        New-AltPropertyListItem -PropertyName 'UdtKind'
+        New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+        New-AltPropertyListItem -PropertyName 'Size'
+        New-AltPropertyListItem -PropertyName 'IsAbstract'
+        New-AltPropertyListItem -PropertyName 'Module'
+        New-AltPropertyListItem -PropertyName 'VTable'
+        New-AltPropertyListItem -PropertyName 'BaseClasses'
+        New-AltPropertyListItem -PropertyName 'VirtualBaseClasses'
+        New-AltPropertyListItem -PropertyName 'StaticMembers'
+        New-AltPropertyListItem -PropertyName 'Members'
+        New-AltPropertyListItem -PropertyName 'Functions'
+        New-AltPropertyListItem -PropertyName 'NestedTypes'
+        New-AltPropertyListItem -PropertyName 'NestedEnums'
+        New-AltPropertyListItem -PropertyName 'Typedefs'
+    }
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgMemory' {
+        New-AltCustomViewDefinition {
+            if($_.DefaultDisplayFormat -eq [MS.Dbg.DbgMemoryDisplayFormat]::DWordsWithBits) {
+                "                    3          2          1          0"
+                "                   10987654 32109876 54321098 76543210"
+                "                   -------- -------- -------- --------"
+            }
+            $_.ToColorString()
+        }
+    }
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgUdtTypeInfo' {
+        New-AltCustomViewDefinition {
+            $_.Layout # Layout implements ISupportColor so this will yield Layout.ToColorString()
+        } # end AltCustomViewDefinition
+
+        New-AltListViewDefinition -ListItems {
+            GenerateCommonUdtListItems
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Name' -Width 30 -Alignment Left -Script {
+                    Format-DbgTypeName $_.Name
+                }
+                New-AltPropertyColumn -PropertyName 'Size'       -Width 6  -Alignment Right
+                New-AltPropertyColumn -PropertyName 'IsAbstract' -Width 10 -Alignment Center
+                New-AltScriptColumn   -Label        'Module'     -Width 13 -Alignment Left -Script {
+                    Format-DbgModuleName $_.Module.Name
+                }
+                New-AltPropertyColumn -PropertyName 'BaseClasses'  -Width 38 -Alignment Left
+            } # End Columns
+        } # end Table view
+    } # end type MS.Dbg.DbgUdtTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgBaseClassTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            GenerateCommonUdtListItems
+            New-AltPropertyListItem -PropertyName 'IsVirtualBaseClass'
+            New-AltPropertyListItem -PropertyName 'IsIndirectVirtualBaseClass'
+            New-AltPropertyListItem -PropertyName 'Offset'
+            New-AltPropertyListItem -PropertyName 'BaseClassTypeId'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+
+        New-AltSingleLineViewDefinition {
+            $_.get_ColorName()
+        } # end single-line view
+    } # end type MS.Dbg.DbgBaseClassTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgVirtualBaseClassTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            GenerateCommonUdtListItems
+            New-AltPropertyListItem -PropertyName 'IsVirtualBaseClass'
+            New-AltPropertyListItem -PropertyName 'IsIndirectVirtualBaseClass'
+            New-AltPropertyListItem -PropertyName 'VirtualBaseDispIndex'
+            New-AltPropertyListItem -PropertyName 'VirtualBasePointerOffset'
+            New-AltPropertyListItem -PropertyName 'BaseClassTypeId'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+
+        New-AltSingleLineViewDefinition {
+            $_.get_ColorName()
+        } # end single-line view
+    } # end type MS.Dbg.DbgVirtualBaseClassTypeInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgDataMemberTypeInfo' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -PropertyName 'Offset' -Width 8 -Alignment Right
+                New-AltPropertyColumn -PropertyName 'Size'  -Width 5 -Alignment Right
+                New-AltPropertyColumn -PropertyName 'ColorName' -Label 'Name' -Width 38 -Alignment Left
+                New-AltPropertyColumn -PropertyName 'DataType'  -Width 38 -Alignment Left
+                New-AltPropertyColumn -PropertyName 'OwningType'  -Alignment Left
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'DataKind'
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'DataType'
+            New-AltScriptListItem   -Label        'OwningType' -Script {
+                if( $_ -is [MS.Dbg.DbgDataInheritedMemberTypeInfo] )
+                {
+                    (Format-AltSingleLine -InputObject $_.OwningType) + " (inherited)"
+                }
+                else
+                {
+                    Format-AltSingleLine -InputObject $_.OwningType
+                }
+            }
+            New-AltPropertyListItem -PropertyName 'Size'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'Offset'
+            New-AltScriptListItem   -Label        'BitfieldPosition' -Script {
+                if( $_.IsBitfield )
+                {
+                    Format-AltSingleLine -InputObject $_.BitfieldPosition
+                }
+                else
+                {
+                    New-ColorString -Content "n/a" -Foreground Blue
+                }
+            }
+            New-AltScriptListItem   -Label        'BitfieldLength' -Script {
+                if( $_.IsBitfield )
+                {
+                    Format-AltSingleLine -InputObject $_.BitfieldLength
+                }
+                else
+                {
+                    New-ColorString -Content "n/a" -Foreground Blue
+                }
+            }
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgDataMemberTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgDataStaticMemberTypeInfo' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn   -Label        'Address' -Width 10 -Tag 'Address' -Alignment Right -Script {
+                    Format-DbgAddress $_.Address
+                }
+                New-AltPropertyColumn -PropertyName 'Size'  -Width 5 -Alignment Right
+                New-AltPropertyColumn -PropertyName 'ColorName' -Label 'Name' -Width 38 -Alignment Left
+                New-AltPropertyColumn -PropertyName 'DataType'  -Width 38 -Alignment Left
+                New-AltPropertyColumn -PropertyName 'OwningType'  -Alignment Left
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'DataKind'
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'DataType'
+            New-AltPropertyListItem -PropertyName 'OwningType'
+            New-AltPropertyListItem -PropertyName 'Size'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'Address'
+            New-AltPropertyListItem -PropertyName 'AddressOffset'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgDataStaticMemberTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgBaseTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'Size'
+            New-AltPropertyListItem -PropertyName 'BaseType'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgBaseTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgFunctionTypeTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'ClassParent'
+            New-AltScriptListItem   -Label        'ThisAdjust' -Script {
+                if( !$_.ClassParent )
+                {
+                    New-ColorString -Content "n/a" -Foreground Blue
+                }
+                else
+                {
+                    $_.ThisAdjust
+                }
+            }
+            New-AltPropertyListItem -PropertyName 'CallingConvention'
+            New-AltPropertyListItem -PropertyName 'ReturnType'
+            New-AltPropertyListItem -PropertyName 'Arguments'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -PropertyName 'TypeId'  -Width 8 -Alignment Left
+                New-AltScriptColumn   -Label        'Module' -Width 13 -Alignment Left -Script {
+                    Format-DbgModuleName $_.Module.Name
+                }
+                New-AltPropertyColumn -PropertyName 'ReturnType' -Width 15 -Alignment Right
+                New-AltPropertyColumn -PropertyName 'Arguments'  -Alignment Left
+            } # End Columns
+        } # end Table view
+    } # end type MS.Dbg.DbgFunctionTypeTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgFunctionArgTypeTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ArgType'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+
+        New-AltSingleLineViewDefinition {
+            Format-AltSingleLine -InputObject $_.ArgType
+        } # end single-line view
+    } # end type MS.Dbg.DbgFunctionArgTypeTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgNullTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'Size'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgNullTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgTypedefTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            #New-AltPropertyListItem -PropertyName 'Size'
+            New-AltPropertyListItem -PropertyName 'RepresentedType'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -PropertyName 'TypeId'  -Width 8 -Alignment Left
+                New-AltScriptColumn   -Label        'Module' -Width 13 -Alignment Left -Script {
+                    Format-DbgModuleName $_.Module.Name
+                }
+                New-AltPropertyColumn -PropertyName 'ColorName' -Label 'Name' -Alignment Right
+                New-AltPropertyColumn -PropertyName 'RepresentedType'  -Alignment Left
+            } # End Columns
+        } # end Table view
+    } # end type MS.Dbg.DbgTypedefTypeInfo
+
+    function script:Format-FunctionAddress( $f )
+    {
+        if( 0 -eq $f.Address )
+        {
+            New-ColorString -Content "abstract" -Foreground DarkMagenta
+        }
+        else
+        {
+            Format-DbgAddress $f.Address
+        }
+    } # end Format-FunctionAddress
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgFunctionTypeInfo' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Address' -Width 10 -Alignment Center -Tag 'Address' -Script {
+                    Format-FunctionAddress $_
+                }
+                New-AltPropertyColumn -Property 'Signature' -Alignment Left
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'OwningClass'
+            New-AltPropertyListItem -PropertyName 'FunctionType'
+            New-AltPropertyListItem -PropertyName 'Children'
+            New-AltScriptListItem -Label 'Address' {
+                Format-FunctionAddress $_
+            }
+            New-AltPropertyListItem -PropertyName 'Length'
+            New-AltPropertyListItem -PropertyName 'VirtualBaseOffset'
+            # I don't know what SymIndex even is, so I guess I won't bother showing it.
+            #New-AltPropertyListItem -PropertyName 'SymIndex'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgFunctionTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgVTableTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'Offset'
+            New-AltPropertyListItem -PropertyName 'VTableShape'
+            New-AltPropertyListItem -PropertyName 'OwningType'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgVTableTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgVTableShapeTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'NumSlots'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgVTableShapeTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgEnumTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'Size'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'Enumerands'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgEnumTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.Enumerand' {
+        New-AltTableViewDefinition -ShowIndex {
+            New-AltColumns {
+                New-AltPropertyColumn -PropertyName 'Name' -Width 36 -Alignment Right -FormatString (New-ColorString -Content '{0}' -Foreground Cyan)
+                New-AltPropertyColumn -PropertyName 'Value' -Alignment Left -FormatString '0x{0:x2}'
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Name'
+            New-AltPropertyListItem -PropertyName 'Value'
+        } # end list view
+
+        New-AltSingleLineViewDefinition {
+            (New-ColorString -Content $_.Name -Foreground Cyan) + '(' + $_.Value.ToString() + ')'
+        } # end single-line view
+    } # end type MS.Dbg.Enumerand
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgArrayTypeInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'SymTag' {
+                New-ColorString -Content $_.SymTag.ToString() -Foreground Green
+            }
+            New-AltPropertyListItem -PropertyName 'ColorName' -Label 'Name'
+            New-AltPropertyListItem -PropertyName 'Module'
+            New-AltPropertyListItem -PropertyName 'ArrayElementType'
+            New-AltPropertyListItem -PropertyName 'Count'
+            New-AltPropertyListItem -PropertyName 'Size'
+            New-AltPropertyListItem -PropertyName 'TypeId'
+        } # end list view
+    } # end type MS.Dbg.DbgArrayTypeInfo
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgArrayValue' {
+        # DbgArrayValue implements IReadOnlyList, so the default generated
+        # single-line view ("$_") will cause PowerShell to unroll it... but
+        # DbgArrayValue has a custom ToString() that's better.
+        New-AltSingleLineViewDefinition {
+            $_.ToColorString()
+        } # end single-line view
+
+        # TODO: Need other custom views, else the PowerShell F+O will unroll it.
+    } # end type MS.Dbg.DbgArrayValue
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgValueConverterInfo' {
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'TypeName' -Width 55 -Alignment Left -Script {
+                    Format-DbgTypeName $_.TypeName
+                }
+                New-AltPropertyColumn -PropertyName 'SourceScript' -Alignment Left -TrimLocation 'Center'
+            } # End Columns
+        } # end Table view
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'TypeName' -Script {
+                Format-DbgTypeName $_.TypeName
+            }
+            New-AltPropertyListItem -PropertyName 'SourceScript'
+            New-AltPropertyListItem -PropertyName 'ScopingModule'
+            New-AltScriptListItem -Label 'Converter' -Script {
+                if( $_.Converter -is [MS.Dbg.DbgValueScriptConverter] )
+                {
+                    RenderScript $_.Converter.get_Script()
+                }
+                else
+                {
+                    $_.Converter
+                }
+            }
+        } # end list view
+
+        New-AltSingleLineViewDefinition {
+            ("Converter for: " + $_.TypeName)
+        } # end single-line view
+    } # end type MS.Dbg.DbgValueConverterInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgDisassembly' {
+        New-AltCustomViewDefinition -Script {
+            if( !(Test-Path 'Variable:\_tmp_ currentIpIndicator') )
+            {
+                [string] $rightTri = [char] 0x25ba
+                ${_tmp_ currentIpIndicator} = (New-ColorString -Content $rightTri -Background Green -Foreground Black).Append( (New-ColorString -Content $rightTri -Background Black -Foreground Green) )
+                try
+                {
+                    $currentIp = $ip
+                }
+                catch
+                {
+                    # We might not have a current register context. That's fine; we just
+                    # won't get a current IP indicator.
+                    $currentIp = 0
+                }
+            }
+
+            if( $_.Address -eq $currentIp )
+            {
+                (New-ColorString -Content '' ).Append( ${_tmp_ currentIpIndicator} ).Append( ' ' ).Append( $_.ToColorString() )
+            }
+            else
+            {
+                (New-ColorString -Content '   ' ).Append( $_.ToColorString() )
+            }
+        } -GroupBy 'BlockId' -ProduceGroupByHeader {
+            # The input object is the output of the GroupBy evaluation that is
+            # new since the last one. In our case, it should be a ColorString
+            # (the BlockId), which we want to just use directly.
+            $_
+        } # end AltCustomViewDefinition
+
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'Address' -Script {
+                Format-DbgAddress $_.Address
+            }
+            New-AltPropertyListItem -PropertyName 'BlockId'
+            New-AltScriptListItem -Label 'Instruction' -Script {
+                [MS.Dbg.DbgProvider]::ColorizeInstruction( $_.Instruction )
+            }
+            New-AltPropertyListItem -PropertyName 'Arguments'
+            New-AltPropertyListItem -PropertyName 'CodeBytes'
+        } -GroupBy 'BlockId' -ProduceGroupByHeader {
+            # The input object is the output of the GroupBy evaluation that is
+            # new since the last one. In our case, it should be a ColorString
+            # (the BlockId), which we want to just use directly.
+            $_
+        } # end List view
+
+        New-AltTableViewDefinition {
+            # TODO: Add group-by capabilities to table views so that we can group by BlockId.
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Address' -Width 8 -Alignment Center -Tag 'Address' -Script {
+                    Format-DbgAddress $_.Address
+                }
+                New-AltScriptColumn -Label 'Instr.' -Width 8 -Alignment Right  -Script {
+                    [MS.Dbg.DbgProvider]::ColorizeInstruction( $_.Instruction )
+                }
+                New-AltPropertyColumn -PropertyName 'Arguments' -Alignment Left
+            } # End Columns
+        }  -GroupBy 'BlockId' -ProduceGroupByHeader {
+            # The input object is the output of the GroupBy evaluation that is
+            # new since the last one. In our case, it should be a ColorString
+            # (the BlockId), which we want to just use directly.
+            $_
+        } # end Table view
+    } # end Type MS.Dbg.DbgDisassembly
+
+
+    New-AltTypeFormatEntry -TypeName @( 'MS.Dbg.DbgContainer', 'MS.Dbg.DbgItem', 'MS.Dbg.DbgLeafItem' ) {
+        New-AltCustomViewDefinition -Script {
+
+            # We can keep using variables that were defined/set in the
+            # ProduceGroupByHeader scriptblock.
+
+            # This shows what variables are available here.
+            #Get-Variable | ft
+            #[console]::WriteLine( "Per-Item block: nameColumnWidth: $nameColumnWidth" )
+            #[console]::WriteLine( "Per-Item block: summaryColumnWidth: $summaryColumnWidth" )
+
+            $childItem = $_
+
+            $null = $sb.Clear()
+            if( $childItem -is [MS.Dbg.DbgContainer] )
+            {
+                $null = $sb.Append( '[container]   ' )
+                $null = $sb.Append( $childItem.Name )
+                # TODO: Why not let containers be summarized as well? ("13 threads", etc.)
+            }
+            else
+            {
+                $null = $sb.Append( '              ' )
+                $null = $sb.Append( (Truncate $childItem.Name $nameColumnWidth $true) )
+                $summary = $null
+                try
+                {
+                    $summary = $childItem.Summarize( $summaryColumnWidth )
+                }
+                catch
+                {
+                    $e = $_
+                    [string] $msg = $null
+                    if( $e.Exception -is [System.Management.Automation.MethodInvocationException] )
+                    {
+                        $msg = $e.Exception.InnerException.Message
+                    }
+                    else
+                    {
+                        $msg = $e.Exception.Message
+                    }
+                    $summary = New-ColorString -Fore Red -Content "Error: $($msg)"
+                    $summary = [MS.Dbg.ColorString]::Truncate( $summary, $summaryColumnWidth )
+                }
+
+                if( $summary -and ($summary.Length -gt 0) )
+                {
+                    $null = $sb.Append( ' : ' )
+                    $null = $sb.Append( $summary.ToString( $HostSupportsColor ) )
+                }
+            } # end else( it's not a container )
+            $sb.ToString()
+        } -GroupBy 'PSParentPath' -ProduceGroupByHeader {
+            # The input object is the output of the GroupBy evaluation that is
+            # new since the last one. In our case, it's the PSParentPath.
+
+            [string] $dir = $null
+            if( $_ -eq '' )
+            {
+                $dir = '\'
+            }
+            else
+            {
+                $dir = $_.Replace( 'Debugger::', '\' )
+            }
+
+            $sb = New-Object 'System.Text.StringBuilder' -ArgumentList @( $Host.UI.RawUI.BufferSize.Width )
+            $null = $sb.AppendLine().Append( '    Directory: ' ).Append( $dir )
+            $null = $sb.AppendLine().AppendLine()
+            $null = $sb.AppendLine( 'Container     Name' )
+            $null = $sb.Append(      '---------     ----' )
+
+            $sb.ToString()
+
+            # We're only going to pay attention to the first 100 items.
+            [int] $maxItemWidth = 0
+            $childItems = Get-ChildItem -LiteralPath $dir | Select-Object -First 100 | %{
+                if( $_ -ne [MS.Dbg.DbgContainer] )
+                {
+                    $maxItemWidth = [Math]::Max( $_.Name.Length, $maxItemWidth )
+                }
+            } # end foreach( child item ) (1st pass)
+
+            #[console]::WriteLine( "maxItemWidth: $maxItemWidth" )
+
+            $nameColumnWidth = $maxItemWidth
+            $overBudget = ($nameColumnWidth + 17 + 20) - $Host.UI.RawUI.BufferSize.Width
+            #[console]::WriteLine( "overBudget: $overBudget" )
+            if( $overBudget -gt 0 )
+            {
+                $nameColumnWidth = $nameColumnWidth - $overBudget
+            }
+            #[console]::WriteLine( "nameColumnWidth: $nameColumnWidth" )
+            [int] $summaryColumnWidth = $Host.UI.RawUI.BufferSize.Width - $nameColumnWidth - 17 - 1
+            #[console]::WriteLine( "summaryColumnWidth: $summaryColumnWidth" )
+        } -PreserveHeaderContext # end AltCustomViewDefinition
+    } # end Type MS.Dbg.Dbg[Container|Item]
+
+
+    New-AltTypeFormatEntry -TypeName @( 'System.Collections.Generic.KeyValuePair<?,?>', 'System.Collections.DictionaryEntry' ) {
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Key' -Alignment Left -Script {
+                    Format-AltSingleLine -InputObject $_.Key
+                }
+                New-AltScriptColumn -Label 'Value' -Alignment Left -Script {
+                    Format-AltSingleLine -InputObject $_.Value
+                }
+            } # End Columns
+        } # end Table view
+    } # end Type KeyValuePair<?,?>, DictionaryEntry
+
+    New-AltTypeFormatEntry -TypeName 'System.Collections.Generic.Dictionary<?,?>' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'Comparer' {
+                if( $null -ne $_.Comparer )
+                {
+                    $tn = $_.Comparer.GetType().FullName
+                    $tn = [MS.Dbg.Formatting.AltFormattingManager]::ReformManagedTypeName( $tn, $true )
+                    Format-DbgTypeName $tn
+                } # end if( Comparer )
+            }
+            New-AltPropertyListItem -PropertyName 'Count'
+            New-AltPropertyListItem -PropertyName 'Keys'
+            New-AltPropertyListItem -PropertyName 'Values'
+            New-AltPropertyListItem -PropertyName 'IsReadOnly'
+            New-AltPropertyListItem -PropertyName 'IsFixedSize'
+            New-AltPropertyListItem -PropertyName 'SyncRoot'
+            New-AltPropertyListItem -PropertyName 'IsSynchronized'
+        } # end list view
+
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltPropertyColumn -PropertyName 'Count' -Width 5 -Alignment Right
+                New-AltPropertyColumn -PropertyName 'IsReadOnly' -Width 10 -Alignment Right
+                New-AltScriptColumn -Label 'Comparer' -Width 30 -Alignment Left -Script {
+                    if( $null -ne $_.Comparer )
+                    {
+                        $tn = $_.Comparer.GetType().FullName
+                        $tn = [MS.Dbg.Formatting.AltFormattingManager]::ReformManagedTypeName( $tn, $true )
+                        Format-DbgTypeName $tn
+                    } # end if( Comparer )
+                }
+                New-AltPropertyColumn -PropertyName 'Keys' -Alignment Left
+                New-AltPropertyColumn -PropertyName 'Values' -Alignment Left
+            } # End Columns
+        } # end Table view
+    } # end Type Dictionary<?,?>
+
+    # STL converters tend to output ReadOnlyDictionary objects, which are filled with
+    # colorized things that we don't want the built-in F+O to mangle.
+    New-AltTypeFormatEntry -TypeName 'System.Collections.ObjectModel.ReadOnlyDictionary<?,?>' {
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltPropertyColumn -PropertyName 'Count' -Width 5 -Alignment Right
+                #New-AltPropertyColumn -PropertyName 'IsReadOnly' -Width 10 -Alignment Right
+                New-AltPropertyColumn -PropertyName 'Keys' -Alignment Left
+                New-AltPropertyColumn -PropertyName 'Values' -Alignment Left
+            } # End Columns
+        } # end Table view
+    } # end Type Dictionary<?,?>
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgNearSymbol' {
+        New-AltCustomViewDefinition -Script {
+            # This script uses a trick: each time it's run (for a single invocation of
+            # Format-AltCustom), it saves the context to re-use for the next time, so we
+            # can "remember" items we have seen previously. (-PreserveScriptContext)
+
+            if( !(Test-Path 'Variable:\_tmp_ outputModule') )
+            {
+                [bool] ${_tmp_ outputModule} = $true
+                [bool] ${_tmp_ scrambled} = $false
+                # I could just put the module name into the symbol name (in the normal
+                # fasion, "blahMod!symName"), but I can save some space if I just print
+                # out the module name once (here). On the other hand, will it make
+                # copy/paste more tedious?
+                (New-ColorString -Content "The following symbols are in module: ").Append( (Format-DbgModuleName $_.Symbol.Module.Name) )
+                ''
+            }
+
+            $dispFg = [ConsoleColor]::DarkGray
+            $dispBg = [ConsoleColor]::Black
+            if( $_.DoesNotMakeMathematicalSense )
+            {
+                ${_tmp_ scrambled} = $true
+                $dispFg = [ConsoleColor]::Black
+                $dispBg = [ConsoleColor]::Yellow
+            }
+
+            $cs = $null
+            if( 0 -eq $_.Displacement )
+            {
+                $fg = [ConsoleColor]::Green
+                if( $_.DoesNotMakeMathematicalSense )
+                {
+                    # This seems pretty unlikely, but it must be possible.
+                    $fg = [ConsoleColor]::Yellow
+                }
+                $cs = New-ColorString -Foreground $fg -Content ' Exact match -> '
+                [bool] ${_tmp_ foundMatch} = $true
+            }
+            else
+            {
+                [string] $neg = ''
+                $disp = $_.Displacement
+                if( $_.Displacement -lt 0 )
+                {
+                    $neg = '-'
+                    $disp = 0 - $_.Displacement
+                }
+                else
+                {
+                    if( !(Test-Path 'Variable:\_tmp_ alreadyOutputNoMatch') )
+                    {
+                        [bool] ${_tmp_ alreadyOutputNoMatch} = $true
+                        if( !(Test-Path 'Variable:\_tmp_ foundMatch') )
+                        {
+                            (New-ColorString -Foreground 'Yellow' -Content '     (no match) ' ).Append( (New-ColorString -Foreground 'DarkGray' -Content (Format-DbgAddress $_.BaseAddress).ToString( $false )) )
+                        }
+                    }
+                }
+
+                $dispStr = [string]::Format( '{0}0x{1:x}', $neg, $disp )
+                $cs = New-ColorString -Foreground $dispFg -Background $dispBg -Content $dispStr
+                $cs = [MS.Dbg.ColorString]::MakeFixedWidth( $cs, 15, $true, 'Right' ).Append( ' ' )
+            }
+
+            $null = $cs.Append( (Format-DbgAddress ($_.BaseAddress + $_.Displacement)) ).
+                        Append( ' ' ).
+                        AppendPushPopFg( [ConsoleColor]::White, $_.Symbol.Name ).
+                        Append( ': ' ).
+                        Append( (Format-AltSingleLine -InputObject $_.Symbol.Value) )
+            $cs = [MS.Dbg.ColorString]::Truncate( $cs, $Host.UI.RawUI.BufferSize.Width - 1 )
+            $cs
+        } -PreserveScriptContext -End {
+            if( ${_tmp_ scrambled} )
+            {
+                # TODO: ColorString wordwrap.
+                New-ColorString -Fore 'Yellow' -Content "`n  Warning: One or more results do not appear to make sense (BaseAddress + Displacement != Symbol.Address).`n           This can be caused by post-build optimization tools that rearrange code but do not regenerate`n           the PDB (such as BBT)."
+            }
+        } # end custom view definition
+    } # end type MS.Dbg.DbgNearSymbol
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.Interop.VS_FIXEDFILEINFO' {
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'dwSignature' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwStrucVersion' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileVersionMS' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileVersionLS' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwProductVersionMS' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwProductVersionLS' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileFlagsMask' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileFlags' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileOS' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileType' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileSubtype' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileDateMS' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'dwFileDateLS' -FormatString '0x{0:x}'
+        } # end List view
+    } # end type VS_FIXEDFILEINFO
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.FixedFileInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltPropertyListItem -PropertyName 'Signature' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'StructureVersion'
+            New-AltPropertyListItem -PropertyName 'FileVersion'
+            New-AltPropertyListItem -PropertyName 'ProductVersion'
+            New-AltPropertyListItem -PropertyName 'Flags'
+            New-AltPropertyListItem -PropertyName 'OS'
+            New-AltPropertyListItem -PropertyName 'FileType'
+            New-AltPropertyListItem -PropertyName 'FileSubtype' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'FileDate'
+        } # end List view
+    } # end type FixedFileInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.ModuleVersionInfo' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'Language' {
+                if( $null -eq $_.Language ) {
+                    '0x0000 (Language Neutral)'
+                } else {
+                    [string]::Format( "0x{0:x4} ({1})", $_.Language.LCID, $_.Language.DisplayName )
+                }
+            }
+            New-AltScriptListItem -Label 'CharSet' {
+                if( $null -eq $_.CharSet ) {
+                    '0x0000' # TODO: Is this possible? If so, does filever say anything else besides 0000?
+                } else {
+                    [string]::Format( "0x{0:x4} {1}", $_.CharSet.CodePage, $_.CharSet.EncodingName )
+                }
+            }
+            New-AltPropertyListItem -PropertyName 'CompanyName'
+            New-AltPropertyListItem -PropertyName 'FileDescription'
+            New-AltPropertyListItem -PropertyName 'InternalName'
+            New-AltPropertyListItem -PropertyName 'OriginalFilename'
+            New-AltPropertyListItem -PropertyName 'ProductName'
+            New-AltPropertyListItem -PropertyName 'ProductVersion'
+            New-AltPropertyListItem -PropertyName 'FileVersion'
+            New-AltPropertyListItem -PropertyName 'LegalCopyright'
+            New-AltPropertyListItem -PropertyName 'LegalTrademarks'
+            New-AltPropertyListItem -PropertyName 'PrivateBuild'
+            New-AltPropertyListItem -PropertyName 'SpecialBuild'
+
+            New-AltScriptListItem -Label 'FFI.Signature' {
+                $_.FixedFileInfo.Signature.ToString( 'x8' )
+            }
+            New-AltScriptListItem -Label 'FFI.StructureVersion' {
+                $_.FixedFileInfo.StructureVersion
+            }
+            New-AltScriptListItem -Label 'FFI.FileVersion' {
+                $_.FixedFileInfo.FileVersion
+            }
+            New-AltScriptListItem -Label 'FFI.ProductVersion' {
+                $_.FixedFileInfo.ProductVersion
+            }
+            New-AltScriptListItem -Label 'FFI.Flags' {
+                $_.FixedFileInfo.Flags
+            }
+            New-AltScriptListItem -Label 'FFI.OS' {
+                $_.FixedFileInfo.OS
+            }
+            New-AltScriptListItem -Label 'FFI.FileType' {
+                $_.FixedFileInfo.FileType
+            }
+            New-AltScriptListItem -Label 'FFI.FileSubtype' {
+                $_.FixedFileInfo.FileSubtype
+            }
+            New-AltScriptListItem -Label 'FFI.FileDate' {
+                $_.FixedFileInfo.FileDate
+            }
+        } # end List view
+    } # end type ModuleVersionInfo
+
+
+    New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.Interop.DEBUG_STACK_FRAME_EX' {
+        New-AltListViewDefinition -ListItems {
+            New-AltScriptListItem -Label 'InstructionOffset' {
+                Format-DbgAddress $_.InstructionOffset
+            }
+            New-AltScriptListItem -Label 'ReturnOffset' {
+                Format-DbgAddress $_.ReturnOffset
+            }
+            New-AltScriptListItem -Label 'FrameOffset' {
+                Format-DbgAddress $_.FrameOffset
+            }
+            New-AltScriptListItem -Label 'StackOffset' {
+                Format-DbgAddress $_.StackOffset
+            }
+            New-AltScriptListItem -Label 'FuncTableEntry' {
+                Format-DbgAddress $_.FuncTableEntry
+            }
+            New-AltScriptListItem -Label 'Params' {
+                New-ColorString -Content "<TBD: can't seem to dig into this from PowerShell>" -Fore DarkGray
+            }
+            New-AltScriptListItem -Label 'Reserved' {
+                New-ColorString -Content "<TBD: can't seem to dig into this from PowerShell>" -Fore DarkGray
+            }
+            New-AltPropertyListItem -PropertyName 'Virtual'
+            New-AltScriptListItem -Label 'FrameNumber' {
+                Format-AltSingleLine -InputObject $_.FrameNumber
+            }
+            New-AltPropertyListItem -PropertyName 'InlineFrameContext' -FormatString '0x{0:x}'
+            New-AltPropertyListItem -PropertyName 'Reserved1'
+        } # end List view
+    } # end type Microsoft.Diagnostics.Runtime.Interop.DEBUG_STACK_FRAME_EX
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.PsIndexedDictionary' {
+        # The default (generated) single-line view definition will end up enumerating the
+        # dictionary, which results in a string like "{[blahblah blah blah blah], [blah
+        # blah blah blah blah], ...}", which is not so great. So we'll supply a view which
+        # will take advantage of the special ToString() method that we typically tack onto
+        # it during symbol value conversion.
+        New-AltSingleLineViewDefinition {
+            $_.ToString()
+        } # end single-line view
+    } # end type PsIndexedDictionary
+
+    New-AltTypeFormatEntry -TypeName 'MS.Dbg.SymbolHistoryRecord' {
+        New-AltTableViewDefinition {
+            New-AltColumns {
+                New-AltScriptColumn -Label 'Type' -Width 9 -Alignment Center -Script {
+                    if( $_ -is [MS.Dbg.DtdRecord] )
+                    {
+                        New-ColorString -Content 'DTD' -Foreground Cyan
+                    }
+                    elseif( $_ -is [MS.Dbg.SvcRecord] )
+                    {
+                        New-ColorString -Content 'SVC' -Foreground Magenta
+                    }
+                    else
+                    {
+                        New-ColorString -Content '(final)' -Foreground Gray
+                    }
+                }
+                New-AltScriptColumn -Label 'SymbolName' -Width 26 -Alignment Left -Script {
+                    $_.OriginalSymbol.Name
+                }
+                New-AltScriptColumn -Label 'SymbolType' -Alignment Left -Script {
+                    $_.OriginalSymbol.Type
+                }
+            } # End Columns
+        } # end Table view
+    } # end Type Dictionary<?,?>
+} # end TypeEntries
+

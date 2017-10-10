@@ -1,0 +1,31 @@
+
+#
+# Format definitions: these are analogous to the <view> entries in a .ps1xml,
+# except they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+# The definitions in this file are specifically for "debugee types"--
+# definitions of how to display values in the debuggee. The type names
+# typically have a "!" in them, and can be module-qualified (but do not have to
+# be). The alternate formatting engine can find these view definitions because
+# the alternate formatting engine use the "TypeNames" list of a PSObject to
+# look up view definitions, and the debugger module inserts the debuggee type
+# names into the "TypeNames" list of PSObjects that it generates to represent
+# objects in the debuggee.
+#
+
+Register-AltTypeFormatEntries {
+
+    # We could use a converter to just use its _hstring value in its place, but
+    # the problem with that is that Windows::Internal::String is an abstract
+    # type, so maybe there are derived types that add other stuff that we might
+    # want to see. It doesn't have a vtable, so Derived Type Detection won't
+    # save us.
+    New-AltTypeFormatEntry -TypeName '!Windows::Internal::String' {
+        New-AltSingleLineViewDefinition {
+            Format-AltSingleLine -InputObject $_._hstring
+        } # end AltSingleLineViewDefinition
+    } # end Type Windows::Internal::String
+
+} # end TypeEntries
+

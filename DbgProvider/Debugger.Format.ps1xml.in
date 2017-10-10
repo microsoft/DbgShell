@@ -1,0 +1,1031 @@
+<!-- Based on FileSystem.format.ps1xml -->
+<Configuration>
+  <SelectionSets>
+    <SelectionSet>
+      <Name>DbgProviderNamespaceTypes</Name>
+      <Types>
+        <TypeName>MS.Dbg.DbgContainer</TypeName>
+        <TypeName>MS.Dbg.DbgItem</TypeName>
+      </Types>
+    </SelectionSet>
+    <!--
+    <SelectionSet>
+      <Name>DbgRegisterItems</Name>
+      <Types>
+        <TypeName>MS.Dbg.DbgRegisterItem</TypeName>
+      </Types>
+    </SelectionSet>
+    -->
+    <SelectionSet>
+      <Name>Custom-ToString-Types</Name>
+      <Types>
+        <TypeName>MS.Dbg.DbgEventArgs</TypeName>
+        <TypeName>MS.Dbg.DbgRegisterSetBase</TypeName>
+        <TypeName>MS.Dbg.DbgStackInfo</TypeName>
+      </Types>
+    </SelectionSet>
+  </SelectionSets>
+
+    <!-- ################ GLOBAL CONTROL DEFINITIONS ################ -->
+    <Controls>
+      <Control>
+        <Name>DbgProviderNamespaceTypes-GroupingFormat</Name>
+        <CustomControl>
+          <CustomEntries>
+            <CustomEntry>
+              <CustomItem>
+                <Frame>
+                  <LeftIndent>4</LeftIndent>
+                  <CustomItem>
+                    <Text AssemblyName="System.Management.Automation" BaseName="FileSystemProviderStrings" ResourceId="DirectoryDisplayGrouping"/>
+                    <ExpressionBinding>
+                      <ScriptBlock>
+                        $path = $_.PSParentPath.Replace("Debugger\Debugger::", "")
+                        if( $path.Length -eq 0 )
+                        {
+                        $path = '\'
+                        }
+                        $path
+                      </ScriptBlock>
+                    </ExpressionBinding>
+                    <NewLine/>
+                  </CustomItem>
+                </Frame>
+              </CustomItem>
+            </CustomEntry>
+          </CustomEntries>
+        </CustomControl>
+      </Control>
+
+      <!-- I couldn't figure out how to reference this here...
+      <Control>
+        <Name>DebugEventArgsControl</Name>
+        <CustomControl>
+          <CustomEntries>
+            <CustomEntry>
+              <CustomItem>
+                <Frame>
+                  <CustomItem>
+                    <ExpressionBinding>
+                      <ScriptBlock>
+                        $_.ToString()
+                      </ScriptBlock>
+                    </ExpressionBinding>
+                  </CustomItem>
+                </Frame>
+              </CustomItem>
+            </CustomEntry>
+          </CustomEntries>
+        </CustomControl>
+      </Control>
+      -->
+    </Controls>
+
+    <!-- ################ VIEW DEFINITIONS ################ -->
+
+    <ViewDefinitions>
+      <View>
+        <Name>children</Name>
+        <ViewSelectedBy>
+          <SelectionSetName>DbgProviderNamespaceTypes</SelectionSetName>
+        </ViewSelectedBy>
+        <GroupBy>
+          <PropertyName>PSParentPath</PropertyName>
+          <CustomControlName>DbgProviderNamespaceTypes-GroupingFormat</CustomControlName>
+        </GroupBy>
+        <TableControl>
+          <TableHeaders>
+            <TableColumnHeader>
+              <Label>Container</Label>
+              <Width>13</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader/>
+          </TableHeaders>
+          <TableRowEntries>
+            <TableRowEntry>
+              <Wrap/>
+              <TableColumnItems>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    if( $_.PSIsContainer )
+                    {
+                    "[container]"
+                    }
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Name</PropertyName>
+                </TableColumnItem>
+              </TableColumnItems>
+            </TableRowEntry>
+          </TableRowEntries>
+        </TableControl>
+      </View>
+      <View>
+        <Name>children</Name>
+        <ViewSelectedBy>
+          <SelectionSetName>DbgProviderNamespaceTypes</SelectionSetName>
+        </ViewSelectedBy>
+        <GroupBy>
+          <PropertyName>PSParentPath</PropertyName>
+          <CustomControlName>DbgProviderNamespaceTypes-GroupingFormat</CustomControlName>
+        </GroupBy>
+        <ListControl>
+          <ListEntries>
+            <ListEntry>
+              <ListItems>
+                <ListItem>
+                  <PropertyName>Name</PropertyName>
+                </ListItem>
+              </ListItems>
+            </ListEntry>
+          </ListEntries>
+        </ListControl>
+      </View>
+      <View>
+        <Name>children</Name>
+        <ViewSelectedBy>
+          <SelectionSetName>DbgProviderNamespaceTypes</SelectionSetName>
+        </ViewSelectedBy>
+        <GroupBy>
+          <PropertyName>PSParentPath</PropertyName>
+          <CustomControlName>DbgProviderNamespaceTypes-GroupingFormat</CustomControlName>
+        </GroupBy>
+        <WideControl>
+          <WideEntries>
+            <WideEntry>
+              <WideItem>
+                <PropertyName>Name</PropertyName>
+              </WideItem>
+            </WideEntry>
+            <WideEntry>
+              <EntrySelectedBy>
+                <TypeName>MS.Dbg.DbgContainer</TypeName>
+              </EntrySelectedBy>
+              <WideItem>
+                <PropertyName>Name</PropertyName>
+                <FormatString>[{0}]</FormatString>
+              </WideItem>
+            </WideEntry>
+          </WideEntries>
+        </WideControl>
+      </View>
+
+      <!--
+      <View>
+        <Name>RegistersList</Name>
+        <ViewSelectedBy>
+          <SelectionSetName>MS.Dbg.DbgRegistersContainer</SelectionSetName>
+        </ViewSelectedBy>
+        <ListControl>
+          <ListEntries>
+            <ListEntry>
+              <ListItems>
+                <ListItem>
+                  <PropertyName>Name</PropertyName>
+                </ListItem>
+              </ListItems>
+            </ListEntry>
+          </ListEntries>
+        </ListControl>
+      </View>
+      -->
+      <View>
+        <Name>RegistersWide</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgRegisterItem</TypeName>
+        </ViewSelectedBy>
+        <WideControl>
+          <WideEntries>
+            <WideEntry>
+              <WideItem>
+                  <ScriptBlock>
+                    [string]::Format( "{0}={1}", $_.RegisterInfo.Name, $_.RegisterInfo.GetValueString() )
+                  </ScriptBlock>
+              </WideItem>
+            </WideEntry>
+          </WideEntries>
+        </WideControl>
+      </View>
+
+      <View>
+        <Name>RegisterTable</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgRegisterItem</TypeName>
+        </ViewSelectedBy>
+        <TableControl>
+          <TableHeaders>
+            <TableColumnHeader>
+              <Label>Name</Label>
+              <Width>8</Width>
+              <Alignment>right</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Value</Label>
+              <Width>26</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Type</Label>
+              <Width>14</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>IsSubregister</Label>
+              <Width>14</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+          </TableHeaders>
+          <TableRowEntries>
+            <TableRowEntry>
+              <Wrap/>
+              <TableColumnItems>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    $_.RegisterInfo.Name
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    $_.RegisterInfo.GetValueString()
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    $_.RegisterInfo.DEBUG_VALUE.Type
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    $_.RegisterInfo.IsSubregister
+                  </ScriptBlock>
+                </TableColumnItem>
+              </TableColumnItems>
+            </TableRowEntry>
+          </TableRowEntries>
+        </TableControl>
+      </View>
+      <View>
+        <Name>RegisterList</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgRegisterItem</TypeName>
+        </ViewSelectedBy>
+        <ListControl>
+          <ListEntries>
+            <ListEntry>
+              <ListItems>
+                <ListItem>
+                  <Label>Name</Label>
+                  <ScriptBlock>
+                    $_.RegisterInfo.Name
+                  </ScriptBlock>
+                </ListItem>
+                <ListItem>
+                  <Label>Value</Label>
+                  <ScriptBlock>
+                    # TODO: deal with the weird precision floating type values so we can get rid of this try/catch
+                    try
+                    {
+                    $_.RegisterInfo.GetValueString()
+                    }
+                    catch
+                    {
+                      Write-Host "Caught: $_"
+                    }
+                  </ScriptBlock>
+                </ListItem>
+                <ListItem>
+                  <Label>IsSubregister</Label>
+                  <ScriptBlock>
+                    $_.RegisterInfo.IsSubregister
+                  </ScriptBlock>
+                </ListItem>
+                <ListItem>
+                  <Label>ValueType</Label>
+                  <ScriptBlock>
+                    $_.RegisterInfo.DEBUG_VALUE.Type
+                  </ScriptBlock>
+                </ListItem>
+              </ListItems>
+            </ListEntry>
+          </ListEntries>
+        </ListControl>
+      </View>
+      <View>
+        <Name>Custom-ToString</Name>
+        <ViewSelectedBy>
+          <SelectionSetName>Custom-ToString-Types</SelectionSetName>
+        </ViewSelectedBy>
+        <CustomControl>
+          <CustomEntries>
+            <CustomEntry>
+              <CustomItem>
+                <ExpressionBinding>
+                  <ScriptBlock>
+<# if( isColor ) { #>
+                    if( $_ -is [MS.Dbg.ISupportColor] )
+                    {
+                        $_.ToColorString().ToString( [MS.Dbg.DbgProvider]::HostSupportsColor )
+                    }
+                    else
+                    {
+                        $_.ToString()
+                    }
+<# } else { #>
+                    $_.ToString()
+<# } #>
+                  </ScriptBlock>
+                </ExpressionBinding>
+              </CustomItem>
+            </CustomEntry>
+          </CustomEntries>
+        </CustomControl>
+      </View>
+      <View>
+        <Name>ColorString</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.ColorString</TypeName>
+        </ViewSelectedBy>
+        <CustomControl>
+          <CustomEntries>
+            <CustomEntry>
+              <CustomItem>
+                <ExpressionBinding>
+                  <ScriptBlock>
+<# if( isColor ) { #>
+                    $_.ToString( [MS.Dbg.DbgProvider]::HostSupportsColor )
+<# } else { #>
+                    $_.ToString( $false )
+<# } #>
+                  </ScriptBlock>
+                </ExpressionBinding>
+              </CustomItem>
+            </CustomEntry>
+          </CustomEntries>
+        </CustomControl>
+      </View>
+      <View>
+        <Name>DebugEventArgsList</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgEventArgs</TypeName>
+        </ViewSelectedBy>
+        <ListControl>
+          <ListEntries>
+            <ListEntry>
+              <ListItems>
+                <ListItem>
+                  <PropertyName>Message</PropertyName>
+                </ListItem>
+              </ListItems>
+            </ListEntry>
+          </ListEntries>
+        </ListControl>
+      </View>
+      <View>
+        <Name>SpecificEventFilterTable</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgEngineEventFilter</TypeName>
+        </ViewSelectedBy>
+        <TableControl>
+          <TableHeaders>
+            <TableColumnHeader>
+              <Label>FriendlyName</Label>
+              <Width>20</Width>
+              <Alignment>right</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Name</Label>
+              <Width>6</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Exec. Option</Label>
+              <Width>12</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Cont. Option</Label>
+              <Width>16</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Argument</Label>
+              <Width>26</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Command</Label>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+          </TableHeaders>
+          <TableRowEntries>
+            <TableRowEntry>
+              <TableColumnItems>
+                <TableColumnItem>
+                  <PropertyName>FriendlyName</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Name</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>ExecutionOption</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>ContinueOption</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Argument</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Command</PropertyName>
+                </TableColumnItem>
+              </TableColumnItems>
+            </TableRowEntry>
+          </TableRowEntries>
+        </TableControl>
+      </View>
+      <View>
+        <Name>ExceptionEventFilterTable</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgExceptionEventFilter</TypeName>
+        </ViewSelectedBy>
+        <TableControl>
+          <TableHeaders>
+            <TableColumnHeader>
+              <Label>FriendlyName</Label>
+              <Width>30</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Name</Label>
+              <Width>6</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Code</Label>
+              <Width>10</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Exec. Option</Label>
+              <Width>19</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Cont. Option</Label>
+              <Width>16</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Command</Label>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>SecondCommand</Label>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+          </TableHeaders>
+          <TableRowEntries>
+            <TableRowEntry>
+              <TableColumnItems>
+                <TableColumnItem>
+                  <PropertyName>FriendlyName</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Name</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>ExceptionCode</PropertyName>
+                  <FormatString>[{0:x8}]</FormatString>
+                <!-- TODO: Replace F+O
+                Demonstratres why I need to replace F+O: escape sequences are not counted as zero-width:
+                  <ScriptBlock>
+                    ([char] 0x009b) + "33m" + $_.ExceptionCode.ToString() + ([char] 0x009b) + "m"
+                  </ScriptBlock>
+                  -->
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>ExecutionOption</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>ContinueOption</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Command</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>SecondCommand</PropertyName>
+                </TableColumnItem>
+              </TableColumnItems>
+            </TableRowEntry>
+          </TableRowEntries>
+        </TableControl>
+      </View>
+      <View>
+        <Name>BreakpointTable</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgBreakpointInfo</TypeName>
+        </ViewSelectedBy>
+        <TableControl>
+          <TableHeaders>
+            <TableColumnHeader>
+              <Width>4</Width>
+              <Alignment>right</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Status</Label>
+              <Width>6</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Offset</Label>
+<# if( is32Bit ) { #>
+              <Width>10</Width>
+<# } else { #>
+              <Width>18</Width>
+<# } #>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>PassCount</Label>
+              <Width>9</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>MatchThread</Label>
+              <Width>11</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>OffsetExpression</Label>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+          </TableHeaders>
+          <TableRowEntries>
+            <TableRowEntry>
+              <TableColumnItems>
+                <TableColumnItem>
+                  <PropertyName>Id</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    if( $_.IsEnabled )
+                    {
+                        if( $_.Flags.HasFlag( [Microsoft.Diagnostics.Runtime.Interop.DEBUG_BREAKPOINT_FLAG]::DEFERRED ) )
+                        {
+                            "e"
+                        }
+                        else
+                        {
+                            "E"
+                        }
+                    }
+                    else
+                    {
+                        if( $_.Flags.HasFlag( [Microsoft.Diagnostics.Runtime.Interop.DEBUG_BREAKPOINT_FLAG]::DEFERRED ) )
+                        {
+                            "D"
+                        }
+                        else
+                        {
+                            "d"
+                        }
+                    }
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    if( $_.Offset -eq [UInt64]::MaxValue )
+                    {
+                        return ""
+                    }
+
+                    [MS.Dbg.DbgProvider]::FormatAddress( $_.Offset, $<#= is32Bit.ToString() #>, $true )
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    [string]::Format( "{0}/{1}", $_.NativeParams.CurrentPassCount, $_.NativeParams.PassCount )
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    if( $_.NativeParams.MatchThread -eq 4294967295 )
+                    {
+                        if( $_.Flags.HasFlag( [Microsoft.Diagnostics.Runtime.Interop.DEBUG_BREAKPOINT_FLAG]::DEFERRED ) )
+                        {
+                            "-"
+                        }
+                        else
+                        {
+                            "***"
+                        }
+                    }
+                    else
+                    {
+                        $_.NativeParams.MatchThread.ToString( "x" ) # TODO: is this an address or an id or what? i think for user mode it's the tid
+                    }
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    if( $_.Flags.HasFlag( [Microsoft.Diagnostics.Runtime.Interop.DEBUG_BREAKPOINT_FLAG]::DEFERRED ) )
+                    {
+                        [string]::Format( "({0})", $_.SymbolicName )
+                    }
+                    else
+                    {
+                        $_.SymbolicName
+                    }
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Command</PropertyName>
+                </TableColumnItem>
+              </TableColumnItems>
+            </TableRowEntry>
+          </TableRowEntries>
+        </TableControl>
+      </View>
+      <View>
+        <Name>ModuleInfoTable</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgModuleInfo</TypeName>
+        </ViewSelectedBy>
+        <TableControl>
+          <TableHeaders>
+            <TableColumnHeader>
+              <Width>20</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Start</Label>
+<# if( is32Bit ) { #>
+              <Width>8</Width>
+<# } else { #>
+              <Width>18</Width>
+<# } #>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>End</Label>
+<# if( is32Bit ) { #>
+              <Width>8</Width>
+<# } else { #>
+              <Width>18</Width>
+<# } #>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <!-- TODO: version? -->
+            <TableColumnHeader>
+              <Label>Symbol status</Label>
+              <Width>21</Width>
+              <Alignment>center</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Symbol file</Label>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+          </TableHeaders>
+          <TableRowEntries>
+            <TableRowEntry>
+              <TableColumnItems>
+                <TableColumnItem>
+                  <PropertyName>Name</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    [MS.Dbg.DbgProvider]::FormatAddress( $_.BaseAddress, $<#= is32Bit.ToString() #>, $true )
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    [MS.Dbg.DbgProvider]::FormatAddress( $_.BaseAddress + $_.Size, $<#= is32Bit.ToString() #>, $true )
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>SymbolStatus</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    if( ($_.SymbolType -ne 'NONE') -and
+                        ($_.SymbolType -ne 'DEFERRED') -and
+                        ($_.SymbolType -ne 'EXPORT') )
+                    {
+                        $_.SymbolFileName
+                    }
+                  </ScriptBlock>
+                </TableColumnItem>
+              </TableColumnItems>
+            </TableRowEntry>
+          </TableRowEntries>
+        </TableControl>
+      </View>
+      <!-- TODO: ListControl for ModuleInfo -->
+      <!-- TODO: ListControl for TypeInfo -->
+
+
+      <View>
+        <Name>FieldInfoTable</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgFieldInfo</TypeName>
+        </ViewSelectedBy>
+        <TableControl>
+          <TableHeaders>
+            <TableColumnHeader>
+              <Width>10</Width>
+              <Alignment>right</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Name</Label>
+              <Width>30</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Type</Label>
+              <Width>35</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Value</Label>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+          </TableHeaders>
+          <TableRowEntries>
+            <TableRowEntry>
+              <TableColumnItems>
+                <TableColumnItem>
+                  <PropertyName>Offset</PropertyName>
+                  <FormatString>+0x{0:x3}</FormatString>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Name</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    $_.Type.Name
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    "tbd"
+                  </ScriptBlock>
+                </TableColumnItem>
+              </TableColumnItems>
+            </TableRowEntry>
+          </TableRowEntries>
+        </TableControl>
+      </View>
+      <View>
+        <Name>FieldInfoList</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgFieldInfo</TypeName>
+        </ViewSelectedBy>
+        <ListControl>
+          <ListEntries>
+            <ListEntry>
+              <ListItems>
+                <ListItem>
+                  <PropertyName>Name</PropertyName>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Offset</PropertyName>
+                  <FormatString>+0x{0:x3}</FormatString>
+                </ListItem>
+                <ListItem>
+                  <Label>Type</Label>
+                  <ScriptBlock>
+                    $_.Type.Name
+                  </ScriptBlock>
+                </ListItem>
+                <!-- TODO: value -->
+                <ListItem>
+                  <Label>Value</Label>
+                  <ScriptBlock>
+                    "tbd"
+                  </ScriptBlock>
+                </ListItem>
+              </ListItems>
+            </ListEntry>
+          </ListEntries>
+        </ListControl>
+      </View>
+
+      <View>
+        <Name>DEBUG_SYMBOL_ENTRY_list</Name>
+        <ViewSelectedBy>
+          <TypeName>Microsoft.Diagnostics.Runtime.Interop.DEBUG_SYMBOL_ENTRY</TypeName>
+        </ViewSelectedBy>
+        <ListControl>
+          <ListEntries>
+            <ListEntry>
+              <ListItems>
+                <ListItem>
+                  <Label>ModuleBase</Label>
+                  <ScriptBlock>
+                    [MS.Dbg.DbgProvider]::FormatAddress( $_.ModuleBase, $<#= is32Bit.ToString() #>, $true )
+                  </ScriptBlock>
+                </ListItem>
+                <ListItem>
+                  <Label>Address</Label>
+                  <ScriptBlock>
+                    [MS.Dbg.DbgProvider]::FormatAddress( $_.Offset, $<#= is32Bit.ToString() #>, $true )
+                  </ScriptBlock>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Id</PropertyName>
+                  <FormatString>0x{0:x}</FormatString>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Size</PropertyName>
+                  <FormatString>0x{0:x}</FormatString>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>TypeId</PropertyName>
+                  <FormatString>0x{0:x}</FormatString>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Token</PropertyName>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Arg64</PropertyName>
+                  <FormatString>0x{0:x}</FormatString>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Arg32</PropertyName>
+                  <FormatString>0x{0:x}</FormatString>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Tag</PropertyName>
+                </ListItem>
+              </ListItems>
+            </ListEntry>
+          </ListEntries>
+        </ListControl>
+      </View>
+
+      <View>
+        <Name>DbgSymbolInfoTable</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgSymbol</TypeName>
+        </ViewSelectedBy>
+        <TableControl>
+          <TableHeaders>
+            <TableColumnHeader>
+              <Width>5</Width>
+              <Alignment>right</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Width>30</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Type</Label>
+              <Width>35</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Address</Label>
+              <Alignment>center</Alignment>
+<# if( is32Bit ) { #>
+              <Width>10</Width>
+<# } else { #>
+              <Width>18</Width>
+<# } #>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Label>Size</Label>
+              <Width>8</Width>
+              <Alignment>left</Alignment>
+            </TableColumnHeader>
+          </TableHeaders>
+          <TableRowEntries>
+            <TableRowEntry>
+              <TableColumnItems>
+                <TableColumnItem>
+                  <PropertyName>Index</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <PropertyName>Name</PropertyName>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    $_.Type.Name
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    if( $_.IsValueUnavailable )
+                    {
+                        #'&lt;value unavailable&gt;'
+                        " - "
+                    }
+                    elseif( $_.IsValueInRegister )
+                    {
+                        # TODO: COLORIZE
+                        "@" + $_.Register.Name
+                    }
+                    else
+                    {
+                        [MS.Dbg.DbgProvider]::FormatAddress( $_.DSE.Offset, $<#= is32Bit.ToString() #>, $true )
+                    }
+                  </ScriptBlock>
+                </TableColumnItem>
+                <TableColumnItem>
+                  <ScriptBlock>
+                    if( $_.IsValueUnavailable )
+                    {
+                        ''
+                    }
+                    else
+                    {
+                        [string]::Format( "0x{0:x}", $_.DSE.Size )
+                    }
+                  </ScriptBlock>
+                </TableColumnItem>
+              </TableColumnItems>
+            </TableRowEntry>
+          </TableRowEntries>
+        </TableControl>
+      </View>
+
+      <View>
+        <Name>DbgSymbolInfoList</Name>
+        <ViewSelectedBy>
+          <TypeName>MS.Dbg.DbgSymbol</TypeName>
+        </ViewSelectedBy>
+        <ListControl>
+          <ListEntries>
+            <ListEntry>
+              <ListItems>
+                <ListItem>
+                  <PropertyName>Name</PropertyName>
+                </ListItem>
+                <ListItem>
+                  <Label>DSE</Label>
+                  <ScriptBlock>
+                    if( $_.IsValueUnavailable )
+                    {
+                        '&lt;value unavailable&gt;'
+                    }
+                    else
+                    {
+                        [System.Text.StringBuilder] $sb = New-Object "System.Text.StringBuilder"
+                        [void] $sb.Append( "{ " )
+                        if( $_.IsValueInRegister )
+                        {
+                            [void] $sb.Append( '@' )
+                            [void] $sb.Append( $_.Register.Name )
+                        }
+                        else
+                        {
+                            [void] $sb.Append( [MS.Dbg.DbgProvider]::FormatAddress( $_.DSE.Offset, $<#= is32Bit.ToString() #>, $true ) )
+                        }
+                        #$sb.AppendFormat( "{0:x} bytes", $_.DSE.Size )
+                        [void] $sb.Append( " : 0x" )
+                        [void] $sb.Append( $_.DSE.Size.ToString( "x" ) )
+                        [void] $sb.Append( " bytes, " )
+                        [void] $sb.Append( $_.DSE.Tag.ToString() )
+                        [void] $sb.Append( ", ... }" )
+                        $sb.ToString()
+                    }
+                  </ScriptBlock>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Flags</PropertyName>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>ExpansionLevel</PropertyName>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Module</PropertyName>
+                </ListItem>
+                <ListItem>
+                  <Label>Type</Label>
+                  <ScriptBlock>
+                    "{" +
+                    $_.Type.Name +
+                    ", size 0x" +
+                    $_.Type.Size.ToString( "x" ) +
+                    ", ... }"
+                  </ScriptBlock>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Children</PropertyName>
+                </ListItem>
+                <ListItem>
+                  <PropertyName>Index</PropertyName>
+                </ListItem>
+              </ListItems>
+            </ListEntry>
+          </ListEntries>
+        </ListControl>
+      </View>
+
+    </ViewDefinitions>
+</Configuration>
+

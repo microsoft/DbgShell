@@ -1,0 +1,215 @@
+
+#
+# Format definitions: these are analogous to the <view> entries in a .ps1xml,
+# except they are consumed by our alternate formatting engine, not the built-in
+# PowerShell formatting engine.
+#
+# The definitions in this file are specifically for "debugee types"--
+# definitions of how to display values in the debuggee. The type names
+# typically have a "!" in them, and can be module-qualified (but do not have to
+# be). The alternate formatting engine can find these view definitions because
+# the alternate formatting engine use the "TypeNames" list of a PSObject to
+# look up view definitions, and the debugger module inserts the debuggee type
+# names into the "TypeNames" list of PSObjects that it generates to represent
+# objects in the debuggee.
+#
+
+Register-AltTypeFormatEntries {
+
+    # N.B. These view definitions only apply to _RTL_CRITICAL_SECTION objects that have
+    # had the _RTL_CRITICAL_SECTION value converter applied.
+    New-AltTypeFormatEntry -TypeName 'ConverterApplied:_RTL_CRITICAL_SECTION' {
+
+        # A note about single-line view definitions (AltSingleLineViewDefinition):
+        #
+        # These type of formatting definitions are "special", in that the
+        # Out-Default proxy will never choose to use the alternate formatting
+        # engine based on the presence of a single-line view definition--you
+        # have to call Format-AltSingleLine explicitly for these to be used.
+
+        New-AltSingleLineViewDefinition {
+            # It could be an object /derived/ from _RTL_CRITICAL_SECTION. Let's show the actual type:
+            $realSymType = (New-ColorString).Append( (Get-TypeName $_.DbgGetOperativeSymbol()) )
+
+            # The DbgUdtValue formatting code pre-screens for unavailable
+            # values; we can assume the value is available here.
+            if( !$_.IsLocked )
+            {
+                return $realSymType.Append( ': ' ).AppendPushPopFg( [ConsoleColor]::Green, 'Not locked.' )
+            }
+            else
+            {
+                return $realSymType.Append( ': ' ).AppendPushPopFg( [ConsoleColor]::Yellow, "LOCKED, by thread: $($_.OwningThreadDbgId)" )
+            }
+        } # end AltSingleLineViewDefinition
+    } # end Type !_RTL_CRITICAL_SECTION
+
+
+    New-AltTypeFormatEntry -TypeName '!_ULARGE_INTEGER' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName '_ULARGE_INTEGER').
+                Append( ' QuadPart: ' ).
+                Append( (Format-DbgUInt64 $_.QuadPart) )
+        } # end AltSingleLineViewDefinition
+    } # end Type !_ULARGE_INTEGER
+
+
+    New-AltTypeFormatEntry -TypeName '!_LARGE_INTEGER' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName '_LARGE_INTEGER').
+                Append( ' QuadPart: ' ).
+                # TODO: hmm... dbgeng still uses hex here. Should I follow suit?
+                Append( $_.QuadPart.ToString() )
+        } # end AltSingleLineViewDefinition
+    } # end Type !_LARGE_INTEGER
+
+
+    # TODO: Does this cover everything? Maybe I should just apply to System.Boolean...
+    New-AltTypeFormatEntry -TypeName '!bool' {
+        New-AltSingleLineViewDefinition {
+            New-ColorString -Content "$_" -Foreground Magenta
+        } # end AltSingleLineViewDefinition
+    } # end Type !bool
+
+
+    New-AltTypeFormatEntry -TypeName '!_LIST_ENTRY' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName '_LIST_ENTRY').
+                AppendPushPopFg( [ConsoleColor]::Cyan, ' [ ' ).
+                Append( (Format-DbgAddress $_.Flink.DbgGetPointer()) ).
+                AppendPushPopFg( [ConsoleColor]::Cyan, ' - ' ).
+                Append( (Format-DbgAddress $_.Blink.DbgGetPointer()) ).
+                AppendPushPopFg( [ConsoleColor]::Cyan, ' ]' )
+        } # end AltSingleLineViewDefinition
+    } # end Type !_LIST_ENTRY
+
+
+    New-AltTypeFormatEntry -TypeName '!_FILETIME' {
+        New-AltSingleLineViewDefinition {
+            [Int64] $i64 = $_.dwLowDateTime + (([Int64]$_.dwHighDateTime) -shl 32)
+            $dt = [DateTime]::FromFileTimeUtc( $i64 )
+            (Format-DbgTypeName '_FILETIME').
+                AppendPushPopFg( [ConsoleColor]::Cyan, ' [ ' ).
+                #Append( (Format-DbgAddress $_.DbgGetSymbol().ReadAs_UInt64() -Is32bit $false) ).
+                Append( (Format-DbgUInt64 $i64) ).
+                AppendPushPopFg( [ConsoleColor]::Cyan, ' ] ' ).
+                Append( $dt.ToString( 'F' ) )
+        } # end AltSingleLineViewDefinition
+    } # end Type !_FILETIME
+
+
+    # What about _STRING?
+    New-AltTypeFormatEntry -TypeName @( '!_UNICODE_STRING', '!_LUNICODE_STRING', '!_LUTF8_STRING', '!_STRING' ) {
+        New-AltSingleLineViewDefinition {
+            $sym = $_.DbgGetSymbol()
+            $cs = (New-ColorString).Append( $sym.Type.ColorName ).
+                    AppendPushPopFg( [ConsoleColor]::DarkCyan, " $($_.Length)" ).
+                    Append( '/' ).
+                    AppendPushPopFg( [ConsoleColor]::DarkCyan, "$($_.MaximumLength)" ).
+                    Append( ': ' )
+
+            if( $_.Length -gt 0 )
+            {
+                # On win7 x86, _UNICODE_STRING.Buffer shows up as "wchar_t*",
+                # so we've already automagically turned it into a string. But
+                # on win8 x64, it shows up as an "unsigned short*". So we'll
+                # just use the pointer value to handle all cases.
+                #
+                [string] $str = ''
+                $encoding = [System.Text.Encoding]::Unicode
+                if( $sym.Type.Name.IndexOf( 'UTF8' ) -ge 0 )
+                {
+                    $encoding = [System.Text.Encoding]::Utf8
+                }
+                elseif( $_.Buffer.DbgGetSymbol().Type.PointeeType.Size -eq 1 )
+                {
+                    $encoding = [System.Text.Encoding]::ASCII
+                }
+
+                try
+                {
+                    $str = $Debugger.ReadMemAs_String( $_.Buffer.DbgGetPointer(), $_.Length, $encoding )
+                    # TODO: Hmm... would be nice if we could determine how
+                    # much buffer width we had left to consume.
+                    $str = Truncate $str 30
+                    $cs = $cs.Append( '"' ).AppendPushPopFg( [ConsoleColor]::Cyan, $str ).Append( '"' )
+                }
+                catch
+                {
+                    $cs.AppendPushPopFg( [ConsoleColor]::Red, "<error: $_>" )
+                }
+            }
+            else
+            {
+                $cs = $cs.Append( '""' )
+            }
+
+            $cs
+        } # end AltSingleLineViewDefinition
+    } # end Type !_UNICODE_STRING, !_LUNICODE_STRING, !_LUTF8_STRING, !_STRING
+
+
+    New-AltTypeFormatEntry -TypeName '!_PROCESSOR_NUMBER' {
+        New-AltSingleLineViewDefinition {
+            (Format-DbgTypeName '_PROCESSOR_NUMBER').
+                Append( ': ' ).
+                Append( $_.Group.ToString() ).
+                Append( ',' ).
+                Append( $_.Number.ToString() ).
+                Append( ',' ).
+                Append( $_.Reserved.ToString() )
+        } # end AltSingleLineViewDefinition
+    } # end Type !_PROCESSOR_NUMBER
+
+
+    New-AltTypeFormatEntry -TypeName '!_TEB' {
+        New-AltSingleLineViewDefinition {
+            # TODO: Generalize into reusable function?
+            if( $_.PSObject.Properties[ 'CountOfOwnedCriticalSections' ] -eq $null )
+            {
+                return (New-ColorString -Content "<need private PDB for ntdll>" -Fore Yellow)
+            }
+
+            $cs = (Format-DbgTypeName '_TEB').Append( ': ' )
+            if( $_.InitialThread )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Green, "(InitialThread) " )
+            }
+            if( $_.WaitingOnLoaderLock )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, "(WaitingOnLoaderLock) " )
+            }
+            $cs = $cs.Append( "LastError: " )
+            if( $_.LastErrorValue )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, $_.LastErrorValue.ToString( 'x' ) )
+            }
+            else
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkGray, '0' )
+            }
+            $cs = $cs.Append( " LastStatus: " )
+            if( $_.LastStatusValue )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, $_.LastStatusValue.ToString( 'x' ) )
+            }
+            else
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkGray, '0' )
+            }
+
+            $cs = $cs.Append( " OwnedLocks: " )
+            if( $_.CountOfOwnedCriticalSections )
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, $_.CountOfOwnedCriticalSections.ToString() )
+            }
+            else
+            {
+                $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkGreen, '0' )
+            }
+
+            $cs
+        } # end AltSingleLineViewDefinition
+    } # end Type !_TEB
+} # end TypeEntries
+

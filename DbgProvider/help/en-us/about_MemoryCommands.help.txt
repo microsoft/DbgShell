@@ -1,0 +1,109 @@
+TOPIC
+    about_MemoryCommands
+
+SHORT DESCRIPTION
+
+    With so many different commands to display and edit memory, it's difficult
+    to remember what your options are. This topic will server as a "quick
+    reference".
+
+LONG DESCRIPTION
+
+Reading Memory:
+
+  "Raw": These commands return indexable objects representing "raw" memory
+  (DbgMemory objects):
+
+     Element
+      Size
+     (bytes)  Command  Mnemonic: Description
+     =======  =======  =======================================================
+        1       db     Dump Bytes: dumps bytes, plus [ASCII] characters
+        2       dw     Dump WORDs
+        2       dW     Dump WORDs, with characters (like windbg)
+        4       dd     Dump DWORDs
+        4       dc     Dump Characters: dumps DWORDs, plus [ASCII] characters
+        4       dyd    Dump binarY: dumps DWORDs, plus the binary (base-2)
+        8       dq     Dump QWORDs
+       4/8      dp     Dump Pointers
+       4/8      dpc    Dump Pointers, with Characters
+       4/8      dps    Dump Pointers, with Symbols
+       4/8      dpsc   Dump Pointers, with Symbols and Characters
+
+  Strings: These commands interpret memory as strings:
+
+     Returns        Command  Mnemonic: Description
+     =======        =======  =================================================
+     DbgMemory        da     Dump Ascii: interprets memory as ASCII characters
+     DbgMemory        du     Dump Unicode
+     System.String    dsz    Dump String, Zero-terminated (ASCII)
+     System.String    dwsz   Dump Wide String, Zero-terminated
+
+  Special:
+     Returns        Command  Mnemonic: Description
+     =======        =======  =================================================
+     DbgMemory        d      Dump: repeats last DbgMemory-based dump command.
+
+  When a memory command is repeated, it continues reading memory where the last
+  command stopped. Thus you can type "dps $csp<ENTER><ENTER><ENTER>" and view
+  three contiguous chunks of the stack.
+
+  DbgMemory objects are indexable based on the element size they were dumped
+  with. But the element size can be changed "after the fact": you can do
+
+      $mem = dd $retreg
+
+  which gives you an object that looks like a set of DWORDs ("$mem[3]" gives a
+  System.Int32), but then you can do
+
+      $mem.DefaultDisplayFormat = 'Bytes'
+
+  and then $mem will appear as if you had done "db" instead. You can also just
+  use the Bytes, Words, DWords, etc. properties to access it as if it were a
+  collection of elements of the appropriate size.
+
+  You can also use these functions to conveniently clone an existing DbgMemory
+  object, but with a different format. For example:
+
+      $mem = db @sp
+      $mem
+      $mem | dps
+
+  Those commands will first show a chunk of stack as bytes, then as pointers
+  with symbols.
+
+  N.B. The Length property of a DbgMemory object always returns the length in
+  BYTES, whereas the Count property returns the number of elements of the size
+  indicated by the DefaultDisplayFormat property.
+
+
+Writing Memory:
+
+  There is also a Write-DbgMemory command, which can be used to write data to
+  memory. There are also some windbg-style wrappers:
+
+     Element
+      Size
+     (bytes)  Command  Mnemonic: Description
+     =======  =======  =======================================================
+        1       eb     Enter Bytes: writes bytes
+        4       ed     Enter DWORDs: writes DWORDs
+        8       eq     Enter QWORDs: writes DWORDs
+       4/8      ep     Enter Pointers: writes pointer-sized words
+
+
+QUESTIONS
+
+    Q: Why are the names so crazy and weird? Like "dw" versus "dW", and
+       "dd"/"dc", etc.
+
+    A: You can blame windbg: most of these commands are named the same as their
+       windbg counterparts. Not all windbg memory-dumping commands are here
+       (yet). There are also some additional commands which are not found in
+       windbg, which have names that attempt to follow a similar pattern as
+       their windbg friends (for instance, "dpsc").
+
+FEEDBACK
+
+    TBD:github link
+
