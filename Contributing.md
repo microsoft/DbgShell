@@ -34,7 +34,11 @@ changes, try to match the existing code style, etc.
 ## Getting source and building
 __Requirements:__
 * You need **Visual Studio 2017**, fully updated (VS updates; you don't need things like
-  Azure SDK updates, phone emulator updates, etc.).
+  Azure SDK updates, phone emulator updates, etc.). You both the .NET and C++ roles
+  installed.
+  * You also need the .NET Framework 2.0 targeting pack. You can install this from "Add or
+    Remove Windows Features." This is for a test project that is built against .NET 2.0.
+  * You may also have to download the appropriate Windows SDK version.
 * No binaries are checked in to source control. To get external binaries, you'll need to
   be connected and allow NuGet package restore to download them. (Once you have downloaded
   the packages once, you'll have them locally—you won't always have to be connected in
@@ -107,6 +111,10 @@ rather slow, especially startup (there are various reasons for this; one is that
 an exception happens (including handled ones, which happen more than you might think), VS
 is slow to deal with it). It is useful to sometimes just run DbgShell.exe _not_ under the
 VS debugger, to see what the perf is _actually_ like.
+
+If you do run under the VS debugger, you may need to adjust some Exception settings
+because VS likes to stop when things like PipelineStoppedExceptions go through
+DbgProvider.dll. (You can do it as they hit.)
 
 Once DbgShell.exe launches, you'll end up at a "`Dbg:\`" prompt. You can run
 "`Import-Module DbgShellTest`" to manually load testing functionality, but the shortcut is
