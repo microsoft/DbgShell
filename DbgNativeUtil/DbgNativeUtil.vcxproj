@@ -22,7 +22,7 @@
     <ProjectGuid>{C1CA124D-6FDE-4E06-9075-CA6B6982E550}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>DbgNativeUtil</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
