@@ -117,7 +117,7 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCToolsRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)" /D /Y &amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCToolsRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)" /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -139,7 +139,7 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCToolsRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)" /D /Y &amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCToolsRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)" /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
