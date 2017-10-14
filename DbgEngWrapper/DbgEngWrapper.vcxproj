@@ -24,11 +24,6 @@
     <Keyword>ManagedCProj</Keyword>
     <RootNamespace>DbgEngWrapper</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
-    <!-- N.B. This (VCToolsRedistVersion) is not a standard thing. You'd hope there would
-         be a built-in macro to use like $(VCToolsVersion), but apparently that version is
-         not tied to the redist version.
-     -->
-    <VCToolsRedistVersion>14.11.25325</VCToolsRedistVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -76,6 +71,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
+    <!-- You might think that the redist version would be the same as $(VCToolsVersion),
+         but you'd be wrong. Fortunately we can get it from this file: -->
+    <VCRedistVersion>$([System.IO.File]::ReadAllText($(VCInstallDir)Auxiliary\Build\Microsoft.VCRedistVersion.default.txt).Trim())</VCRedistVersion>
+  </PropertyGroup>
+  <PropertyGroup>
     <OutDir>$(SolutionDir)bin\$(Configuration)\$(PlatformTarget)\Debugger\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -110,7 +110,7 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCToolsRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -127,7 +127,7 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCToolsRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)" /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)" /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -143,7 +143,7 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCToolsRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -159,7 +159,7 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCToolsRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
