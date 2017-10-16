@@ -71,8 +71,10 @@
   </PropertyGroup>
   <PropertyGroup>
     <!-- You might think that the redist version would be the same as $(VCToolsVersion),
-         but you'd be wrong. Fortunately we can get it from this file: -->
-    <VCRedistVersion>$([System.IO.File]::ReadAllText($(VCInstallDir)Auxiliary\Build\Microsoft.VCRedistVersion.default.txt).Trim())</VCRedistVersion>
+         but you'd be wrong. Fortunately we can get it from this file (VS 15.4.0+): -->
+    <VCRedistVersion Condition="exists('$(VCInstallDir)Auxiliary\Build\Microsoft.VCRedistVersion.default.txt')">$([System.IO.File]::ReadAllText($(VCInstallDir)Auxiliary\Build\Microsoft.VCRedistVersion.default.txt).Trim())</VCRedistVersion>
+    <!-- (for previous versions of VS... hope it works) -->
+    <VCRedistVersion Condition="!exists('$(VCInstallDir)Auxiliary\Build\Microsoft.VCRedistVersion.default.txt')">14.11.25325</VCRedistVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
