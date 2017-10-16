@@ -116,8 +116,13 @@
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
-    <PostBuildEvent>
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)" /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+    <!-- for VS 15.4.0+? -->
+    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+    </PostBuildEvent>
+    <!-- for previous versions of VS? -->
+    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -138,8 +143,13 @@
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
-    <PostBuildEvent>
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)" /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+    <!-- for VS 15.4.0+? -->
+    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+    </PostBuildEvent>
+    <!-- for previous versions of VS? -->
+    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -163,8 +173,13 @@
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
-    <PostBuildEvent>
+    <!-- for VS 15.4.0+? -->
+    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT')">
       <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
+    </PostBuildEvent>
+    <!-- for previous versions of VS? -->
+    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -188,8 +203,13 @@
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
-    <PostBuildEvent>
+    <!-- for VS 15.4.0+? -->
+    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT')">
       <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
+    </PostBuildEvent>
+    <!-- for previous versions of VS? -->
+    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
