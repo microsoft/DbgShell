@@ -34,7 +34,7 @@ changes, try to match the existing code style, etc.
 ## Getting source and building
 __Requirements:__
 * You need **Visual Studio 2017**, fully updated (VS updates; you don't need things like
-  Azure SDK updates, phone emulator updates, etc.). You both the .NET and C++ roles
+  Azure SDK updates, phone emulator updates, etc.). You need both the .NET and C++ roles
   installed.
   * You also need the .NET Framework 2.0 targeting pack. You can install this from "Add or
     Remove Windows Features." This is for a test project that is built against .NET 2.0.
