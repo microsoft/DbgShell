@@ -4,6 +4,8 @@ A PowerShell front-end for the Windows debugger engine.
 Ready to tab your way to glory? For a quicker intro, take a look at [Getting
 Started](doc/GettingStarted.md).
 
+[![Build status](https://ci.appveyor.com/api/projects/status/h5ejj6kpyn2tjdat?svg=true)](https://ci.appveyor.com/project/jazzdelightsme/dbgshell)
+
 ## Disclaimers
 
 1. This project is not produced, endorsed, or monitored by the Windows debugger team.
@@ -19,6 +21,14 @@ Started](doc/GettingStarted.md).
 
 3. This is an experimental project: it is not fully baked, and you should expect breaking
    changes to be made *often*.
+
+Corollary of above disclaimers: I would avoid attaching DbgShell to live targets of high value.
+
+
+## Binaries
+
+[https://aka.ms/dbgshell-latest](https://aka.ms/dbgshell-latest)
+
 
 ## Motivation
 
