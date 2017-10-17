@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <FileVersion>0.6.21.0</FileVersion>
+    <FileVersion>0.8.22.0</FileVersion>
     <ProductName>DbgShell</ProductName>
-    <ProductVersion>0.6</ProductVersion>
+    <ProductVersion>0.8</ProductVersion>
     <AdditionalProductVersionText Condition="Exists('$(MSBuildThisFileDirectory)\AdditionalProductVersionText.txt')">$([System.IO.File]::ReadAllText($(MSBuildThisFileDirectory)\AdditionalProductVersionText.txt).Trim())</AdditionalProductVersionText>
     <CompanyName>Microsoft</CompanyName>
     <FileCopyright>Copyright (c) 2017</FileCopyright>
