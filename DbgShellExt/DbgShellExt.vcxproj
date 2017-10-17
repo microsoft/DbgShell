@@ -22,7 +22,13 @@
     <ProjectGuid>{00EA1600-B36D-4CB9-8084-F45E239E9A54}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>DbgShellExt</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <!--
+        This seems like a hack (tacking the ".0" onto a value we read from the registry).
+        An alternative way to make the SDK version "float" would be to hardcode a bunch of
+        conditional PropertyGroups, each predicated on the existence of
+        $(UCRTContentRoot)\bin\<version>.
+    -->
+    <WindowsTargetPlatformVersion>$(registry:HKEY_LOCAL_MACHINE\Software\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0\@ProductVersion).0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
