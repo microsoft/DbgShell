@@ -3435,6 +3435,8 @@ Set-Alias ln Get-DbgNearSymbol
 
 Set-Alias .dump Write-DbgDumpFile
 
+Set-Alias Attach-Process Connect-Process
+
 <#
 .SYNOPSIS
     Similar to the windbg command "dt", but with the augmented ability to deduce types for
