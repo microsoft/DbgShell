@@ -309,7 +309,7 @@
     <None Include="Debugger.DebuggeeTypes.atl.psfmt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Debugger.DebuggeeTypes.clr.psfmt">
+    <None Include="Debugger.DebuggeeTypes.ClrMd.psfmt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Debugger.DebuggeeTypes.NT.psfmt">
