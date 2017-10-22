@@ -4469,7 +4469,7 @@ function testall()
     # DbgShellTest.psd1 might not work if we leave it to PS to fulfill it.
     Import-Module -Global "filesystem::$PSScriptRoot\..\DbgShellTest\Pester\Pester.psd1"
     Import-Module -Global "filesystem::$PSScriptRoot\..\DbgShellTest\DbgShellTest.psd1"
-    Invoke-Pester Tests:\*.ps1
+    Invoke-Pester Tests:\*.ps1 @args
 }
 
 
