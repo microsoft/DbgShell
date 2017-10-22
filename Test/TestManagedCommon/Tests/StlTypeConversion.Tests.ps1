@@ -53,6 +53,8 @@ Describe "StlTypeConversion" {
 
     It "can handle vector<string>" {
 
+        throw "Oh deary me."
+
         $g = Get-DbgSymbol TestNativeConsoleApp!g_sVector
         $g -ne $null | Should Be $true
 
