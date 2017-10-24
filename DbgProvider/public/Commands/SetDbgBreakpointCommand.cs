@@ -91,6 +91,13 @@ namespace MS.Dbg.Commands
         public SwitchParameter Multiple { get; set; }
 
 
+        // Probably not often a great idea, but I /have/ seen cases where a particular
+        // function both existed on its own and as inlined callsites, and I only wanted to
+        // break on the standalone version (It was a QueryInterface implementation).
+        [Parameter( Mandatory = false )]
+        public SwitchParameter NoInlineCallsites { get; set; }
+
+
         private bool _IsDataBreakpoint
         {
             get
@@ -220,13 +227,43 @@ namespace MS.Dbg.Commands
                                                  category,
                                                  CancelTS.Token ).ToArray();
 
+            int originalCount = syms.Length;
+
+            if( NoInlineCallsites )
+            {
+                syms = syms.Where( ( x ) => !x.IsInlineCallsite ).ToArray();
+
+                int diff = originalCount - syms.Length;
+
+                if( diff != 0 )
+                {
+                    LogManager.Trace( "Filtered out {0} inline sites (leaving {1}).",
+                                      diff,
+                                      syms.Length );
+                }
+            }
+
             if( 0 == syms.Length )
             {
-                var dpe = new DbgProviderException( Util.Sprintf( "Could not resolve expression: {0}",
+                DbgProviderException dpe;
+
+                if( 0 != originalCount )
+                {
+                    dpe = new DbgProviderException( Util.Sprintf( "No non-inline sites found for expression: {0}",
+                                                                  Expression ),
+                                                    "BpCouldNotFindSymbol_NoInline",
+                                                    ErrorCategory.ObjectNotFound,
+                                                    Expression );
+                }
+                else
+                {
+                    dpe = new DbgProviderException( Util.Sprintf( "Could not resolve expression: {0}",
                                                                   Expression ),
                                                     "BpCouldNotFindSymbol",
                                                     ErrorCategory.ObjectNotFound,
                                                     Expression );
+                }
+
                 try { throw dpe; } catch { } // give it a stack
                 SafeWriteError( dpe );
                 return null;
