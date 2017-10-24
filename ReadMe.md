@@ -4,7 +4,7 @@ A PowerShell front-end for the Windows debugger engine.
 Ready to tab your way to glory? For a quicker intro, take a look at [Getting
 Started](doc/GettingStarted.md).
 
-[![Build status](https://ci.appveyor.com/api/projects/status/h5ejj6kpyn2tjdat?svg=true)](https://ci.appveyor.com/project/jazzdelightsme/dbgshell)
+[![Build status](https://ci.appveyor.com/api/projects/status/h5ejj6kpyn2tjdat/branch/master?svg=true)](https://ci.appveyor.com/project/jazzdelightsme/dbgshell/branch/master)
 
 ## Disclaimers
 
