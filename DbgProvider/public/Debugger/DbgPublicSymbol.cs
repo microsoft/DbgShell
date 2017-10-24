@@ -191,6 +191,12 @@ namespace MS.Dbg
         }
 
 
+        public override bool IsInlineCallsite
+        {
+            get { return m_symInfo.Tag == SymTag.InlineSite; }
+        }
+
+
         public override bool IsThreadLocal
         {
             get { return 0 != (m_symInfo.Flags & SymbolInfoFlags.TlsRel); }

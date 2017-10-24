@@ -106,6 +106,9 @@ namespace MS.Dbg
         public virtual bool IsConstant { get { return false; } }
 
 
+        public virtual bool IsInlineCallsite { get { return false; } }
+
+
         internal virtual object GetConstantValue()
         {
             if( !IsConstant )
