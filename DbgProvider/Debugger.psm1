@@ -4259,6 +4259,53 @@ function !teb
 } # end function !teb
 
 
+function !uniqstack
+{
+    [CmdletBinding()]
+    param()
+
+    begin { }
+    end { }
+
+    process
+    {
+        try
+        {
+            $comp = [MS.Dbg.DbgStackInfo+FramesComparer]::new()
+
+            $d = [System.Collections.Generic.Dictionary[MS.Dbg.DbgStackInfo,System.Collections.Generic.List[MS.Dbg.DbgStackInfo]]]::new( $comp )
+
+
+            $stacks = ~* kc
+
+            [int] $numDupes = 0
+
+            foreach( $stack in $stacks )
+            {
+                #[System.Collections.Generic.List[MS.Dbg.DbgStackInfo]] $list = $null
+                $list = $null
+
+                if( !($d.TryGetValue( $stack, ([ref] $list) )) )
+                {
+                    $list = [System.Collections.Generic.List[MS.Dbg.DbgStackInfo]]::new()
+
+                    Write-Output $stack
+                }
+                else
+                {
+                    $numDupes++;
+                }
+
+                $list.Add( $stack )
+            }
+
+            Write-Host "$numDupes duplicate stacks."
+        }
+        finally { }
+    } # end 'process' block
+} # end function !uniqstack
+
+
 <#
 .SYNOPSIS
     Opens the current dump in windbg. TBD: support for live targets, remotes

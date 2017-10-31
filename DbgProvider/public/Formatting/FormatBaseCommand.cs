@@ -120,6 +120,12 @@ namespace MS.Dbg.Formatting.Commands
             bool preserveHeaderContext;
             ScriptBlock customHeaderScript = GetCustomWriteGroupByGroupHeaderScript( out headerCtx,
                                                                                      out preserveHeaderContext );
+
+            if( null == customHeaderScript )
+            {
+                customHeaderScript = ScriptBlock.Create( "Format-AltSingleLine -InputObject $_" );
+            }
+
             if( null != customHeaderScript )
             {
                 // ISSUE: Or maybe the group-by evaluation functions should return a

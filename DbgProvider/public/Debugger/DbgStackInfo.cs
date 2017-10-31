@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -255,6 +256,128 @@ namespace MS.Dbg
 
 
         public DbgUModeThreadInfo Thread { get { return m_thread; } }
+
+
+        public int CompareFrames( DbgStackInfo other )
+        {
+            if( other == null )
+            {
+                throw new ArgumentNullException( nameof( other ) );
+            }
+
+            int countDiff = Frames.Count - other.Frames.Count;
+
+
+            if( countDiff < 0 )
+                return -1;
+            else if( countDiff > 0 )
+                return 1;
+
+            for( int i = 0; i < Frames.Count; i++ )
+            {
+                long offsetDiff = ((long) Frames[ i ].InstructionPointer) -
+                                  ((long) other.Frames[ i ].InstructionPointer);
+
+                if( offsetDiff == 0 )
+                    continue;
+                else if( offsetDiff < 0 )
+                    return -1;
+                else
+                    return 1;
+            }
+
+            return 0;
+        } // end CompareFrames()
+
+
+        private int m_framesHash;
+
+        public int FramesHash
+        {
+            get
+            {
+                if( 0 == m_framesHash )
+                {
+                    // TODO: is this any good?
+
+                    int hash = Frames.Count * 8427;
+
+                    int i = 0;
+                    foreach( var frame in Frames )
+                    {
+                        int hi = (int) (frame.InstructionPointer >> 32);
+                        int lo = (int) (frame.InstructionPointer);
+
+                        if( hi != 0 )
+                            hash = hash ^ hi;
+
+                        hash = (hash ^ lo) + i++;
+                    }
+
+                    m_framesHash = hash;
+                }
+                return m_framesHash;
+            }
+        } // end property FramesHash
+
+
+        public class FramesComparer : IComparer< DbgStackInfo >,
+                                      IEqualityComparer< DbgStackInfo >,
+                                      IEqualityComparer
+        {
+            private FramesComparer() { }
+
+            public static FramesComparer Instance => new FramesComparer();
+
+
+            public int Compare( DbgStackInfo x, DbgStackInfo y )
+            {
+                if( x == null )
+                {
+                    if( y == null )
+                        return 0;
+                    else
+                        return -1;
+                }
+                else if( y == null )
+                {
+                    return 1;
+                }
+
+                return x.CompareFrames( y );
+            }
+
+            public bool Equals( DbgStackInfo x, DbgStackInfo y )
+            {
+                return 0 == Compare( x, y );
+            }
+
+            public int GetHashCode( DbgStackInfo obj )
+            {
+                if( null == obj )
+                    return 0;
+
+                return obj.FramesHash;
+            }
+
+            bool IEqualityComparer.Equals( object x, object y )
+            {
+                if( (x == null) || (y == null) )
+                    return Object.Equals( x, y );
+
+                return Equals( x as DbgStackInfo, y as DbgStackInfo );
+            }
+
+            int IEqualityComparer.GetHashCode( object obj )
+            {
+                DbgStackInfo dsi = obj as DbgStackInfo;
+
+                if( null == dsi )
+                    return 0;
+
+                return GetHashCode( dsi );
+            }
+        } // end class FramesComparer
 
 
         // TODO: Support different options

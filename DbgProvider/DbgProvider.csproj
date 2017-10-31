@@ -110,6 +110,7 @@
     <Compile Include="public\Commands\GetDbgEffectiveProcessorTypeCommand.cs" />
     <Compile Include="public\Commands\GetDbgNearSymbolCommand.cs" />
     <Compile Include="public\Commands\GetDbgShellLogCommand.cs" />
+    <Compile Include="public\Commands\GetUniqueStacksCommand.cs" />
     <Compile Include="public\Commands\InvokeDbgExtensionCommand.cs" />
     <Compile Include="public\Commands\OutDbgEngCommand.cs" />
     <Compile Include="public\Commands\RegisterDbgPlugin.cs" />
@@ -264,6 +265,7 @@
     <Compile Include="public\Formatting\SetAltFormatDefaultViewDefCommand.cs" />
     <Compile Include="public\Formatting\UpdateAltFormatDataCommand.cs" />
     <Compile Include="public\FreezableBitArray.cs" />
+    <Compile Include="public\ListIndexableDictionary.cs" />
     <Compile Include="public\NameIndexableList.cs" />
     <Compile Include="public\ProviderInfoBase.cs" />
     <Compile Include="public\PsContext.cs" />
