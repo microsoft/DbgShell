@@ -123,7 +123,12 @@ namespace MS.Dbg.Formatting.Commands
 
             if( null == customHeaderScript )
             {
-                customHeaderScript = ScriptBlock.Create( "Format-AltSingleLine -InputObject $_" );
+                customHeaderScript = ScriptBlock.Create(
+                    Util.Sprintf( "(New-ColorString -Content {0}: -Fore Black -Back White)." +
+                                  "Append(" +
+                                      "(Format-AltSingleLine -InputObject $_)" +
+                                  ")",
+                                  m_groupByLabel ) );
             }
 
             if( null != customHeaderScript )

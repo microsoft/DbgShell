@@ -27,7 +27,7 @@ namespace MS.Dbg.Formatting.Commands
 
             if( null != val )
                 WriteObject( val );
-        } // end ProcessRecord()
+        } // end ApplyViewToInputObject()
 
 
         protected override void ResetState()
