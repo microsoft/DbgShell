@@ -317,20 +317,18 @@ namespace MS.Dbg
                 if( !string.IsNullOrEmpty( expr ) )
                     return expr;
 
-                try
+                ulong displacement;
+                string sym;
+                if( !TryGetNameByOffset( Offset, out sym, out displacement ) )
                 {
-                    ulong displacement;
-                    string sym = GetNameByOffset( Offset, out displacement );
-                    if( 0 == displacement )
-                        return sym;
-                    else
-                        return sym + "+0x" + displacement.ToString( "x" );
-                }
-                catch( DbgProviderException dpe )
-                {
-                    LogManager.Trace( "Could not get name for offset {0:x16}: {1}.", Offset, dpe );
+                    LogManager.Trace( "Could not get name for offset {0:x16}.", Offset );
                     return "????";
                 }
+
+                if( 0 == displacement )
+                    return sym;
+                else
+                    return sym + "+0x" + displacement.ToString( "x" );
             }
         } // end property SymbolicName
 

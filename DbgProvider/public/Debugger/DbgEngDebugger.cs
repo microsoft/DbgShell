@@ -3487,14 +3487,10 @@ namespace MS.Dbg
                 return null;
             }
 
-            try
+            if( !TryGetNameByOffset( firstSlotAddr, out vtableSymName, out disp ) )
             {
-                vtableSymName = GetNameByOffset( firstSlotAddr, out disp );
-            }
-            catch( DbgProviderException dpe )
-            {
-                LogManager.Trace( "Warning: failed getting symbolic name. Probably bad data: {0}",
-                                  Util.GetExceptionMessages( dpe ) );
+                LogManager.Trace( "Warning: failed getting symbolic name ({0}). Probably bad data.",
+                                  Util.FormatHalfOrFullQWord( firstSlotAddr ) );
                 return null;
             }
 

@@ -140,23 +140,21 @@ namespace MS.Dbg.Commands
         private void _UnassembleInstructions( ulong addr, Func< ulong, bool > keepGoing )
         {
             ColorString csBlockId;
-            try
-            {
-                ulong disp;
-                var addrName = Debugger.GetNameByOffset( addr, out disp );
-                csBlockId = DbgProvider.ColorizeSymbol( addrName );
-                if( 0 != disp )
-                {
-                    csBlockId.Append( Util.Sprintf( "+{0:x}", disp ) );
-                }
-            }
-            catch( DbgProviderException )
+
+            ulong disp;
+            string addrName;
+            if( !Debugger.TryGetNameByOffset( addr, out addrName, out disp ) )
             {
                 // Ignore. We'll just use the address as the block id. If we really can't
                 // get the memory there, we'll fail with a good error message later.
                 csBlockId = new ColorString().Append( DbgProvider.FormatAddress( addr,
                                                                                  Debugger.TargetIs32Bit,
                                                                                  true ) );
+            }
+            csBlockId = DbgProvider.ColorizeSymbol( addrName );
+            if( 0 != disp )
+            {
+                csBlockId.Append( Util.Sprintf( "+{0:x}", disp ) );
             }
 
             csBlockId.Append( ":" ).MakeReadOnly();
