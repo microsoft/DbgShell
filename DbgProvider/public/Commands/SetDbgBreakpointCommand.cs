@@ -455,6 +455,9 @@ namespace MS.Dbg.Commands
                             (mbi.Protect != PAGE.EXECUTE_READWRITE) && // <-- I don't actually know what these are
                             (mbi.Protect != PAGE.EXECUTE_WRITECOPY) )  // <--
                         {
+                            LogManager.Trace( "bp is bogus because memory protection doesn't seem right: {0}",
+                                              mbi.Protect );
+
                             bpIsActuallyBogus = true;
                         }
                     }

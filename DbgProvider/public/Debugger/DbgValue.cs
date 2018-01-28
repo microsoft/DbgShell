@@ -1260,57 +1260,6 @@ namespace MS.Dbg
         }
 
 
-        private static Regex sm_adjustorThunkRegex = new Regex( @".*`adjustor\{(?<decimalOffset>\d+)\}'$",
-                                                                RegexOptions.Compiled );
-
-        /// <summary>
-        ///    Give a vtable pointer, we get the symbolic name for the first slot. If it
-        ///    looks like an adjustor thunk, we return the offset; else 0.
-        /// </summary>
-        private static bool _TryDiscernOffsetFromAdjustorThunk( DbgEngDebugger debugger,
-                                                                ulong firstSlotPtr,
-                                                                out int offset )
-        {
-            offset = 0;
-            try
-            {
-                ulong disp;
-                // There should be at least one slot... else why have a vtable?
-                ulong firstSlotAddr = debugger.ReadMemAs_pointer( firstSlotPtr );
-                string slotSymName = debugger.GetNameByOffset( firstSlotAddr, out disp );
-
-                if( 0 != disp )
-                {
-                    LogManager.Trace( "Warning: could not get exact symbolic name for slot in vftable." );
-                    return false;
-                }
-
-                var match = sm_adjustorThunkRegex.Match( slotSymName );
-                if( !match.Success )
-                {
-                    LogManager.Trace( "_TryDiscernOffsetFromAdjustorThunk: Hm, this doesn't look like an adjustor thunk: {0}",
-                                       slotSymName );
-                    // No adjustor thunk? I guess that means the offset should be 0.
-                    return true;
-                }
-                if( !Int32.TryParse( match.Groups[ "decimalOffset" ].Value, out offset ) )
-                {
-                    Util.Fail( "Int32.TryParse should not have failed, because the regex succeeded." );
-                    return false;
-                }
-                offset = -offset; // it's expressed opposite of how we want it
-                LogManager.Trace( "Found offset based on adjustor thunk: {0}", offset );
-                return true;
-            }
-            catch( DbgEngException dee )
-            {
-                LogManager.Trace( "Warning: _TryDiscernOffsetFromAdjustorThunk: failed reading memory or getting symbolic name. Probably bad data: {0}",
-                                  Util.GetExceptionMessages( dee ) );
-                return false;
-            }
-        } // end _TryDiscernOffsetFromAdjustorThunk
-
-
         private string _TryGetTypeName( DbgNamedTypeInfo ti )
         {
             try
