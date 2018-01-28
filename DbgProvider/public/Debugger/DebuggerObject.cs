@@ -129,10 +129,10 @@ namespace MS.Dbg
 
 
         /// <summary>
-        ///    Gets the symbol name for the specified address. Returns null if no name is
-        ///    found. Do not use for getting stack frame stuff; this won't get inline
-        ///    frame info. Also consider using FindSymbolForAddress if you need an actual
-        ///    symbol.
+        ///    Gets the symbol name for the specified address. Throws a
+        ///    DbgProviderException if it fails. Do not use for getting stack frame stuff;
+        ///    this won't get inline frame info. Also consider using FindSymbolForAddress
+        ///    if you need an actual symbol.
         /// </summary>
         public string GetNameByOffset( ulong offset, out ulong displacement )
         {

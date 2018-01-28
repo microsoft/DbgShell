@@ -124,7 +124,7 @@ namespace MS.Dbg
                 var match = sm_adjustorThunkRegex.Match( slotSymName );
                 if( !match.Success )
                 {
-                    LogManager.Trace( "_TryDetectDerivedType: Hm, this doesn't look like an adjustor thunk: {0}",
+                    LogManager.Trace( "_TryDiscernOffsetFromAdjustorThunk: Hm, this doesn't look like an adjustor thunk: {0}",
                                        slotSymName );
                     // No adjustor thunk? I guess that means the offset should be 0.
                     return true;
@@ -138,10 +138,10 @@ namespace MS.Dbg
                 LogManager.Trace( "Found offset based on adjustor thunk: {0}", offset );
                 return true;
             }
-            catch( DbgEngException dee )
+            catch( DbgProviderException dpe )
             {
                 LogManager.Trace( "Warning: _TryDiscernOffsetFromAdjustorThunk: failed reading memory or getting symbolic name. Probably bad data: {0}",
-                                  Util.GetExceptionMessages( dee ) );
+                                  Util.GetExceptionMessages( dpe ) );
                 return false;
             }
         } // end _TryDiscernOffsetFromAdjustorThunk

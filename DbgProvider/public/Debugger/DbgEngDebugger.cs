@@ -3491,10 +3491,10 @@ namespace MS.Dbg
             {
                 vtableSymName = GetNameByOffset( firstSlotAddr, out disp );
             }
-            catch( DbgEngException dee )
+            catch( DbgProviderException dpe )
             {
                 LogManager.Trace( "Warning: failed getting symbolic name. Probably bad data: {0}",
-                                  Util.GetExceptionMessages( dee ) );
+                                  Util.GetExceptionMessages( dpe ) );
                 return null;
             }
 

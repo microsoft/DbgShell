@@ -150,7 +150,7 @@ namespace MS.Dbg.Commands
                     csBlockId.Append( Util.Sprintf( "+{0:x}", disp ) );
                 }
             }
-            catch( DbgEngException )
+            catch( DbgProviderException )
             {
                 // Ignore. We'll just use the address as the block id. If we really can't
                 // get the memory there, we'll fail with a good error message later.

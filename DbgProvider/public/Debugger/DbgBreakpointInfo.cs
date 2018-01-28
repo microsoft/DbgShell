@@ -326,9 +326,9 @@ namespace MS.Dbg
                     else
                         return sym + "+0x" + displacement.ToString( "x" );
                 }
-                catch( DbgEngException dee )
+                catch( DbgProviderException dpe )
                 {
-                    LogManager.Trace( "Could not get name for offset {0:x16}: {1}.", Offset, dee );
+                    LogManager.Trace( "Could not get name for offset {0:x16}: {1}.", Offset, dpe );
                     return "????";
                 }
             }
