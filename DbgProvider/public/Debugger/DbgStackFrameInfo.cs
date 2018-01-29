@@ -118,13 +118,14 @@ namespace MS.Dbg
         {
             get
             {
-                if( null == Function )
+                if( null != Function )
                 {
-                    return DbgProvider.FormatAddress( InstructionPointer,
-                                                      Debugger.TargetIs32Bit,
-                                                      useTick: true );
+                    return Function.ModuleQualifiedName;
                 }
-                return Function.ModuleQualifiedName;
+
+                return DbgProvider.FormatAddress( InstructionPointer,
+                                                  Debugger.TargetIs32Bit,
+                                                  useTick: true );
             }
         } // end property SymbolName
 
@@ -326,10 +327,21 @@ namespace MS.Dbg
                 }
             } // end if( !Function )
 
-            if( Displacement == 0 )
-                return SymbolName;
-            else
-                return Util.Sprintf( "{0}+0x{1:x}", SymbolName, Displacement );
+            try
+            {
+                if( Displacement == 0 )
+                    return SymbolName;
+                else
+                    return Util.Sprintf( "{0}+0x{1:x}", SymbolName, Displacement );
+            }
+            catch( DbgProviderException dpe )
+            {
+                LogManager.Trace( "Could not get symbol name: {0}", Util.GetExceptionMessages( dpe ) );
+            }
+
+            return DbgProvider.FormatAddress( InstructionPointer,
+                                              Debugger.TargetIs32Bit,
+                                              useTick: true );
         } // end ToString()
 
 
