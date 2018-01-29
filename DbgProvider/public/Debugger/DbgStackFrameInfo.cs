@@ -329,10 +329,26 @@ namespace MS.Dbg
 
             try
             {
-                if( Displacement == 0 )
-                    return SymbolName;
-                else
-                    return Util.Sprintf( "{0}+0x{1:x}", SymbolName, Displacement );
+                string disp = String.Empty;
+
+                if( Displacement != 0 )
+                {
+                    disp = "+0x" + Displacement.ToString( "x" );
+                }
+
+                if( null != ManagedFrame )
+                {
+                    // TODO: Ideally we wouldn't deal with this at this layer; we would
+                    // synthesize a DbgModuleInfo instead. But for now this is a handy
+                    // workaround.
+                    // https://github.com/Microsoft/DbgShell/issues/35
+
+                    // It seems like dbgeng likes to replace dots in module names with
+                    // underbars... why? I guess I should do the same?
+                    return ManagedFrame.ModuleName.Replace( '.', '_' ) + "!" + ManagedFrame.Method.GetFullSignature() + disp;
+                }
+
+                return SymbolName + disp;
             }
             catch( DbgProviderException dpe )
             {

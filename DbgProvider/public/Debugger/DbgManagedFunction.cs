@@ -23,9 +23,9 @@ namespace MS.Dbg
             {
                 using( new DbgEngContextSaver( Debugger, Context ) )
                 {
-                    // TODO: this might not work for a managed module with public dbgeng...
-                    // could we query clrmd or something? To see the point of failure,
-                    // search for 8b09cd08-2fb1-4f51-902f-bdd6f967b105
+                    // TODO: this won't work for a managed module... we should use ClrMd
+                    // to synthesize a DbgModuleInfo.
+                    // https://github.com/Microsoft/DbgShell/issues/35
                     return Debugger.GetModuleByAddress( m_clrMethod.Type.Module.ImageBase );
                 }
             }

@@ -429,9 +429,9 @@ namespace MS.Dbg
                         uint index;
                         ulong baseAddr;
 
-                        // TODO: this might not work for a managed module with public dbgeng...
-                        // could we query clrmd or something? This is the actual point of
-                        // failure, c.f. 8b09cd08-2fb1-4f51-902f-bdd6f967b105
+                        // TODO: If it's a managed module, this will fail. We could use
+                        // ClrMd to synthesize this DbgModule instead.
+                        // https://github.com/Microsoft/DbgShell/issues/35
                         StaticCheckHr( ds.GetModuleByOffset2( addressInModule,
                                                               0, // start index
                                                               DEBUG_GETMOD.DEFAULT,
