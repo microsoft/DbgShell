@@ -148,6 +148,7 @@ follow:
 
 1. When ready to make a release set the version number in `VersionInfo.csproj` to an
    "official release" number (see details about the version numbering convention above).
+1. Update Changelog.md.
 1. Make sure that your git status is clean--you can have untracked files, but you don't
    want to have modified files, else the bits will get marked as "private" builds. (plus
    the build won't be reproducible by anybody else!) Make sure tests pass for all
