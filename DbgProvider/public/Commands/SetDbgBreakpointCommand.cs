@@ -442,7 +442,14 @@ namespace MS.Dbg.Commands
                     if( hr != 0 )
                     {
                         // iDNA targets don't yet handle QueryVirtual.
-                        if( hr != DebuggerObject.E_NOTIMPL )
+                        // Augh... they started returning E_UNEXPECTED instead of E_NOTIMPL...
+                        // We'll just ignore errors if the target is a time-travel target...
+                        if( Debugger.IsTimeTravelTrace )
+                        {
+                            LogManager.Trace( "_TryValidateBp: Ignoring error {0} from TryQueryVirtual, because it's a time-travel trace. *crosses fingers*",
+                                              Util.FormatErrorCode( hr ) );
+                        }
+                        else
                         {
                             LogManager.Trace( "_TryValidateBp: TryQueryVirtual failed: {0}", Util.FormatErrorCode( hr ) );
                             bpIsActuallyBogus = true;

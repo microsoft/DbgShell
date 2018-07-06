@@ -493,6 +493,32 @@ namespace MS.Dbg
         } // end property CanStep
 
 
+        public bool IsTimeTravelTrace
+        {
+            get
+            {
+                return ExecuteOnDbgEngThread( () =>
+                    {
+                        DEBUG_CLASS targetClass;
+                        DEBUG_CLASS_QUALIFIER qualifier;
+                        CheckHr( m_debugControl.GetDebuggeeType( out targetClass, out qualifier ) );
+                        if( (DEBUG_CLASS.UNINITIALIZED == targetClass) ||
+                            (DEBUG_CLASS.IMAGE_FILE == targetClass) )
+                        {
+                            return false;
+                        }
+
+                        if( (DEBUG_CLASS_QUALIFIER.KERNEL_IDNA == qualifier) ||
+                            (DEBUG_CLASS_QUALIFIER.USER_WINDOWS_IDNA == qualifier) )
+                        {
+                            return true;
+                        }
+                        return false;
+                    } );
+            }
+        } // end property IsTimeTravelTrace
+
+
         public bool IsKernelMode
         {
             get
