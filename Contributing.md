@@ -165,6 +165,8 @@ follow:
 1. Upload to the distribution point of your choosing.
 1. Before publicizing the release, go to a "non-developer machine" (no Visual Studio
    installed), download the release there, and test it to make sure it works there.
+1. If you upload the official release to the github releases page, update the
+   aka.ms/dbgshell-latest vanity URL target.
 1. Once satisfied with everything, bump the version in `VersionInfo.csproj` to an odd
    number for ongoing development (see details about the version numbering convention
    below).
