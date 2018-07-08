@@ -1568,7 +1568,7 @@ namespace MS.Dbg
         // stow the ScriptBlocks here, indexed by breakpoint guid. When we get a
         // breakpoint change notification, we go through the current breakpoints and apply
         // a regex to the breakpoint command to see if it is a DbgShell command, so that
-        // can cull ScriptBlocks that are no longer used.
+        // we can cull ScriptBlocks that are no longer used.
         private Dictionary< Guid, System.Management.Automation.ScriptBlock > m_bpDbgShellCommands
             = new Dictionary< Guid, System.Management.Automation.ScriptBlock >();
 

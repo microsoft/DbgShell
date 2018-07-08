@@ -140,7 +140,6 @@ namespace MS.Dbg.Commands
                             // that it shouldn't exit all the way; we're just trying to
                             // terminate the current breakpoint script.
                             DbgProvider.DontExitAllTheWay = true;
-
                         }
 
                         // Throwing an ExitException would be much more direct, but there
@@ -173,11 +172,6 @@ namespace MS.Dbg.Commands
                  //     Console.WriteLine( "Breakpoint hit. The command was: {0}", m_bea.Breakpoint.Command );
                  // else
                  //     Console.WriteLine( "Breakpoint hit. (breakpoint no longer valid)" );
-
-                    // TODO: Idea: I could accept ScriptBlocks as commands to be executed, and store
-                    // them with dbgeng in the form of a string identifier, like "ScriptBlock_NNNN",
-                    // or probably better, "!dbgshell ScriptBlock_NNNN". I need to figure out what
-                    // happens with the breakpoint command when I'm just a debugger client.
                 }
             }
         } // end ProcessRecord()
