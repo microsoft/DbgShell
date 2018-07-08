@@ -221,7 +221,7 @@ private:
             iUnknown = nullptr;
         }
         return hr;
-    } // end CreateNewAppDomain()
+    } // end GetDefaultDomain()
 
 
 public:

@@ -515,6 +515,8 @@ HRESULT CALLBACK dbgshell( IDebugClient* debugClient, PCSTR args )
 
     if( !g_pClrHost )
     {
+		_RemoveMarkOfTheInternet( g_pDbgShellExePath );
+
         g_hostIsDbgShellExe = _IsHostDbgShellExe();
         g_pDbgShellExePath = _GetDbgShellBinaryPath();
         g_pClrHost = new ClrHost( g_pDbgShellExePath );
@@ -529,8 +531,6 @@ HRESULT CALLBACK dbgshell( IDebugClient* debugClient, PCSTR args )
         }
         OutputDebugString( L"DbgShell: Initialized CLR stuff.\n" );
     }
-
-    _RemoveMarkOfTheInternet( g_pDbgShellExePath );
 
     //wprintf( L"\nextension args: %S\n\n", args );
 
