@@ -383,10 +383,16 @@ Register-DbgValueConverterInfo {
             if( $stockValue.PSObject.Properties.Match( '_Mypair' ).Count )
             {
                 # New in Dev14 (VS 2015)
-                return $stockValue._Mypair._Myval2
+                # The actual pointer is at $stockValue._Mypair._Myval2, but automatic
+                # smart pointer detection handles the ._Myval2 part:
+                return $stockValue._Mypair
             }
             else
             {
+                # Normally smart pointer auto detection would handle this, but since we
+                # have this converter for the other case for Dev14+, we need to handle
+                # this case too:
+                #
                 # unique_ptr is just a resource management wrapper around a pointer. We can make
                 # things easier to see in the debugger by just hiding the unique_ptr layer (which
                 # has nothing in it anyway; just the pointer).
