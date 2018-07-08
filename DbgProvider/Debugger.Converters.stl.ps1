@@ -389,7 +389,7 @@ Register-DbgValueConverterInfo {
                 if( $stockValue._Mypair.PSObject.Properties.Match( '_Myval2' ).Count -and
                     # make sure the _Myval2 is not actually something forwarded from the
                     # pointed-to object:
-                    $stockValue._MyPair._Myval2.DbgGetSymbol().Type.Name.StartsWith( 'std::' ) )
+                    $stockValue._MyPair.DbgGetSymbol().Type.Name.StartsWith( 'std::' ) )
                 {
                     return $stockValue._Mypair._Myval2
                 }
