@@ -384,8 +384,20 @@ Register-DbgValueConverterInfo {
             {
                 # New in Dev14 (VS 2015)
                 # The actual pointer is at $stockValue._Mypair._Myval2, but automatic
-                # smart pointer detection handles the ._Myval2 part:
-                return $stockValue._Mypair
+                # smart pointer detection might handle the ._Myval2 part if it's one of
+                # those new-fangled compressed pairs:
+                if( $stockValue._Mypair.PSObject.Properties.Match( '_Myval2' ).Count -and
+                    # make sure the _Myval2 is not actually something forwarded from the
+                    # pointed-to object:
+                    $stockValue._MyPair._Myval2.DbgGetSymbol().Type.Name.StartsWith( 'std::' ) )
+                {
+                    return $stockValue._Mypair._Myval2
+                }
+                else
+                {
+                    # New-fangled compressed pair:
+                    return $stockValue._Mypair
+                }
             }
             else
             {
