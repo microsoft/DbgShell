@@ -515,10 +515,11 @@ HRESULT CALLBACK dbgshell( IDebugClient* debugClient, PCSTR args )
 
     if( !g_pClrHost )
     {
-		_RemoveMarkOfTheInternet( g_pDbgShellExePath );
-
         g_hostIsDbgShellExe = _IsHostDbgShellExe();
         g_pDbgShellExePath = _GetDbgShellBinaryPath();
+
+		_RemoveMarkOfTheInternet( g_pDbgShellExePath );
+
         g_pClrHost = new ClrHost( g_pDbgShellExePath );
         hr = g_pClrHost->Initialize( /* createNewAppDomain = */ !g_hostIsDbgShellExe );
         if( FAILED( hr ) )
