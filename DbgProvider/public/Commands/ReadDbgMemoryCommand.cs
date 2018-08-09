@@ -71,6 +71,33 @@ namespace MS.Dbg.Commands
                 LengthInBytes = _GetDefaultReadSize( DefaultDisplayFormat );
             }
 
+            // Okay, we've got a length + display format, but one or the other may be
+            // defaulted. In that case, we want to make sure that the LengthInBytes is
+            // compatible with the display format. (And actually, even if they were both
+            // explicitly specified, we /still/ want to make sure they are compatible.)
+            //
+            // For instance, if the LengthInBytes was explicitly specified as 4, and the
+            // display format got defaulted to PointersWithAscii, on a 64-bit target, we
+            // are not going to be able to display anything (because we won't have read
+            // even a single full pointer)--we need to downgrade the display format to fit
+            // the size requested, if possible.
+
+            if( !_IsDisplayFormatCompatibleWithReadSize( LengthInBytes, DefaultDisplayFormat, Debugger.PointerSize ) )
+            {
+                var compatibleDisplayFormat = _GetDefaultDisplayFormatForSize( LengthInBytes, Debugger.PointerSize );
+
+                if( MyInvocation.BoundParameters.ContainsKey( "DefaultDisplayFormat" ) )
+                {
+                    SafeWriteWarning( "The specified display format ({0}) is not compatible with the byte length requested ({1}). The {2} format will be used instead.",
+                                      DefaultDisplayFormat,
+                                      LengthInBytes,
+                                      compatibleDisplayFormat );
+                }
+                // else just silently fix it up.
+
+                DefaultDisplayFormat = compatibleDisplayFormat;
+            }
+
             if( !MyInvocation.BoundParameters.ContainsKey( "DefaultDisplayColumns" ) )
             {
                 DefaultDisplayColumns = NextDefaultNumColumns;
@@ -114,5 +141,65 @@ namespace MS.Dbg.Commands
                 return 128;
             }
         } // end _GetDefaultReadSize()
+
+
+        private static DbgMemoryDisplayFormat _GetDefaultDisplayFormatForSize( uint readSize, uint pointerSize )
+        {
+            if( 0 == (readSize % pointerSize) )
+            {
+                return DbgMemoryDisplayFormat.PointersWithAscii;
+            }
+            else if( 0 == (readSize % 4) )
+            {
+                return DbgMemoryDisplayFormat.DWordsWithAscii;
+            }
+            else
+            {
+                return DbgMemoryDisplayFormat.Bytes;
+            }
+        }
+
+
+        private static uint _ElementSizeForDisplayFormat( DbgMemoryDisplayFormat format, uint pointerSize )
+        {
+            switch( format )
+            {
+                case DbgMemoryDisplayFormat.AsciiOnly:
+                case DbgMemoryDisplayFormat.Bytes:
+                    return 1;
+                case DbgMemoryDisplayFormat.UnicodeOnly:
+                case DbgMemoryDisplayFormat.Words:
+                case DbgMemoryDisplayFormat.WordsWithAscii:
+                    return 2;
+                case DbgMemoryDisplayFormat.DWords:
+                case DbgMemoryDisplayFormat.DWordsWithAscii:
+                case DbgMemoryDisplayFormat.DWordsWithBits:
+                    return 4;
+                case DbgMemoryDisplayFormat.QWords:
+                case DbgMemoryDisplayFormat.QWordsWithAscii:
+                    return 8;
+                case DbgMemoryDisplayFormat.Pointers:
+                case DbgMemoryDisplayFormat.PointersWithSymbols:
+                case DbgMemoryDisplayFormat.PointersWithAscii:
+                case DbgMemoryDisplayFormat.PointersWithSymbolsAndAscii:
+                    return pointerSize;
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+
+        /// <summary>
+        ///    Returns "true" if the number of bytes read (readSize) is evenly divisible
+        ///    by the element size implied by the display format.
+        /// </summary>
+        private static bool _IsDisplayFormatCompatibleWithReadSize( uint readSize,
+                                                                    DbgMemoryDisplayFormat format,
+                                                                    uint pointerSize )
+        {
+            uint elemSize = _ElementSizeForDisplayFormat( format, pointerSize );
+
+            return 0 == (readSize % elemSize);
+        }
     } // end class ReadDbgMemoryCommand
 }
