@@ -913,6 +913,8 @@ function Remove-Color
 } # end Remove-Color
 
 
+Set-Alias Out-StringNoColor Remove-Color -Scope global
+
 Set-Alias fal Format-AltList        -Scope global
 Set-Alias fat Format-AltTable       -Scope global
 Set-Alias fac Format-AltCustom      -Scope global
