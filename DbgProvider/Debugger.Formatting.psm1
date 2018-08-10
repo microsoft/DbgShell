@@ -883,6 +883,36 @@ function New-ColorString
 } # end New-ColorString
 
 
+<#
+.SYNOPSIS
+    Removes color (ISO/IEC 6429 color markup) from the input. If the input objects are not strings, then they are first converted by running Out-String.
+#>
+function Remove-Color
+{
+    [CmdletBinding()]
+    [OutputType( ([String]) )]
+    param( [Parameter( Mandatory = $true, Position = 0, ValueFromPipeline = $true )]
+           [AllowNull()] # important for pipeline scenarios
+           [object] $InputObject
+         )
+    begin { }
+    end { }
+    process
+    {
+        try
+        {
+            if( $InputObject -isnot [string] )
+            {
+                $InputObject = Out-String -Stream -InputObject $InputObject
+            }
+
+            [MS.Dbg.ColorString]::StripPrerenderedColor( $InputObject )
+        }
+        finally { }
+    }
+} # end Remove-Color
+
+
 Set-Alias fal Format-AltList        -Scope global
 Set-Alias fat Format-AltTable       -Scope global
 Set-Alias fac Format-AltCustom      -Scope global
