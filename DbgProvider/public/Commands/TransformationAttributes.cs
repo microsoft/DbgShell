@@ -37,12 +37,22 @@ namespace MS.Dbg.Commands
         public bool AllowList { get; set; }
 
 
+        /// <summary>
+        ///    Set this to 'true' if you want the PS runtime to be able to try other
+        ///    binding options (such as binding to a pipeline value by property name).
+        ///
+        ///    If left as the default (false), it means the attribute will throw an
+        ///    exception if it can't convert the object.
+        /// </summary>
+        public bool FailGracefully { get; set; }
+
+
         public override object Transform( EngineIntrinsics engineIntrinsics, object inputData )
         {
             return Transform( engineIntrinsics,
                               null,
                               SkipGlobalSymbolTest,
-                              true,
+                              !FailGracefully, // throwOnFailure
                               DbgMemoryPassThru,
                               AllowList,
                               inputData );

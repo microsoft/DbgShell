@@ -11,7 +11,7 @@ namespace MS.Dbg.Commands
                     Position = 0,
                     ValueFromPipeline = true,
                     ValueFromPipelineByPropertyName = true )]
-        [AddressTransformation]
+        [AddressTransformation( FailGracefully = true )] // FailGracefully to allow ValueFromPipelineByPropertyName to work
         public ulong Address { get; set; }
 
         [Parameter( Mandatory = false, Position = 1 )]

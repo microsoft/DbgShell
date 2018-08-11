@@ -14,7 +14,8 @@ namespace MS.Dbg.Commands
         [Parameter( Mandatory = true,
                     Position = 0,
                     ParameterSetName = c_FrameNumParamSet,
-                    ValueFromPipeline = true )]
+                    ValueFromPipeline = true,
+                    ValueFromPipelineByPropertyName = true )]
         // It's not an address, but we want it to be in hex, and also recognize "0n".
         //
         // Unfortunately, without a true "hex input mode", this still doesn't work very
@@ -22,7 +23,10 @@ namespace MS.Dbg.Commands
         //
         // Using this transformation seems to work out okay even though we want a uint,
         // not a ulong.
-        [AddressTransformation( SkipGlobalSymbolTest = true )]
+        //
+        // FailGracefully = true so that ValueFromPipelineByPropertyName can have a
+        // chance.
+        [AddressTransformation( SkipGlobalSymbolTest = true, FailGracefully = true )]
         public uint FrameNumber { get; set; }
 
         [Parameter]

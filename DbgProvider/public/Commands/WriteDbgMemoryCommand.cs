@@ -6,11 +6,12 @@ namespace MS.Dbg.Commands
     [Cmdlet( VerbsCommunications.Write, "DbgMemory", DefaultParameterSetName = "DWordsParamSet" )]
     public class WriteDbgMemoryCommand : DbgBaseCommand
     {
+        // TODO: do I really want to pipeline on the Address param, and not the data??
         [Parameter( Mandatory = true,
                     Position = 0,
                     ValueFromPipeline = true,
                     ValueFromPipelineByPropertyName = true )]
-        [AddressTransformation]
+        [AddressTransformation( FailGracefully = true )] // FailGracefully to allow ValueFromPipelineByPropertyName to work
         public ulong Address { get; set; }
 
 

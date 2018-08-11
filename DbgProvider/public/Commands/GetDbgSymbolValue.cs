@@ -35,7 +35,7 @@ namespace MS.Dbg.Commands
                     ValueFromPipeline = true,
                     ValueFromPipelineByPropertyName = true,
                     ParameterSetName = c_AddressAndTypeNameParamSet )]
-        [AddressTransformation]
+        [AddressTransformation( FailGracefully = true )] // FailGracefully to allow ValueFromPipelineByPropertyName to work
         public ulong Address { get; set; }
 
         [Parameter( Mandatory = true,
