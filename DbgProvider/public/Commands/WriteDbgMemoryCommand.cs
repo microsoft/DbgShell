@@ -11,31 +11,44 @@ namespace MS.Dbg.Commands
         [AddressTransformation( FailGracefully = true )] // FailGracefully to allow ValueFromPipelineByPropertyName to work
         public ulong Address { get; set; }
 
+        //
+        // No pipelining of input data:
+        //
+        // This cmdlet accepts a byte[] as input. Suppose we allowed piping it in:
+        //
+        //    $myBytes | Write-DbgMemory -Address 0x12345678
+        //
+        // Seems like it would be nice, right? However, due to the nature of how PS does
+        // pipelining, it's a bad idea: PS "unrolls" the input array, and would call
+        // Write-DbgMemory N times with a 1-element array each time (resulting in N calls
+        // to WriteMemory), where N is the size of $myBytes. This would be terrible, so
+        // we're just not going to allow pipelining the content at all.
+        //
 
         [Parameter( Mandatory = true,
                     Position = 1,
-                    ValueFromPipeline = true,
+                    ValueFromPipeline = false, // NO pipelining: see comment above
                     ParameterSetName = "BytesParamSet" )]
         [ValidateNotNull]
         public byte[] Bytes { get; set; }
 
         [Parameter( Mandatory = true,
                     Position = 1,
-                    ValueFromPipeline = true,
+                    ValueFromPipeline = false, // NO pipelining: see comment above
                     ParameterSetName = "DWordsParamSet" )]
         [ValidateNotNull]
         public uint[] DWords { get; set; }
 
         [Parameter( Mandatory = true,
                     Position = 1,
-                    ValueFromPipeline = true,
+                    ValueFromPipeline = false, // NO pipelining: see comment above
                     ParameterSetName = "QWordsParamSet" )]
         [ValidateNotNull]
         public ulong[] QWords { get; set; }
 
         [Parameter( Mandatory = true,
                     Position = 1,
-                    ValueFromPipeline = true,
+                    ValueFromPipeline = false, // NO pipelining: see comment above
                     ParameterSetName = "DbgMemoryParamSet" )]
         [ValidateNotNull]
         public DbgMemory Memory { get; set; }
@@ -52,38 +65,20 @@ namespace MS.Dbg.Commands
 
         protected override void ProcessRecord()
         {
-            uint writeSize = 0;
             if( null != Bytes )
-            {
                 Debugger.WriteMem( Address, Bytes );
-                writeSize = (uint) Bytes.Length;
-            }
             else if( null != DWords )
-            {
                 Debugger.WriteMem( Address, DWords );
-                writeSize = (uint) DWords.Length * 4;
-            }
             else if( null != QWords )
-            {
                 Debugger.WriteMem( Address, QWords );
-                writeSize = (uint) QWords.Length * 8;
-            }
             else
             {
                 Util.Assert( null != Memory );
                 // TODO: use some fancy new C# features to get a span or array view or
                 // something so I don't have to have this crummy internal accessor in
                 // order to avoid a copy.
-                var bytes = Memory._GetBackingBytes();
-                Debugger.WriteMem( Address, bytes );
-                writeSize = (uint) bytes.Length;
+                Debugger.WriteMem( Address, Memory._GetBackingBytes() );
             }
-
-            // TODO: the pipelining is quite terrible: if you have a byte[] of a hundred
-            // bytes, and pipe it in, PS will slice the array into a hundred different
-            // byte arrays of a single byte each, and then call ProcessRecord a hundred
-            // times. Oy.
-            Address += writeSize; // For the pipelining case
         }
     }
 }
