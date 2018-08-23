@@ -23,10 +23,7 @@ namespace MS.Dbg.Commands
         //
         // Using this transformation seems to work out okay even though we want a uint,
         // not a ulong.
-        //
-        // FailGracefully = true so that ValueFromPipelineByPropertyName can have a
-        // chance.
-        [AddressTransformation( SkipGlobalSymbolTest = true, FailGracefully = true )]
+        [AddressTransformation( SkipGlobalSymbolTest = true )]
         public uint FrameNumber { get; set; }
 
         [Parameter]

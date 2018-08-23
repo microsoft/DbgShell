@@ -37,22 +37,12 @@ namespace MS.Dbg.Commands
         public bool AllowList { get; set; }
 
 
-        /// <summary>
-        ///    Set this to 'true' if you want the PS runtime to be able to try other
-        ///    binding options (such as binding to a pipeline value by property name).
-        ///
-        ///    If left as the default (false), it means the attribute will throw an
-        ///    exception if it can't convert the object.
-        /// </summary>
-        public bool FailGracefully { get; set; }
-
-
         public override object Transform( EngineIntrinsics engineIntrinsics, object inputData )
         {
             return Transform( engineIntrinsics,
                               null,
                               SkipGlobalSymbolTest,
-                              !FailGracefully, // throwOnFailure
+                              true, // throwOnFailure
                               DbgMemoryPassThru,
                               AllowList,
                               inputData );
@@ -330,8 +320,13 @@ namespace MS.Dbg.Commands
                 ExceptionDispatchInfo.Capture( e ).Throw();
             }
 
+            // https://github.com/PowerShell/PowerShell/issues/7600
+            //
+            // For parameter binding to be able to continue (for example, to try binding
+            // by property name), this exception needs to wrap a PSInvalidCastException.
             throw new ArgumentTransformationMetadataException( Util.Sprintf( "Could not convert '{0}' to an address.",
-                                                                             inputData ) );
+                                                                             inputData ),
+                                                               new PSInvalidCastException() );
         } // end Transform()
 
 
@@ -599,9 +594,14 @@ namespace MS.Dbg.Commands
                 }
             }
 
-            throw new ArgumentTransformationMetadataException( Util.Sprintf( "Could not convert '{0}' to a module.",
-                                                                             originalInputData ),
-                                                               e );
+            // https://github.com/PowerShell/PowerShell/issues/7600
+            //
+            // For parameter binding to be able to continue (for example, to try binding
+            // by property name), this exception needs to wrap a PSInvalidCastException.
+
+            string msg = Util.Sprintf( "Could not convert '{0}' to a module.", originalInputData );
+            throw new ArgumentTransformationMetadataException( msg,
+                                                               new PSInvalidCastException( msg, e ) );
         } // end Transform()
     } // end class ModuleTransformationAttribute
 
@@ -659,9 +659,14 @@ namespace MS.Dbg.Commands
                 e = dee;
             }
 
-            throw new ArgumentTransformationMetadataException( Util.Sprintf( "Could not convert '{0}' to a module name.",
-                                                                             originalInputData ),
-                                                               e );
+            // https://github.com/PowerShell/PowerShell/issues/7600
+            //
+            // For parameter binding to be able to continue (for example, to try binding
+            // by property name), this exception needs to wrap a PSInvalidCastException.
+
+            string msg = Util.Sprintf( "Could not convert '{0}' to a module name.", originalInputData );
+            throw new ArgumentTransformationMetadataException( msg,
+                                                               new PSInvalidCastException( msg, e ) );
         } // end Transform()
     } // end class ModuleNameTransformationAttribute
 
@@ -720,9 +725,14 @@ namespace MS.Dbg.Commands
                 }
             } // end if( it's a string )
 
-            throw new ArgumentTransformationMetadataException( Util.Sprintf( "Type not found. (Could not convert '{0}' to a type.)",
-                                                                             originalInputData ),
-                                                               e );
+            // https://github.com/PowerShell/PowerShell/issues/7600
+            //
+            // For parameter binding to be able to continue (for example, to try binding
+            // by property name), this exception needs to wrap a PSInvalidCastException.
+
+            string msg = Util.Sprintf( "Type not found. (Could not convert '{0}' to a type.)", originalInputData );
+            throw new ArgumentTransformationMetadataException( msg,
+                                                               new PSInvalidCastException( msg, e ) );
         } // end Transform()
     } // end class TypeTransformationAttribute
 
@@ -903,8 +913,13 @@ namespace MS.Dbg.Commands
                                                                                  tid ) );
             }
 
+            // https://github.com/PowerShell/PowerShell/issues/7600
+            //
+            // For parameter binding to be able to continue (for example, to try binding
+            // by property name), this exception needs to wrap a PSInvalidCastException.
             throw new ArgumentTransformationMetadataException( Util.Sprintf( "Could not convert '{0}' to a thread.",
-                                                                             originalInputData ) );
+                                                                             originalInputData ),
+                                                               new PSInvalidCastException() );
         } // end Transform()
     } // end class ThreadTransformationAttribute
 }

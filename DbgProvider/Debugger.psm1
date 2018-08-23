@@ -1594,7 +1594,7 @@ function db
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -1650,7 +1650,7 @@ function da
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -1706,7 +1706,7 @@ function du
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -1761,7 +1761,7 @@ function dwsz
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -1816,7 +1816,7 @@ function dsz
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -1866,7 +1866,7 @@ function dw
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -1923,7 +1923,7 @@ function dd
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -1973,7 +1973,7 @@ function dyd
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -2018,7 +2018,7 @@ function dc
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -2068,7 +2068,7 @@ function dq
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -2118,7 +2118,7 @@ function dp
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -2184,7 +2184,7 @@ function dpc
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -2250,7 +2250,7 @@ function dps
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -2317,7 +2317,7 @@ function dpsc
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true, FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation( DbgMemoryPassThru = $true )]
            [object] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -2387,7 +2387,7 @@ function d
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation()]
            [UInt64] $Address,
 
            [Parameter( Mandatory = $false )]
@@ -2515,7 +2515,7 @@ function eb
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation()]
            [UInt64] $Address,
 
            [Parameter( Mandatory = $false,
@@ -2649,7 +2649,7 @@ function ed
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation()]
            [UInt64] $Address,
 
            [Parameter( Mandatory = $false,
@@ -2783,7 +2783,7 @@ function eq
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation()]
            [UInt64] $Address,
 
            [Parameter( Mandatory = $false,
@@ -2911,7 +2911,7 @@ function ep
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation()]
            [UInt64] $Address,
 
            [Parameter( Mandatory = $false,
@@ -3685,7 +3685,7 @@ function u
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation()]
            [UInt64] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -3759,7 +3759,7 @@ function ub
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation()]
            [UInt64] $Address,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -3787,7 +3787,7 @@ function uf
                        Position = 0,
                        ValueFromPipeline = $true,
                        ValueFromPipelineByPropertyName = $true )]
-           [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+           [MS.Dbg.Commands.AddressTransformation()]
            [UInt64] $Address
          )
     process
@@ -3836,7 +3836,7 @@ function poi
                                Position = 0,
                                ValueFromPipeline = $true,
                                ValueFromPipelineByPropertyName = $true )]
-                   [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+                   [MS.Dbg.Commands.AddressTransformation()]
                    [UInt64] $Address
                  )
             process
@@ -3892,7 +3892,7 @@ function spoi
                                Position = 0,
                                ValueFromPipeline = $true,
                                ValueFromPipelineByPropertyName = $true )]
-                   [MS.Dbg.Commands.AddressTransformation( FailGracefully = $true )] # FailGracefully so that ValueFromPipelineByPropertyName has a chance
+                   [MS.Dbg.Commands.AddressTransformation()]
                    [UInt64] $Address
                  )
             process
