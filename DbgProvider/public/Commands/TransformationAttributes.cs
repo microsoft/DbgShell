@@ -5,9 +5,53 @@ using System.Linq;
 using System.Management.Automation;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using static MS.Dbg.Commands.AtmeHelper;
 
 namespace MS.Dbg.Commands
 {
+    static class AtmeHelper
+    {
+        /// <summary>
+        ///    Creates an ArgumentTransformationMetadataException which indicates a
+        ///    "recoverable" error (so that subsequent binding attempts can proceed).
+        /// </summary>
+        /// <remarks>
+        ///    Docs currently say that for recoverable errors, you should throw an ATME.
+        ///    This is not quite correct--if the ATME does not have an InnerException
+        ///    which is a PSInvalidCastException, then the error is /not/ treated as
+        ///    recoverable by the PS runtime.
+        ///
+        ///    If an error is "recoverable", that means that PS can continue to do
+        ///    parameter binding. For example if you have a parameter that can be bound to
+        ///    pipeline input AND can be bound to pipeline input by property name, then
+        ///    when you pipe an object in, the first transformation may fail, and you want
+        ///    PS to be able to continue binding by checking the object for a property
+        ///    with the appropriate name.
+        ///
+        ///    An alternative way to fail in a recoverable way is to return the original
+        ///    inputData object.
+        ///
+        ///    C.f. https://github.com/PowerShell/PowerShell/issues/7600
+        /// </remarks>
+        public static Exception CreateRecoverableAtme( string msgFmt,
+                                                       params object[] msgInserts )
+        {
+            return CreateRecoverableAtme( null, msgFmt, msgInserts );
+        }
+
+        public static Exception CreateRecoverableAtme( Exception innerInnerException,
+                                                       string msgFmt,
+                                                       params object[] msgInserts )
+        {
+            string msg  = Util.Sprintf( msgFmt, msgInserts );
+
+            return new ArgumentTransformationMetadataException( msg,
+                                                                new PSInvalidCastException( msg,
+                                                                                            innerInnerException ) );
+        }
+    }
+
+
     /// <summary>
     ///    Converts things into ulongs:
     ///
@@ -126,7 +170,7 @@ namespace MS.Dbg.Commands
                             addrs[ i ] = (ulong) Transform( engineIntrinsics,
                                                             dbgProviderPath,
                                                             skipGlobalSymbolTest,
-                                                            true, //throwOnFailure,
+                                                            true, // throwOnFailure,
                                                             dbgMemoryPassthru,
                                                             false, // we don't allow nested arrays
                                                             objList[ i ] );
@@ -324,9 +368,7 @@ namespace MS.Dbg.Commands
             //
             // For parameter binding to be able to continue (for example, to try binding
             // by property name), this exception needs to wrap a PSInvalidCastException.
-            throw new ArgumentTransformationMetadataException( Util.Sprintf( "Could not convert '{0}' to an address.",
-                                                                             inputData ),
-                                                               new PSInvalidCastException() );
+            throw CreateRecoverableAtme( "Could not convert '{0}' to an address.", inputData );
         } // end Transform()
 
 
@@ -435,7 +477,6 @@ namespace MS.Dbg.Commands
             if( null == inputData )
                 return _CreatePso( (ulong) 0 );
 
-            Exception e = null;
             string str = inputData as string;
             if( null != str )
             {
@@ -502,9 +543,8 @@ namespace MS.Dbg.Commands
                 }
             } // end if( it's a string )
 
-            throw new ArgumentTransformationMetadataException( Util.Sprintf( "Could not convert '{0}' to a range or an address.",
-                                                                             inputData ),
-                                                               e );
+            throw CreateRecoverableAtme( "Could not convert '{0}' to a range or an address.",
+                                         inputData );
         } // end Transform()
 
 
@@ -594,14 +634,9 @@ namespace MS.Dbg.Commands
                 }
             }
 
-            // https://github.com/PowerShell/PowerShell/issues/7600
-            //
-            // For parameter binding to be able to continue (for example, to try binding
-            // by property name), this exception needs to wrap a PSInvalidCastException.
-
-            string msg = Util.Sprintf( "Could not convert '{0}' to a module.", originalInputData );
-            throw new ArgumentTransformationMetadataException( msg,
-                                                               new PSInvalidCastException( msg, e ) );
+            throw CreateRecoverableAtme( e,
+                                         "Could not convert '{0}' to a module.",
+                                         originalInputData );
         } // end Transform()
     } // end class ModuleTransformationAttribute
 
@@ -659,14 +694,9 @@ namespace MS.Dbg.Commands
                 e = dee;
             }
 
-            // https://github.com/PowerShell/PowerShell/issues/7600
-            //
-            // For parameter binding to be able to continue (for example, to try binding
-            // by property name), this exception needs to wrap a PSInvalidCastException.
-
-            string msg = Util.Sprintf( "Could not convert '{0}' to a module name.", originalInputData );
-            throw new ArgumentTransformationMetadataException( msg,
-                                                               new PSInvalidCastException( msg, e ) );
+            throw CreateRecoverableAtme( e,
+                                         "Could not convert '{0}' to a module name.",
+                                         originalInputData );
         } // end Transform()
     } // end class ModuleNameTransformationAttribute
 
@@ -725,14 +755,9 @@ namespace MS.Dbg.Commands
                 }
             } // end if( it's a string )
 
-            // https://github.com/PowerShell/PowerShell/issues/7600
-            //
-            // For parameter binding to be able to continue (for example, to try binding
-            // by property name), this exception needs to wrap a PSInvalidCastException.
-
-            string msg = Util.Sprintf( "Type not found. (Could not convert '{0}' to a type.)", originalInputData );
-            throw new ArgumentTransformationMetadataException( msg,
-                                                               new PSInvalidCastException( msg, e ) );
+            throw CreateRecoverableAtme( e,
+                                         "Type not found. (Could not convert '{0}' to a type.)",
+                                         originalInputData );
         } // end Transform()
     } // end class TypeTransformationAttribute
 
@@ -785,8 +810,8 @@ namespace MS.Dbg.Commands
                 return (Microsoft.Diagnostics.Runtime.Interop.IMAGE_FILE_MACHINE) ((int) inputData);
             }
 
-            throw new ArgumentTransformationMetadataException( Util.Sprintf( "Could not convert '{0}' to an effective machine type.",
-                                                                             originalInputData ) );
+            throw CreateRecoverableAtme( "Could not convert '{0}' to an effective machine type.",
+                                         originalInputData );
         } // end Transform()
     } // end class EffMachTransformationAttribute
 
@@ -913,13 +938,8 @@ namespace MS.Dbg.Commands
                                                                                  tid ) );
             }
 
-            // https://github.com/PowerShell/PowerShell/issues/7600
-            //
-            // For parameter binding to be able to continue (for example, to try binding
-            // by property name), this exception needs to wrap a PSInvalidCastException.
-            throw new ArgumentTransformationMetadataException( Util.Sprintf( "Could not convert '{0}' to a thread.",
-                                                                             originalInputData ),
-                                                               new PSInvalidCastException() );
+            throw CreateRecoverableAtme( "Could not convert '{0}' to a thread.",
+                                         originalInputData );
         } // end Transform()
     } // end class ThreadTransformationAttribute
 }
