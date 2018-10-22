@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Text;
 
 namespace MS.Dbg
@@ -344,10 +345,19 @@ namespace MS.Dbg
                     case DbgMemoryDisplayFormat.UnicodeOnly:
                         return _FormatCharsOnly( numColumns, ( c ) =>
                         {
-                            // This seems wrong... what about surrogate pairs, for instance? I should
-                            // look at what the actual code for the "du" command does.
+                            // This seems somewhat arbitrary... what about surrogate
+                            // pairs, for instance? Will the console ever be able to
+                            // display such things?
+                            //
+                            // The dbgeng "du" command uses "iswprint"... but I don't know
+                            // of an easy .NET equivalent. I'll err on the side of trying
+                            // to print it; worst case is we get a weird question box
+                            // instead of a dot.
                             if( !Char.IsControl( c ) &&
-                                !Char.IsSeparator( c ) )
+                                !Char.IsSeparator( c ) &&
+                                !(Char.GetUnicodeCategory( c ) == UnicodeCategory.PrivateUse) &&
+                                !(Char.GetUnicodeCategory( c ) == UnicodeCategory.Format) &&
+                                !(Char.GetUnicodeCategory( c ) == UnicodeCategory.OtherNotAssigned) )
                             {
                                 return c;
                             }

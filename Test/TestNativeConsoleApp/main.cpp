@@ -9,6 +9,7 @@
 #include <memory>
 #include <Windows.h>
 #include <unordered_map>
+#include <strsafe.h>
 
 using namespace std;
 
@@ -28,6 +29,10 @@ auto g_ppSomeInts2 = &g_pSomeInts2;
 
 int (*g_pSomeIntsNull)[5][4] = nullptr;
 int (**g_ppSomeIntsNull)[5][4] = &g_pSomeIntsNull;
+
+
+LPSTR g_narrowString = nullptr;
+LPWSTR g_wideString = nullptr;
 
 typedef struct _ODD_THING
 {
@@ -979,6 +984,43 @@ int FFE0()
     return _PleaseInlineMe();
 }
 
+SYSTEM_INFO g_SysInfo = { 0 };
+
+DWORD GetSystemPageSize()
+{
+    if( 0 == g_SysInfo.dwPageSize )
+    {
+        GetSystemInfo( &g_SysInfo );
+        printf( "page size: %#x\n", g_SysInfo.dwPageSize );
+    }
+
+    return g_SysInfo.dwPageSize;
+}
+
+
+template<typename T>
+void _AllocatePageBufferFollowedByNoAccessPage( T& result )
+{
+    DWORD pageSize = GetSystemPageSize();
+
+    // Reserve two pages of PAGE_NOACCESS address space.
+    auto buf = VirtualAlloc( 0, 2 * pageSize, MEM_COMMIT, PAGE_NOACCESS );
+    if( !buf )
+    {
+        RaiseFailFastException( nullptr, nullptr, 0 );
+    }
+
+    // Commit the first page and make it read/write.
+    auto commit = VirtualAlloc( buf, pageSize, MEM_COMMIT, PAGE_READWRITE );
+    if( commit != buf )
+    {
+        RaiseFailFastException( nullptr, nullptr, 0 );
+    }
+
+    result = static_cast<T>( buf);
+}
+
+
 void _InitGlobals()
 {
 	InitializeCriticalSection( &g_cs );
@@ -998,6 +1040,47 @@ void _InitGlobals()
     g_pIntsIncludingNulls[ 7 ] = &abcd;
     g_pIntsIncludingNulls[ 8 ] = &abcd;
     g_pIntsIncludingNulls[ 9 ] = &abcd;
+
+
+    _AllocatePageBufferFollowedByNoAccessPage( g_narrowString );
+
+    g_narrowString[ 0 ] = 0;
+    LPCSTR filler = "this is a narrow string. ";
+    LPSTR cursor = g_narrowString;
+    size_t len = GetSystemPageSize();
+    HRESULT hr = S_OK;
+
+    // Fill the buffer with some text.
+    while( hr == S_OK )
+    {
+        hr = StringCchCatExA( cursor,
+                              len,
+                              filler,
+                              &cursor,
+                              &len,
+                              0 ); // flags
+    }
+
+    _AllocatePageBufferFollowedByNoAccessPage( g_wideString );
+
+    g_wideString[ 0 ] = 0;
+    LPCWSTR wideFiller = L"this is a WIDE string. ";
+    LPWSTR wideCursor = g_wideString;
+    len = GetSystemPageSize() / sizeof( wchar_t );
+    hr = S_OK;
+
+    // Fill the buffer with some text.
+    while( hr == S_OK )
+    {
+        hr = StringCchCatExW( wideCursor,
+                              len,
+                              wideFiller,
+                              &wideCursor,
+                              &len,
+                              0 ); // flags
+    }
+    hr = S_OK;
+
 
     /*
 SIMPLE_THING*** g_pppSimpleThings = nullptr;

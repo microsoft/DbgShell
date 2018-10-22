@@ -2429,7 +2429,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to 4096 characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_pszString( ulong address )
         {
@@ -2441,7 +2441,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to maxCch characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_pszString( ulong address, uint maxCch )
         {
@@ -2453,7 +2453,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to maxCch characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_pszString( ulong address, uint maxCch, CODE_PAGE codePage )
         {
@@ -2468,8 +2468,8 @@ namespace MS.Dbg
         ///    Interprets memory as a NULL-terminated ANSI string.
         /// </summary>
         /// <remarks>
-        ///    If there is no NULL terminator, it will read up to 4096 characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    If there is no NULL terminator, it will read up to 2048 characters (4096
+        ///    bytes). (It does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_szString( ulong address )
         {
@@ -2481,7 +2481,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to maxCch characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_szString( ulong address, uint maxCch )
         {
@@ -2493,20 +2493,31 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to maxCch characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_szString( ulong address, uint maxCch, CODE_PAGE codePage )
         {
+            // TODO: might want to put a cap on maxCch?
+
             return ExecuteOnDbgEngThread( () =>
                 {
-                    // TODO: might want to put a cap on maxCch?
-                    string result;
-                    _CheckMemoryReadHr( address,
-                                        m_debugDataSpaces.ReadMultiByteStringVirtualWide( address,
-                                                                                          maxCch,
-                                                                                          codePage,
-                                                                                          out result ) );
-                    return result;
+                    // ReadMultiByteStringVirtualWide is buggy.
+                    // https://github.com/Microsoft/DbgShell/issues/39
+
+                 // string result;
+                 // _CheckMemoryReadHr( address,
+                 //                     m_debugDataSpaces.ReadMultiByteStringVirtualWide( address,
+                 //                                                                       maxCch,
+                 //                                                                       codePage,
+                 //                                                                       out result ) );
+                 // return result;
+
+                    var encoding = Encoding.GetEncoding( (int) codePage );
+                    return _ReadMemAs_xszString_worker( address,
+                                                        maxCch,
+                                                        1,
+                                                        encoding,
+                                                        failIfNoNullTerminatorFound: false );
                 } );
         } // end ReadMemAs_szString()
 
@@ -2521,7 +2532,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to 2048 characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_pwszString( ulong address )
         {
@@ -2537,7 +2548,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to maxCch characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_pwszString( ulong address, uint maxCch )
         {
@@ -2553,7 +2564,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to 2048 characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_wszString( ulong address )
         {
@@ -2565,7 +2576,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to maxCch characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_wszString( ulong address, uint maxCch )
         {
@@ -2619,45 +2630,121 @@ namespace MS.Dbg
                  //                                                                     out result ) );
                  // return result;
 
-                    return _ReadMemAs_wszString_worker( address,
+                    return _ReadMemAs_xszString_worker( address,
                                                         maxCch,
+                                                        2,
+                                                        Encoding.Unicode,
                                                         failIfNoNullTerminatorFound );
                 } );
         } // end ReadMemAs_wszString()
 
-        private unsafe string _ReadMemAs_wszString_worker( ulong address,
+
+        private int __zStringChunkReadSize;
+
+        /// <summary>
+        /// The memory chunk read size for zero-terminated string reading functions.
+        /// Exposing this as a property is primarily useful for testing.
+        /// </summary>
+        public int ZStringChunkReadSize
+        {
+            get
+            {
+                if( 0 == __zStringChunkReadSize )
+                    return 1024;
+
+                return __zStringChunkReadSize;
+            }
+
+            set
+            {
+                if( (value < 0) || (value > (1 << 26)) ) // "64 MB ought to be enough for anybody"
+                    throw new ArgumentOutOfRangeException();
+
+                __zStringChunkReadSize = value;
+            }
+        }
+
+
+        /// <summary>
+        ///    Worker function to read memory until it finds a null, has read maxCch
+        ///    elements, or runs out of readable memory (whichever comes first), and
+        ///    returns the results as a string.
+        /// </summary>
+        private unsafe string _ReadMemAs_xszString_worker( ulong address,
                                                            uint maxCch,
+                                                           uint elemSize, // too bad this isn't part of Encoding
+                                                           Encoding encoding,
                                                            bool failIfNoNullTerminatorFound )
         {
-            List< char[] > strides = null;
+            if( elemSize > 4 )
+                throw new Exception( "What sort of encoding is this?" );
 
-            int cchStride = Math.Min( (int) maxCch, 1024 );
+            List< byte[] > chunks = null;
+
+            int cchChunk = Math.Min( (int) maxCch, ZStringChunkReadSize );
             int totalCharsRead = 0;
+            int totalBytesRead = 0;
 
             while( true )
             {
                 int charsLeft = (int) maxCch - totalCharsRead;
 
-                int cchRequested = Math.Min( charsLeft, cchStride );
+                int cchRequested = Math.Min( charsLeft, cchChunk );
 
-                char[] characters = new char[ cchRequested ];
+                bool ranOutOfReadableMemory = false;
+
+                uint bytesRequested = (uint) cchRequested * elemSize;
+                byte[] bytes = new byte[ bytesRequested ];
                 uint bytesRead;
-                uint bytesRequested = (uint) characters.Length * 2;
-                fixed( char* pChars = characters )
+                fixed( byte* pBytes = bytes )
                 {
-                    _CheckMemoryReadHr( address,
-                                        m_debugDataSpaces.ReadVirtualDirect( address + ((uint) totalCharsRead * 2),
-                                                                             bytesRequested,
-                                                                             (byte*) pChars,
-                                                                             out bytesRead ) );
-                } // end fixed( pChars )
+                    int hr = m_debugDataSpaces.ReadVirtualDirect( address + ((uint) totalBytesRead),
+                                                                  bytesRequested,
+                                                                  pBytes,
+                                                                  out bytesRead );
 
-                for( int i = 0; i < (bytesRead / 2); i++ ) // <-- if we read an odd # of bytes, we ignore that last one
-                {
-                    if( 0 == (ushort) characters[ i ] )
+                    if( (null == chunks) || (0 == chunks.Count) )
                     {
-                        // Found the null terminator!
-                        return _GatherString( strides, characters, i );
+                        // This is the first read.
+                        _CheckMemoryReadHr( address, hr );
+                    }
+
+                    // Else if we've already read some and we subsequently run out of
+                    // memory to read, that's okay.
+                    if( (0 != hr) || (bytesRead < bytesRequested) )
+                    {
+                        ranOutOfReadableMemory = true;
+
+                        if( 0 != hr )
+                        {
+                            Util.Assert( bytesRead == 0 );
+                        }
+                    }
+                } // end fixed( pBytes )
+
+                bool isNullTerminator( int baseIdx )
+                {
+                    for( int j = 0; j < elemSize; j++ )
+                    {
+                        if( 0 != bytes[ baseIdx + j ] )
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+
+                // If we read an odd number of bytes, we ignore the remainder. That should
+                // be okay, since that should only be possible on the last read (because
+                // we ask for a multiple of the element size), and only for a misaligned
+                // request.
+                for( int i = 0; i < (bytesRead / elemSize); i++ )
+                {
+                    int baseIdx = (int) (i * elemSize);
+                    if( isNullTerminator( baseIdx ) )
+                    {
+                        return _GatherString( chunks, bytes, baseIdx, encoding );
                     }
                 }
 
@@ -2665,51 +2752,126 @@ namespace MS.Dbg
                 // We haven't found a null terminator yet.
                 //
 
-                totalCharsRead += ((int) bytesRead / 2);
+                totalCharsRead += (int) (bytesRead / elemSize);
 
-                if( (bytesRead < bytesRequested) ||  // <- we won't be able to get any more
-                    (totalCharsRead >= maxCch) )     // <- we mustn't get any more
+                if( ranOutOfReadableMemory ||     // <- we won't be able to get any more
+                    (totalCharsRead >= maxCch) )  // <- we mustn't get any more
                 {
                     if( failIfNoNullTerminatorFound )
                     {
-                        throw _CreateNoNullTerminatorException( "ReadUnicodeString", address, (int) maxCch );
+                        throw _CreateNoNullTerminatorException( "ReadEncodedString", address, (int) maxCch );
                     }
-                    return _GatherString( strides, characters, (int) bytesRead / 2 );
+                    return _GatherString( chunks, bytes, (int) bytesRead, encoding );
                 }
 
-                if( null == strides )
-                    strides = new List< char[] >();
+                if( null == chunks )
+                    chunks = new List< byte[] >();
 
-                strides.Add( characters );
+                totalBytesRead += (int) bytesRead;
+                chunks.Add( bytes );
+
+                // TODO: check for cancellation? Not likely needed, but not hard to do, either?
             } // end while( need to read another chunk )
-        } // end ReadMemAs_wszString()
+        } // end ReadMemAs_xszString()
 
 
-        private static string _GatherString( List< char[] > strides, char[] last, int cchValid )
+        private unsafe static string _GatherString( List< byte[] > chunks,
+                                                    byte[] last,
+                                                    int cbValid,
+                                                    Encoding encoding )
         {
-            int capacity = cchValid + 2;
-            if( null != strides )
-                capacity += strides.Aggregate( 0, (x,y) => x + y.Length );
-
-            StringBuilder sb = new StringBuilder( capacity );
-            _GatherString( strides, last, cchValid, sb );
-            return sb.ToString();
-        }
-
-        private static void _GatherString( List< char[] > strides,
-                                           char[] last,
-                                           int cchValid,
-                                           StringBuilder intoMe )
-        {
-            if( null != strides )
+            if( (null == chunks) && (cbValid == 0) )
             {
-                foreach( var stride in strides )
+                // This isn't just an optimization--we need to skip the code below because
+                // the "fixed" keyword, when used with a 0-length array, will yield a null
+                // pointer, and then the decoder.Convert API will complain.
+                // 
+                // (I did file a bug for Decoder.Convert to accept a null char buffer when
+                // the size of it is zero anyway, but it was Wont' Fix-ed. I didn't bother
+                // filing a bug for the "fixed" keyword; I doubt they could change that.)
+                return String.Empty;
+            }
+
+            var decoder = encoding.GetDecoder();
+
+            int cch = 0;
+
+            if( null != chunks )
+            {
+                foreach( var chunk in chunks )
                 {
-                    intoMe.Append( stride );
+                    cch += decoder.GetCharCount( chunk, 0, chunk.Length, flush: false );
                 }
             }
-            intoMe.Append( last, 0, cchValid );
-        }
+            // N.B. we pass cbValid not last.Length!
+            cch += decoder.GetCharCount( last, 0, cbValid, flush: true );
+
+            Util.Assert( cch > 0 );
+
+            var chars = new char[ cch ];
+
+            int cchRemaining = cch;
+            int bytesConsumed = 0;
+            int charsFilledIn = 0;
+            bool completed = false;
+
+            fixed( char* pChars = chars )
+            {
+                char* cursor = pChars;
+
+                if( null != chunks )
+                {
+                    foreach( var chunk in chunks )
+                    {
+                        fixed( byte* pChunk = chunk )
+                        {
+                            decoder.Convert( pChunk,
+                                             chunk.Length,
+                                             cursor,
+                                             cchRemaining,
+                                             false, // flush
+                                             out bytesConsumed,
+                                             out charsFilledIn,
+                                             out completed );
+
+                            cchRemaining -= charsFilledIn;
+                            cursor += charsFilledIn;
+                            Util.Assert( bytesConsumed == chunk.Length );
+                            // completed may or may not be true; for instance we might
+                            // have run into only the first byte of a pair.
+                        } // fixed( pChunk )
+                    } // end foreach( chunk )
+                } // end if( chunks )
+
+                fixed( byte* pLast = last )
+                {
+                    decoder.Convert( pLast,
+                                     cbValid, // N.B. Not last.Length!
+                                     cursor,
+                                     cchRemaining,
+                                     true, // flush
+                                     out bytesConsumed,
+                                     out charsFilledIn,
+                                     out completed );
+
+                    cchRemaining -= charsFilledIn;
+                    Util.Assert( cchRemaining == 0 );
+                    Util.Assert( bytesConsumed == cbValid );
+
+                    if( !completed )
+                    {
+                        // Since we're going to do our best even in the face of bad data,
+                        // this isn't a reason to fail, but we'll at least note it in the
+                        // log.
+                        LogManager.Trace( "Warning: string decoding did not complete. Bad data?" );
+                    }
+                }
+            } // fixed( pChars )
+
+            return new String( chars );
+        } // end _GatherString()
+
+
 
         //
         // UTF-8, zero-terminated
@@ -2721,7 +2883,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to 2048 characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_putf8szString( ulong address )
         {
@@ -2737,7 +2899,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to maxCch characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_putf8szString( ulong address, uint maxCch )
         {
@@ -2753,7 +2915,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to 2048 characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_utf8szString( ulong address )
         {
@@ -2765,7 +2927,7 @@ namespace MS.Dbg
         /// </summary>
         /// <remarks>
         ///    If there is no NULL terminator, it will read up to maxCch characters. (It
-        ///    might not fail if it doesn't find a NULL.)
+        ///    does not fail if it doesn't find a NULL.)
         /// </remarks>
         public string ReadMemAs_utf8szString( ulong address, uint maxCch )
         {
@@ -2874,7 +3036,7 @@ namespace MS.Dbg
         {
             return ExecuteOnDbgEngThread( () =>
                 {
-                    byte[] raw = ReadMem( address, cb, true );
+                    byte[] raw = ReadMem( address, cb, failIfReadSmaller: true );
                     // This is supposed to be a counted string, not NULL-terminated, so we
                     // do not attempt to trim terminating NULLs. (The whole string could
                     // be full of embedded NULLs, and we wouldn't want to chop one out
@@ -5711,7 +5873,7 @@ namespace MS.Dbg
                         {
                             uint outSize = 0;
                             byte[] outBuf = new byte[ 4000 ];
-                            fixed ( byte* pOutBuf = outBuf )
+                            fixed( byte* pOutBuf = outBuf )
                             {
                                 CheckHr( m_debugAdvanced.Request( DEBUG_REQUEST.GET_EXTENSION_SEARCH_PATH_WIDE,
                                                                   null, // inBuffer: unused

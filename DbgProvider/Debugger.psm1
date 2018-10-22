@@ -1631,7 +1631,7 @@ function db
 
 <#
 .Synopsis
-    Like the windbg "da" command (Dump ASCII): interprets memory as an ASCII string.
+    Like the windbg "da" command (Dump ASCII): displays memory, along with an ASCII string interpretation.
 
 .Description
     If you want to get an actual System.String object (instead of just an object representing a chunk of memory, with an ASCII string display), use the 'dsz' command instead.
@@ -1687,7 +1687,7 @@ function da
 
 <#
 .Synopsis
-    Like the windbg "du" command.
+    Like the windbg "du" command: displays memory, along with interpretation as Unicode characters.
 
 .Description
     If you want to get an actual System.String object (instead of just an object representing a chunk of memory, with a string display), use the 'dwsz' command instead.
