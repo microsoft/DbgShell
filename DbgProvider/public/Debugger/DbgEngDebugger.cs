@@ -6152,6 +6152,7 @@ namespace MS.Dbg
                 // $curListEntry = Invoke-Expression "`$val.$ListEntryMemberName.Flink"
                 //
                 // There's not a simple way to do this in C#...
+                // BUT... I think it can be done by building dynamic callsites.
                 throw new NotImplementedException();
 
                 //idx++;

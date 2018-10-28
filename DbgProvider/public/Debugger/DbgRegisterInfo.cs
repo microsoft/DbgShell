@@ -84,6 +84,9 @@ namespace MS.Dbg
         {
             get
             {
+                // TODO: I think this does not work for some pseudo registers (like $peb),
+                // but should...
+
                 object val = Value;
                 if( val is uint )
                     return (ulong) (uint) val;
@@ -376,7 +379,7 @@ namespace MS.Dbg
                     return GetValueFromRawValue();
                 }
 
-                // The debugger assigns generated types to these registeres, which we
+                // The debugger assigns generated types to these registers, which we
                 // can't easily support well (because dbgeng won't let us get at the
                 // details of the generated types). Additionally, the generated "type"
                 // does not necessarily make any sense (for instance, the generated type
