@@ -444,8 +444,14 @@ namespace MS.Dbg.Formatting.Commands
                 sb = new StringBuilder();
 
             if( null == obj )
-                //return sb;
-                return sb.Append( "$null" );
+            {
+                // We used to return sb.Append( "$null" ); however I'm changing to append
+                // nothing in order to match the behavior of FormatSingleLineDirect (which
+                // is what is applied to obj if there is no formatString, which yields an
+                // empty string, so when we come through here, obj is an empty string, not
+                // null).
+                return sb;
+            }
 
             PSObject pso = obj as PSObject;
             if( null != pso )
