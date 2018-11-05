@@ -75,7 +75,7 @@ namespace Microsoft.Diagnostics.Runtime.Interop
                     // TODO: proper error
                     throw new Exception( String.Format( "Ioctl for DumpSymbolInfo returned: {0}", err ) );
                 }
-                DebugModuleAndId dmai = new DebugModuleAndId( modBase, typeId );
+                DEBUG_MODULE_AND_ID dmai = new DEBUG_MODULE_AND_ID( modBase, typeId );
                 foreach( var field in fields )
                 {
                     field.OwningType = dmai;
@@ -284,7 +284,7 @@ namespace Microsoft.Diagnostics.Runtime.Interop
         public bool IsConstant { get; private set; }
         public bool IsStatic { get; private set; }
 
-        public DebugModuleAndId OwningType { get; internal set; } // gets set post-construction
+        public DEBUG_MODULE_AND_ID OwningType { get; internal set; } // gets set post-construction
 
         internal FieldInfo( int index, FIELD_INFO nativeFi )
         {

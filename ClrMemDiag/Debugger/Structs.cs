@@ -742,77 +742,7 @@ namespace Microsoft.Diagnostics.Runtime.Interop
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     [DebuggerDisplay( "DMAI: Id {Id.ToString(\"x\")}, Mod {ModuleBase.ToString(\"x\")}" )]
-    public struct DEBUG_MODULE_AND_ID : IEquatable< DEBUG_MODULE_AND_ID >, IEquatable< DebugModuleAndId >
-    {
-        /// <summary>
-        ///    The location in the target's virtual address space of the module's base address.
-        /// </summary>
-        public UInt64 ModuleBase;
-
-        /// <summary>
-        ///    The symbol ID of the symbol within the module.
-        /// </summary>
-        public UInt64 Id;
-
-
-        #region IEquatable< DEBUG_MODULE_AND_ID > Stuff
-
-        public bool Equals( DEBUG_MODULE_AND_ID other )
-        {
-            return (Id == other.Id) && (ModuleBase == other.ModuleBase);
-        } // end Equals()
-
-        public override bool Equals( object obj )
-        {
-            // We could use 'dynamic' to get dynamic dispatch, but I don't think it's
-            // worth it for just two different types.
-         // if( (obj is DEBUG_MODULE_AND_ID) ||
-         //     (obj is DebugModuleAndId) )
-         // {
-         //     dynamic d = (dynamic) obj;
-         //     return Equals( d ); // use 'dynamic' to get dynamic dispatch to proper Equals method.
-         // }
-
-            if( obj is DEBUG_MODULE_AND_ID )
-            {
-                return Equals( (DEBUG_MODULE_AND_ID) obj );
-            }
-            else if( obj is DebugModuleAndId )
-            {
-                return Equals( (DebugModuleAndId) obj );
-            }
-            return false;
-        }
-
-        public override int GetHashCode()
-        {
-            return Id.GetHashCode() + ModuleBase.GetHashCode();
-        }
-
-        public static bool operator ==( DEBUG_MODULE_AND_ID dmai1, DEBUG_MODULE_AND_ID dmai2 )
-        {
-            return dmai1.Equals( dmai2 );
-        }
-
-        public static bool operator !=( DEBUG_MODULE_AND_ID dmai1, DEBUG_MODULE_AND_ID dmai2 )
-        {
-            return !(dmai1 == dmai2);
-        }
-        #endregion
-
-        #region IEquatable< DebugModuleAndId > Stuff
-
-        public bool Equals( DebugModuleAndId other )
-        {
-            return (Id == other.Id) && (ModuleBase == other.ModuleBase);
-        } // end Equals()
-
-        #endregion
-    }
-
-    // An immutable representation of a DEBUG_MODULE_AND_ID.
-    // TODO: Implicit conversions? IComparable?
-    public struct DebugModuleAndId : IEquatable< DEBUG_MODULE_AND_ID >, IEquatable< DebugModuleAndId >
+    public struct DEBUG_MODULE_AND_ID : IEquatable<DEBUG_MODULE_AND_ID>, IComparable<DEBUG_MODULE_AND_ID>
     {
         /// <summary>
         ///    The location in the target's virtual address space of the module's base address.
@@ -824,37 +754,40 @@ namespace Microsoft.Diagnostics.Runtime.Interop
         /// </summary>
         public readonly UInt64 Id;
 
-        public DebugModuleAndId( UInt64 moduleBase, UInt64 id )
+        public DEBUG_MODULE_AND_ID(UInt64 moduleBase, UInt64 id)
         {
             ModuleBase = moduleBase;
             Id = id;
-        } // end constructor
+        }
 
-        #region IEquatable< DEBUG_MODULE_AND_ID > Stuff
+        public int CompareTo(DEBUG_MODULE_AND_ID other)
+        {
+            UInt64 diff = ModuleBase - other.ModuleBase;
+            if (diff != 0)
+            {
+                return diff > 0 ? 1 : -1;
+            }
 
-        public bool Equals( DEBUG_MODULE_AND_ID other )
+            diff = Id - other.Id;
+
+            if (diff != 0)
+            {
+                return diff > 0 ? 1 : -1;
+            }
+
+            return 0;
+        }
+
+        public bool Equals(DEBUG_MODULE_AND_ID other)
         {
             return (Id == other.Id) && (ModuleBase == other.ModuleBase);
-        } // end Equals()
+        }
 
-        public override bool Equals( object obj )
+        public override bool Equals(object obj)
         {
-            // We could use 'dynamic' to get dynamic dispatch, but I don't think it's
-            // worth it for just two different types.
-          //if( (obj is DEBUG_MODULE_AND_ID) ||
-          //    (obj is DebugModuleAndId) )
-          //{
-          //    dynamic d = (dynamic) obj;
-          //    return Equals( d ); // use 'dynamic' to get dynamic dispatch to proper Equals method.
-          //}
-
-            if( obj is DEBUG_MODULE_AND_ID )
+            if (obj is DEBUG_MODULE_AND_ID)
             {
-                return Equals( (DEBUG_MODULE_AND_ID) obj );
-            }
-            else if( obj is DebugModuleAndId )
-            {
-                return Equals( (DebugModuleAndId) obj );
+                return Equals((DEBUG_MODULE_AND_ID) obj);
             }
             return false;
         }
@@ -864,27 +797,16 @@ namespace Microsoft.Diagnostics.Runtime.Interop
             return Id.GetHashCode() + ModuleBase.GetHashCode();
         }
 
-        public static bool operator ==( DebugModuleAndId dmai1, DebugModuleAndId dmai2 )
+        public static bool operator ==(DEBUG_MODULE_AND_ID dmai1, DEBUG_MODULE_AND_ID dmai2)
         {
-            return dmai1.Equals( dmai2 );
+            return dmai1.Equals(dmai2);
         }
 
-        public static bool operator !=( DebugModuleAndId dmai1, DebugModuleAndId dmai2 )
+        public static bool operator !=(DEBUG_MODULE_AND_ID dmai1, DEBUG_MODULE_AND_ID dmai2)
         {
             return !(dmai1 == dmai2);
         }
-        #endregion
-
-        #region IEquatable< DebugModuleAndId > Stuff
-
-        public bool Equals( DebugModuleAndId other )
-        {
-            return (Id == other.Id) && (ModuleBase == other.ModuleBase);
-        } // end Equals()
-
-        #endregion
-    } // end class DebugModuleAndId
-
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct DEBUG_SYMBOL_ENTRY

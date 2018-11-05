@@ -232,11 +232,7 @@ namespace MS.Dbg
                                                                  typeSymTag,
                                                                  target );
 
-            m_dmai = new DEBUG_MODULE_AND_ID()
-            {
-                Id = symbolInfo.Index,
-                ModuleBase = symbolInfo.ModBase
-            };
+            m_dmai = new DEBUG_MODULE_AND_ID( symbolInfo.ModBase, symbolInfo.Index );
         } // end constructor
     } // end class DbgPublicSymbol
 }
