@@ -141,54 +141,56 @@ Register-DbgValueConverterInfo {
     } # end vector<bool> converter
 
 
-    # We need to protect against bad/unavailable data, without completely giving up on the
-    # whole tree.
-    function ChildLooksOkay( $rootAddr, [string] $which, $child )
-    {
-        if( $child.DbgIsNull() )
+    $stdMapHelpers = New-Module {
+        # We need to protect against bad/unavailable data, without completely giving up on the
+        # whole tree.
+        function ChildLooksOkay( $rootAddr, [string] $which, $child )
         {
-            Write-Warning "$which child unexpectedly null for node at $(Format-DbgAddress $rootAddr)."
-            return $false
-        }
-        elseif( $child.DbgGetPointee() -is [MS.Dbg.DbgUnavailableValue] )
-        {
-            Write-Warning "$which child value unavailable for node at $(Format-DbgAddress $rootAddr)."
-            return $false
-        }
-        elseif( $child._Isnil -ne 0 )
-        {
-            Write-Warning "$which child _Isnil unexpectedly non-zero for node at $(Format-DbgAddress $rootAddr)."
-            return $false
-        }
-        return $true
-    } # end ChildLooksOkay()
-
-
-    function ProcessSubtree( $rootNode, $scriptBlockForRootVal )
-    {
-        # We'll process them in the proper order: left subtreee, current
-        # node, right subtree.
-        if( $dummyHead -ne $rootNode._Left )
-        {
-            # We need to protect against bad/unavailable data.
-            if( (ChildLooksOkay $rootNode.DbgGetPointer() 'Left' $rootNode._Left) )
+            if( $child.DbgIsNull() )
             {
-                ProcessSubtree $rootNode._Left $scriptBlockForRootVal
+                Write-Warning "$which child unexpectedly null for node at $(Format-DbgAddress $rootAddr)."
+                return $false
             }
-        }
-        & $scriptBlockForRootVal $rootNode._Myval
-        if( $dummyHead -ne $rootNode._Right )
-        {
-            # We need to protect against bad/unavailable data.
-            if( (ChildLooksOkay $rootNode.DbgGetPointer() 'Right' $rootNode._Right) )
+            elseif( $child.DbgGetPointee() -is [MS.Dbg.DbgUnavailableValue] )
             {
-                ProcessSubtree $rootNode._Right $scriptBlockForRootVal
+                Write-Warning "$which child value unavailable for node at $(Format-DbgAddress $rootAddr)."
+                return $false
             }
-        }
-    } # end ProcessSubtree
+            elseif( $child._Isnil -ne 0 )
+            {
+                Write-Warning "$which child _Isnil unexpectedly non-zero for node at $(Format-DbgAddress $rootAddr)."
+                return $false
+            }
+            return $true
+        } # end ChildLooksOkay()
 
 
-    New-DbgValueConverterInfo -TypeName @( '!std::map<?*>', '!std::multimap<?*>' ) -Converter {
+        function ProcessSubtree( $rootNode, $scriptBlockForRootVal )
+        {
+            # We'll process them in the proper order: left subtreee, current
+            # node, right subtree.
+            if( $dummyHead -ne $rootNode._Left )
+            {
+                # We need to protect against bad/unavailable data.
+                if( (ChildLooksOkay $rootNode.DbgGetPointer() 'Left' $rootNode._Left) )
+                {
+                    ProcessSubtree $rootNode._Left $scriptBlockForRootVal
+                }
+            }
+            & $scriptBlockForRootVal $rootNode._Myval
+            if( $dummyHead -ne $rootNode._Right )
+            {
+                # We need to protect against bad/unavailable data.
+                if( (ChildLooksOkay $rootNode.DbgGetPointer() 'Right' $rootNode._Right) )
+                {
+                    ProcessSubtree $rootNode._Right $scriptBlockForRootVal
+                }
+            }
+        } # end ProcessSubtree
+    }
+
+
+    New-DbgValueConverterInfo -TypeName @( '!std::map<?*>', '!std::multimap<?*>' ) -Converter $stdMapHelpers.NewBoundScriptBlock({
         # map and multimap are basically the same (for our purposes), except one can have
         # duplicate keys. The PsIndexedDictionary can handle that.
         try
@@ -222,10 +224,10 @@ Register-DbgValueConverterInfo {
             Write-Collection -Collection $d
         }
         finally { }
-    } -CaptureContext # end map converter
+    }) # end map converter
 
 
-    New-DbgValueConverterInfo -TypeName '!std::set<?*>', '!std::multiset<?*>' -Converter {
+    New-DbgValueConverterInfo -TypeName '!std::set<?*>', '!std::multiset<?*>' -Converter $stdMapHelpers.NewBoundScriptBlock({
         # Sets are pretty much just like maps, but no key/value distinction (no
         # _Myval.first, _Myval.second--it's just _Myval).
         #
@@ -264,7 +266,7 @@ Register-DbgValueConverterInfo {
             Write-Collection -Collection $list
         }
         finally { }
-    } -CaptureContext # end set converter
+    }) # end set converter
 
 
     New-DbgValueConverterInfo -TypeName '!std::list<?*>' -Converter {

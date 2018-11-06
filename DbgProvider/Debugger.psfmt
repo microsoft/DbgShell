@@ -11,9 +11,9 @@
 Register-AltTypeFormatEntries {
 
     # We keep private, shared functions in FmtUtils.ps1. If you have a script block that
-    # needs to use them, be sure to use -CaptureContext, else they won't be available when
+    # needs to use them, be sure to use $fmtFunctions.NewBoundScriptBlock, else they won't be available when
     # the script block is run.
-    . "$PSScriptRoot\FmtUtils.ps1"
+    $fmtFunctions = New-Module { . "$PSScriptRoot\FmtUtils.ps1" }
 
     New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgSymbol' {
         New-AltTableViewDefinition -ShowIndex {
@@ -33,7 +33,7 @@ Register-AltTypeFormatEntries {
              #  New-AltScriptColumn -Label 'BasicType' -Width 10 -Alignment Center -Script {
              #      $_.Type.BasicType
              #  }
-                New-AltScriptColumn -Label 'Type' -Width 25 -Alignment Left -Script { Get-TypeName( $_ ) } -CaptureContext
+                New-AltScriptColumn -Label 'Type' -Width 25 -Alignment Left -Script $fmtFunctions.NewBoundScriptBlock({ Get-TypeName( $_ ) })
                 # DbgProvider can use the 'Address' tag to find columns that it
                 # wants to resize depending on target address width.
                 New-AltScriptColumn -Label 'Location' -Width 10 -Alignment Center -Tag 'Address' -Script {
@@ -372,24 +372,26 @@ Register-AltTypeFormatEntries {
 
 
     New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgModuleInfo' {
-
-        function GetModName( $m )
-        {
-            $name = $m.get_Name()
-            if( !$name.StartsWith( '<unknown_', [StringComparison]::OrdinalIgnoreCase ) )
+        $module = New-Module {
+            function GetModName( $m )
             {
-                return Format-DbgModuleName $name
+                $name = $m.get_Name()
+                if( !$name.StartsWith( '<unknown_', [StringComparison]::OrdinalIgnoreCase ) )
+                {
+                    return Format-DbgModuleName $name
+                }
+                # Will we need to try other names?
+                # Let's not make it look like a normal module name.
+                return $m.get_ImageName()
             }
-            # Will we need to try other names?
-            # Let's not make it look like a normal module name.
-            return $m.get_ImageName()
         }
+
 
         New-AltTableViewDefinition {
             New-AltColumns {
-                New-AltScriptColumn -Label 'Name' -Width 20 -Alignment Left -Script {
+                New-AltScriptColumn -Label 'Name' -Width 20 -Alignment Left -Script $module.NewBoundScriptBlock({
                     return GetModName $_
-                } -CaptureContext
+                })
                 New-AltScriptColumn -Label 'Start' -Width 8 -Alignment Center -Tag 'Address' -Script {
                     Format-DbgAddress $_.get_BaseAddress()
                 }
@@ -442,7 +444,7 @@ Register-AltTypeFormatEntries {
             New-AltPropertyListItem -PropertyName 'IsUnloaded'
         } # end list view
 
-        New-AltCustomViewDefinition {
+        New-AltCustomViewDefinition $module.NewBoundScriptBlock({
             (New-ColorString).Append( (Format-DbgAddress $_.get_BaseAddress()) ).
                               Append( ' ' ).
                               Append( (Format-DbgAddress ($_.get_BaseAddress() + $_.Size)) ).
@@ -524,29 +526,30 @@ Register-AltTypeFormatEntries {
             (New-ColorString -Fore Cyan -Content '    FileVersion:      ').Append( $vi.FileVersion )
             (New-ColorString -Fore Cyan -Content '    FileDescription:  ').Append( $vi.FileDescription )
             (New-ColorString -Fore Cyan -Content '    LegalCopyright:   ').Append( $vi.LegalCopyright )
-        } -CaptureContext # end custom view
+        }) # end custom view
     } # end Type MS.Dbg.DbgModuleInfo
 
 
     New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgUModeThreadInfo' {
+        $DbgUModeThreadInfo = New-Module {
+            [string] $rightTri = [char] 0x25ba
 
-        [string] $rightTri = [char] 0x25ba
+            $curThreadMarker = (New-ColorString -Content ' ').Append( (New-ColorString -Content $rightTri -Background Black -Foreground Green) )
 
-        $curThreadMarker = (New-ColorString -Content ' ').Append( (New-ColorString -Content $rightTri -Background Black -Foreground Green) )
+            $curAndEventThreadMarker = (New-ColorString -Content '#' -Background Black -Foreground Red).Append( (New-ColorString -Content $rightTri -Background Black -Foreground Green) )
 
-        $curAndEventThreadMarker = (New-ColorString -Content '#' -Background Black -Foreground Red).Append( (New-ColorString -Content $rightTri -Background Black -Foreground Green) )
+            $eventThreadMarker = (New-ColorString -Content '# ' -Background Black -Foreground Red)
 
-        $eventThreadMarker = (New-ColorString -Content '# ' -Background Black -Foreground Red)
-
-        function GetOsPidTidString( $thread )
-        {
-            $p = $thread.Debugger.GetTargetForContext( $thread.Context )
-            [string]::Format( '{0:x}.{1:x}', $p.get_OsProcessId(), $thread.get_Tid() )
-        } # end GetOsPidTidString()
+            function GetOsPidTidString( $thread )
+            {
+                $p = $thread.Debugger.GetTargetForContext( $thread.Context )
+                [string]::Format( '{0:x}.{1:x}', $p.get_OsProcessId(), $thread.get_Tid() )
+            } # end GetOsPidTidString()
+        }
 
         New-AltTableViewDefinition {
             New-AltColumns {
-                New-AltScriptColumn -Label 'M' -Width 3 -Alignment 'Right' -Script {
+                New-AltScriptColumn -Label 'M' -Width 3 -Alignment 'Right' -Script $DbgUModeThreadInfo.NewBoundScriptBlock({
                     [bool] $isCurrent = $_.get_IsCurrentThread()
                     [bool] $isEvent = $_.get_IsEventThread()
 
@@ -557,11 +560,11 @@ Register-AltTypeFormatEntries {
                     } elseif( $isEvent ) {
                         $eventThreadMarker
                     }
-                }.GetNewClosure()
+                })
                 New-AltPropertyColumn -Label 'Id' -PropertyName 'DebuggerId' -Width 5 -Alignment 'Center'
-                New-AltScriptColumn -Label 'Pid.Tid' -Width 11 -Alignment 'Left' -Script {
+                New-AltScriptColumn -Label 'Pid.Tid' -Width 11 -Alignment 'Left' -Script $DbgUModeThreadInfo.NewBoundScriptBlock({
                     GetOsPidTidString $_
-                } -CaptureContext
+                })
                 New-AltPropertyColumn -Label 'Sus' -PropertyName 'SuspendCount' -Width 3 -Alignment 'Center'
                 New-AltScriptColumn -Label 'TEB' -Width 8 -Alignment Center -Tag 'Address' -Script {
                     Format-DbgAddress $_.get_TebAddress()
@@ -578,14 +581,14 @@ Register-AltTypeFormatEntries {
                 # Although I'd probably prefer to have some annotations instead (like
                 # "threadpool thread", "GC thread", etc.)
 
-                New-AltTableFooter -Alignment Center -Script {
+                New-AltTableFooter -Alignment Center -Script $DbgUModeThreadInfo.NewBoundScriptBlock({
                     (New-ColorString -Background Cyan -Foreground Black -Content 'Legend:').
                         Append( ' ' ).
                         Append( $curThreadMarker ).
                         Append( ' : current thread, ' ).
                         Append( $eventThreadMarker ).
                         Append( ': last event thread' )
-                }.GetNewClosure()
+                })
             } # End Columns
         } # end Table view
 
@@ -609,7 +612,7 @@ Register-AltTypeFormatEntries {
             New-AltPropertyListItem -PropertyName 'Affinity' -Format '{0:x}'
         } # end List view
 
-        New-AltSingleLineViewDefinition {
+        New-AltSingleLineViewDefinition $DbgUModeThreadInfo.NewBoundScriptBlock({
             [bool] $isCurrent = $_.get_IsCurrentThread()
             [bool] $isEvent = $_.get_IsEventThread()
 
@@ -649,7 +652,7 @@ Register-AltTypeFormatEntries {
             }
 
             $cs
-        } -CaptureContext # end single-line view
+        })# end single-line view
     } # end Type MS.Dbg.DbgUModeThreadInfo
 
 
@@ -802,9 +805,9 @@ Register-AltTypeFormatEntries {
                 # TODO: If it's a static, the offset should display differently
                 New-AltPropertyColumn -PropertyName 'Offset' -Width 10 -Alignment Right -FormatString '+0x{0:x3}'
                 New-AltPropertyColumn -PropertyName 'Name' -Width 30 -Alignment Left
-                New-AltScriptColumn -Label 'Type' -Width 35 -Alignment Left -Script {
+                New-AltScriptColumn -Label 'Type' -Width 35 -Alignment Left -Script $fmtFunctions.NewBoundScriptBlock({
                     Get-TypeName( $_ )
-                } -CaptureContext
+                })
                 New-AltPropertyColumn -PropertyName 'Size' -Width 7 -Alignment Left -FormatString '0x{0:x}'
 
                 # N.B. To access these variables from a script block, you'll
@@ -870,9 +873,9 @@ Register-AltTypeFormatEntries {
             New-AltPropertyListItem -PropertyName 'Name'
             # TODO: If it's a static, the offset should display differently
             New-AltPropertyListItem -PropertyName 'Offset' -FormatString '+0x{0:x3}'
-            New-AltScriptListItem -Label 'Type' -Script {
+            New-AltScriptListItem -Label 'Type' -Script $fmtFunctions.NewBoundScriptBlock({
                 Get-TypeName( $_ )
-            } -CaptureContext
+            })
             New-AltPropertyListItem -PropertyName 'Size' -FormatString '0x{0:x}'
             New-AltScriptListItem -Label 'Flags' -Script {
                 $cs = New-ColorString -Content ''

@@ -6,45 +6,44 @@ Register-DbgValueConverterInfo {
 
     # We will use this "module" as a place to store stuff across invocations--namely, the
     # HSTRING_HEADER_INTERNAL type info.
-    $wrlConverterCacheMod = New-Module { }
-    & $wrlConverterCacheMod { $script:HSTRING_HEADER_INTERNAL_type = $null }
+    $wrlConverterCacheMod = New-Module { 
+        $HSTRING_HEADER_INTERNAL_type = $null 
 
-    #
-    # TODO: BUGBUG: I should probably get rid of this caching stuff, because it won't work
-    # for scenarios like 1) attach to x64 target, 2) dump an HSTRING, 3) detach, 4) attach
-    # to an x86 target, 5) dump an HSTRING. But it's a really nice example of how to use
-    # -CaptureContext and script-level stuff to store info.
-    #
+        #
+        # TODO: BUGBUG: I should probably get rid of this caching stuff, because it won't work
+        # for scenarios like 1) attach to x64 target, 2) dump an HSTRING, 3) detach, 4) attach
+        # to an x86 target, 5) dump an HSTRING. But it's a really nice example of how to use
+        # NewBoundScriptBlock and script-level stuff to store info.
+        #
 
-    # This function will get the type info out of the $wrlConverterCacheMod, or cache it
-    # there if it hasn't been fetched yet.
-    function _GetHstringHeaderType()
-    {
-        $headerType = & $wrlConverterCacheMod { $script:HSTRING_HEADER_INTERNAL_type }
-        if( $null -eq $headerType )
+        # This function will get the type info out of the $wrlConverterCacheMod, or cache it
+        # there if it hasn't been fetched yet.
+        function _GetHstringHeaderType()
         {
-            # This commented-out line is handy to convince yourself that we really only
-            # load it once.
-            #[Console]::WriteLine( "Trying to get HSTRING_HEADER_INTERNAL type..." )
-            $headerType = dt 'combase!HSTRING_HEADER_INTERNAL' -TypesOnly
-            if( !$headerType )
+            $headerType = $HSTRING_HEADER_INTERNAL_type
+            if( $null -eq $headerType )
             {
-                # TODO: Will this happen for public symbols? Maybe people should be
-                # able to read strings even without private symbols.
-                return
+                # This commented-out line is handy to convince yourself that we really only
+                # load it once.
+                #[Console]::WriteLine( "Trying to get HSTRING_HEADER_INTERNAL type..." )
+                $headerType = dt 'combase!HSTRING_HEADER_INTERNAL' -TypesOnly
+                if( !$headerType )
+                {
+                    # TODO: Will this happen for public symbols? Maybe people should be
+                    # able to read strings even without private symbols.
+                    return
+                }
+                else
+                {
+                    $HSTRING_HEADER_INTERNAL_type = $headerType
+                }
             }
-            else
-            {
-                & $wrlConverterCacheMod {
-                    $script:HSTRING_HEADER_INTERNAL_type = $args[ 0 ]
-                } $headerType
-            }
+            return $headerType
         }
-        return $headerType
     }
 
 
-    New-DbgValueConverterInfo -TypeName @( '!HSTRING__', '!Platform::String' )-Converter {
+    New-DbgValueConverterInfo -TypeName @( '!HSTRING__', '!Platform::String' )-Converter $wrlConverterCacheMod.NewBoundScriptBlock({
         try
         {
             # $_ is the symbol
@@ -73,6 +72,6 @@ Register-DbgValueConverterInfo {
             return $str
         }
         finally { }
-    } -CaptureContext # end HSTRING__ converter
+    }) # end HSTRING__ converter
 }
 

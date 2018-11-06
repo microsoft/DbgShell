@@ -210,64 +210,65 @@ Register-AltTypeFormatEntries {
 
 
     New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrType' {
+        $clrTypeHelpers = New-Module {
+            function GetStructuralCategory( $type )
+            {
+                [int] $numSet = 0
+                if( $type.get_IsObjectReference() ) {
+                    New-ColorString -Content 'Object Reference' -Fore Green
+                    $numSet += 1
+                }
 
-        function GetStructuralCategory( $type )
-        {
-            [int] $numSet = 0
-            if( $type.get_IsObjectReference() ) {
-                New-ColorString -Content 'Object Reference' -Fore Green
-                $numSet += 1
-            }
+                if( $type.get_IsValueClass() ) {
+                    New-ColorString -Content 'Value Class' -Fore DarkYellow
+                    $numSet += 1
+                }
 
-            if( $type.get_IsValueClass() ) {
-                New-ColorString -Content 'Value Class' -Fore DarkYellow
-                $numSet += 1
-            }
+                if( $type.get_IsPrimitive() ) {
+                    New-ColorString -Content 'Primitive' -Fore White
+                    $numSet += 1
+                }
 
-            if( $type.get_IsPrimitive() ) {
-                New-ColorString -Content 'Primitive' -Fore White
-                $numSet += 1
-            }
+                if( 1 -ne $numSet ) {
+                    throw "I expected it to be one of: obj ref, value class, or primitive."
+                }
+            } # end GetStructuralCategory
 
-            if( 1 -ne $numSet ) {
-                throw "I expected it to be one of: obj ref, value class, or primitive."
-            }
-        } # end GetStructuralCategory
+            function GetTypeCategory( $type )
+            {
+                [int] $numSet = 0
+                if( $type.get_IsString() ) {
+                    New-ColorString -Content 'String' -Fore Cyan
+                    $numSet += 1
+                }
+                if( $type.get_IsException() ) {
+                    New-ColorString -Content 'Exception' -Fore Yellow
+                    $numSet += 1
+                }
+                if( $type.get_IsEnum() ) {
+                    New-ColorString -Content 'Enum'
+                    $numSet += 1
+                }
+                if( $type.get_IsArray() ) {
+                    New-ColorString -Content 'Array' -Fore DarkYellow
+                    $numSet += 1
+                }
+                if( $type.get_IsInterface() ) {
+                    New-ColorString -Content 'Interface' -Fore White
+                    $numSet += 1
+                }
+                if( $type.get_IsRuntimeType() ) {
+                    New-ColorString -Content 'RuntimeType' -Fore Green
+                    $numSet += 1
+                }
 
-        function GetTypeCategory( $type )
-        {
-            [int] $numSet = 0
-            if( $type.get_IsString() ) {
-                New-ColorString -Content 'String' -Fore Cyan
-                $numSet += 1
-            }
-            if( $type.get_IsException() ) {
-                New-ColorString -Content 'Exception' -Fore Yellow
-                $numSet += 1
-            }
-            if( $type.get_IsEnum() ) {
-                New-ColorString -Content 'Enum'
-                $numSet += 1
-            }
-            if( $type.get_IsArray() ) {
-                New-ColorString -Content 'Array' -Fore DarkYellow
-                $numSet += 1
-            }
-            if( $type.get_IsInterface() ) {
-                New-ColorString -Content 'Interface' -Fore White
-                $numSet += 1
-            }
-            if( $type.get_IsRuntimeType() ) {
-                New-ColorString -Content 'RuntimeType' -Fore Green
-                $numSet += 1
-            }
-
-            if( $numSet -gt 1 ) {
-                throw "I expected zero or one of these to be true."
-            } elseif( 0 -eq $numSet ) {
-                New-ColorString -Content 'Object' -Fore DarkGray
-            }
-        } # end GetTypeCategory
+                if( $numSet -gt 1 ) {
+                    throw "I expected zero or one of these to be true."
+                } elseif( 0 -eq $numSet ) {
+                    New-ColorString -Content 'Object' -Fore DarkGray
+                }
+            } # end GetTypeCategory
+        }
 
         New-AltListViewDefinition -ListItems {
             #New-AltPropertyListItem -PropertyName 'Name'
@@ -291,12 +292,12 @@ Register-AltTypeFormatEntries {
           # New-AltPropertyListItem -PropertyName 'IsValueClass'
           # New-AltPropertyListItem -PropertyName 'IsPrimitive'
             New-AltPropertyListItem -PropertyName 'ContainsPointers'
-            New-AltScriptListItem -Label '(Structural Category)' {
+            New-AltScriptListItem -Label '(Structural Category)' $clrTypeHelpers.NewBoundScriptBlock({
                 GetStructuralCategory $_
-            } -CaptureContext
-            New-AltScriptListItem -Label '(Type category)' {
+            })
+            New-AltScriptListItem -Label '(Type category)' $clrTypeHelpers.NewBoundScriptBlock({
                 GetTypeCategory $_
-            } -CaptureContext
+            })
             New-AltScriptListItem -Label '(Type Flags)' {
                 $cs = New-ColorString
                 if( $_.get_IsFinalizable() ) {
@@ -349,12 +350,12 @@ Register-AltTypeFormatEntries {
                 New-AltPropertyColumn -Property 'Module' -Width 20 -Alignment Right
                 New-AltPropertyColumn -Property 'MetadataToken' -Width 13 -Alignment Right -FormatString '0x{0:x}'
                 New-AltPropertyColumn -Property 'BaseSize' -Width 8 -Alignment Right
-                New-AltScriptColumn -Label '(StructCat)' -Width 16 {
+                New-AltScriptColumn -Label '(StructCat)' -Width 16 $clrTypeHelpers.NewBoundScriptBlock({
                     GetStructuralCategory $_
-                } -CaptureContext
-                New-AltScriptColumn -Label '(TypeCat)' -Width 11 {
+                })
+                New-AltScriptColumn -Label '(TypeCat)' -Width 11 $clrTypeHelpers.NewBoundScriptBlock({
                     GetTypeCategory $_
-                } -CaptureContext
+                })
             } # End Columns
         } # end Table view
 
@@ -416,17 +417,18 @@ Register-AltTypeFormatEntries {
 
 
     New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrModule' {
-
-        function GetShortHighlightedName( $clrMod )
-        {
-            Format-DbgModuleName ([system.io.path]::GetFileNameWithoutExtension( $clrMod.Name ))
+        $clrModuleHelpers = New-Module {
+            function GetShortHighlightedName( $clrMod )
+            {
+                Format-DbgModuleName ([system.io.path]::GetFileNameWithoutExtension( $clrMod.Name ))
+            }
         }
 
         New-AltTableViewDefinition -ShowIndex {
             New-AltColumns {
-                New-AltScriptColumn -Label 'Name' -Width 64 -Alignment Right -Script {
+                New-AltScriptColumn -Label 'Name' -Width 64 -Alignment Right -Script $clrModuleHelpers.NewBoundScriptBlock({
                     GetShortHighlightedName $_
-                } -CaptureContext
+                })
                 New-AltScriptColumn -Label 'ImageBase' -Alignment Left -Width 17 -Tag 'Address' -Script {
                     Format-DbgAddress $_.get_ImageBase()
                 }
@@ -472,162 +474,163 @@ Register-AltTypeFormatEntries {
             New-AltPropertyListItem -PropertyName 'PdbInterface'
         } # end List view
 
-        New-AltSingleLineViewDefinition {
+        New-AltSingleLineViewDefinition $clrModuleHelpers.NewBoundScriptBlock({
             GetShortHighlightedName $_
-        } -CaptureContext # end AltSingleLineViewDefinition
+        }) # end AltSingleLineViewDefinition
     } # end Type Microsoft.Diagnostics.Runtime.ClrModule
 
 
     New-AltTypeFormatEntry -TypeName 'Microsoft.Diagnostics.Runtime.ClrThread' {
-
-        function GetThreadCategoryString( $clrThread, [bool] $short )
-        {
-            [int] $numSet = 0
-            $cs = $null
-
-            if( $clrThread.get_IsBackground() -and !$short ) {
-                $cs = New-ColorString -Content 'Background: ' -Fore DarkCyan
-            } else {
-                $cs = New-ColorString
-            }
-
-            if( $clrThread.IsFinalizer ) {
-                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, 'Finalizer' )
-                $numSet += 1
-            }
-            if( $clrThread.IsGC ) {
-                $cs = $cs.AppendPushPopFg( [ConsoleColor]::Green, 'GC' )
-                $numSet += 1
-            }
-            if( $clrThread.IsDebuggerHelper ) {
-                if( $short ) {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkYellow, 'DbgHelper' )
-                } else {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkYellow, 'DebuggerHelper' )
-                }
-                $numSet += 1
-            }
-            if( $clrThread.IsThreadpoolTimer ) {
-                if( $short ) {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'TpTimer' )
-                } else {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'ThreadpoolTimer' )
-                }
-                $numSet += 1
-            }
-            if( $clrThread.IsThreadpoolCompletionPort ) {
-                if( $short ) {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkCyan, 'TpComplPort' )
-                } else {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkCyan, 'ThreadpoolCompletionPort' )
-                }
-                $numSet += 1
-            }
-            if( $clrThread.IsThreadpoolWorker ) {
-                if( $short ) {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::White, 'TpWorker' )
-                } else {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::White, 'ThreadpoolWorker' )
-                }
-                $numSet += 1
-            }
-            if( $clrThread.IsThreadpoolWait ) {
-                if( $short ) {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'TpWait' )
-                } else {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'ThreadpoolWait' )
-                }
-                $numSet += 1
-            }
-            if( $clrThread.IsThreadpoolGate ) {
-                if( $short ) {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkRed, 'TpGate' )
-                } else {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkRed, 'ThreadpoolGate' )
-                }
-                $numSet += 1
-            }
-            if( $clrThread.IsShutdownHelper ) {
-                if( $short ) {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Red, 'ShutdownHelper' )
-                } else {
-                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Red, 'ShutdownHlp' )
-                }
-                $numSet += 1
-            }
-
-            if( 0 -eq $numSet ) {
-                $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkGray, '(user)' )
-            }
-
-            $cs
-        } # end GetThreadCategoryString()
-
-        function GetThreadStateString( $clrThread )
-        {
-            $cs = $null
-            if( $clrThread.IsAlive ) {
-                $cs = New-ColorString -Content 'Alive' -Fore Green
-            } else {
-                $cs = New-ColorString -Content 'Dead' -Fore DarkRed
-            }
-
-            if( $clrThread.IsSuspendingEE ) {
-                $cs = $cs.Append( (New-ColorString -Content ' SuspendingEE' -Color Magenta) )
-            }
-            if( $clrThread.IsGCSuspendPending ) {
-                $cs = $cs.Append( (New-ColorString -Content ' GCSuspendPending' -Color Cyan) )
-            }
-            if( $clrThread.IsUserSuspended ) {
-                $cs = $cs.Append( (New-ColorString -Content ' UserSuspended' -Color Yellow) )
-            }
-            if( $clrThread.IsDebugSuspended ) {
-                $cs = $cs.Append( (New-ColorString -Content ' DebugSuspended' -Color DarkYellow) )
-            }
-            if( $clrThread.IsUnstarted ) {
-                $cs = $cs.Append( (New-ColorString -Content ' Unstarted' -Color DarkGray) )
-            }
-            if( $clrThread.IsAborted ) {
-                $cs = $cs.Append( (New-ColorString -Content ' Aborted' -Color Red) )
-            }
-            if( $clrThread.IsAbortRequested ) {
-                $cs = $cs.Append( (New-ColorString -Content ' AbortRequested' -Color DarkRed) )
-            }
-
-            $cs
-        } # end GetThreadStateString()
-
-        function GetThreadComStateString( $clrThread, [bool] $short )
-        {
-            if( $clrThread.IsCoInitialized )
+        $clrThreadHelpers = New-Module {
+            function GetThreadCategoryString( $clrThread, [bool] $short )
             {
-                if( $clrThread.IsSTA ) {
-                    New-ColorString -Content 'STA' -Fore Yellow
-                } elseif( $clrThread.IsMTA ) {
-                    New-ColorString -Content 'MTA' -Fore Green
-                } else {
-                    throw "Can a managed thread be CoInitialized, but not MTA or STA? (or is this bad data?)"
-                }
-            }
-            else
-            {
-                if( $short ) {
-                    New-ColorString -Content '---' -Fore DarkGray
-                } else {
-                    New-ColorString -Content '(not CoInitialized)' -Fore DarkGray
-                }
-                if( $clrThread.IsSTA -or $clrThread.IsMTA ) {
-                    throw "Bad data? Thread is STA or MTA, but not CoInitialized."
-                }
-            }
-        } # end GetThreadComStateString()
+                [int] $numSet = 0
+                $cs = $null
 
-        function GetLockCountString( $clrThread )
-        {
-            if( $clrThread.get_LockCount() -eq 0 ) {
-                New-ColorString -Content '0' -Fore Green
-            } else {
-                New-ColorString -Content $clrThread.get_LockCount().ToString() -Fore Yellow
+                if( $clrThread.get_IsBackground() -and !$short ) {
+                    $cs = New-ColorString -Content 'Background: ' -Fore DarkCyan
+                } else {
+                    $cs = New-ColorString
+                }
+
+                if( $clrThread.IsFinalizer ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Magenta, 'Finalizer' )
+                    $numSet += 1
+                }
+                if( $clrThread.IsGC ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::Green, 'GC' )
+                    $numSet += 1
+                }
+                if( $clrThread.IsDebuggerHelper ) {
+                    if( $short ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkYellow, 'DbgHelper' )
+                    } else {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkYellow, 'DebuggerHelper' )
+                    }
+                    $numSet += 1
+                }
+                if( $clrThread.IsThreadpoolTimer ) {
+                    if( $short ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'TpTimer' )
+                    } else {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Cyan, 'ThreadpoolTimer' )
+                    }
+                    $numSet += 1
+                }
+                if( $clrThread.IsThreadpoolCompletionPort ) {
+                    if( $short ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkCyan, 'TpComplPort' )
+                    } else {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkCyan, 'ThreadpoolCompletionPort' )
+                    }
+                    $numSet += 1
+                }
+                if( $clrThread.IsThreadpoolWorker ) {
+                    if( $short ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::White, 'TpWorker' )
+                    } else {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::White, 'ThreadpoolWorker' )
+                    }
+                    $numSet += 1
+                }
+                if( $clrThread.IsThreadpoolWait ) {
+                    if( $short ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'TpWait' )
+                    } else {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Yellow, 'ThreadpoolWait' )
+                    }
+                    $numSet += 1
+                }
+                if( $clrThread.IsThreadpoolGate ) {
+                    if( $short ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkRed, 'TpGate' )
+                    } else {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkRed, 'ThreadpoolGate' )
+                    }
+                    $numSet += 1
+                }
+                if( $clrThread.IsShutdownHelper ) {
+                    if( $short ) {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Red, 'ShutdownHelper' )
+                    } else {
+                        $cs = $cs.AppendPushPopFg( [ConsoleColor]::Red, 'ShutdownHlp' )
+                    }
+                    $numSet += 1
+                }
+
+                if( 0 -eq $numSet ) {
+                    $cs = $cs.AppendPushPopFg( [ConsoleColor]::DarkGray, '(user)' )
+                }
+
+                $cs
+            } # end GetThreadCategoryString()
+
+            function GetThreadStateString( $clrThread )
+            {
+                $cs = $null
+                if( $clrThread.IsAlive ) {
+                    $cs = New-ColorString -Content 'Alive' -Fore Green
+                } else {
+                    $cs = New-ColorString -Content 'Dead' -Fore DarkRed
+                }
+
+                if( $clrThread.IsSuspendingEE ) {
+                    $cs = $cs.Append( (New-ColorString -Content ' SuspendingEE' -Color Magenta) )
+                }
+                if( $clrThread.IsGCSuspendPending ) {
+                    $cs = $cs.Append( (New-ColorString -Content ' GCSuspendPending' -Color Cyan) )
+                }
+                if( $clrThread.IsUserSuspended ) {
+                    $cs = $cs.Append( (New-ColorString -Content ' UserSuspended' -Color Yellow) )
+                }
+                if( $clrThread.IsDebugSuspended ) {
+                    $cs = $cs.Append( (New-ColorString -Content ' DebugSuspended' -Color DarkYellow) )
+                }
+                if( $clrThread.IsUnstarted ) {
+                    $cs = $cs.Append( (New-ColorString -Content ' Unstarted' -Color DarkGray) )
+                }
+                if( $clrThread.IsAborted ) {
+                    $cs = $cs.Append( (New-ColorString -Content ' Aborted' -Color Red) )
+                }
+                if( $clrThread.IsAbortRequested ) {
+                    $cs = $cs.Append( (New-ColorString -Content ' AbortRequested' -Color DarkRed) )
+                }
+
+                $cs
+            } # end GetThreadStateString()
+
+            function GetThreadComStateString( $clrThread, [bool] $short )
+            {
+                if( $clrThread.IsCoInitialized )
+                {
+                    if( $clrThread.IsSTA ) {
+                        New-ColorString -Content 'STA' -Fore Yellow
+                    } elseif( $clrThread.IsMTA ) {
+                        New-ColorString -Content 'MTA' -Fore Green
+                    } else {
+                        throw "Can a managed thread be CoInitialized, but not MTA or STA? (or is this bad data?)"
+                    }
+                }
+                else
+                {
+                    if( $short ) {
+                        New-ColorString -Content '---' -Fore DarkGray
+                    } else {
+                        New-ColorString -Content '(not CoInitialized)' -Fore DarkGray
+                    }
+                    if( $clrThread.IsSTA -or $clrThread.IsMTA ) {
+                        throw "Bad data? Thread is STA or MTA, but not CoInitialized."
+                    }
+                }
+            } # end GetThreadComStateString()
+
+            function GetLockCountString( $clrThread )
+            {
+                if( $clrThread.get_LockCount() -eq 0 ) {
+                    New-ColorString -Content '0' -Fore Green
+                } else {
+                    New-ColorString -Content $clrThread.get_LockCount().ToString() -Fore Yellow
+                }
             }
         }
 
@@ -640,16 +643,16 @@ Register-AltTypeFormatEntries {
                 New-AltScriptColumn -Label 'Address' -Alignment Center -Width 17 -Tag 'Address' -Script {
                     Format-DbgAddress $_.get_Address()
                 }
-                New-AltScriptColumn -Label 'Locks' -Alignment Right -Width 5 -Script {
+                New-AltScriptColumn -Label 'Locks' -Alignment Right -Width 5 -Script $clrThreadHelpers.NewBoundScriptBlock({
                     GetLockCountString $_
-                } -CaptureContext
-                New-AltScriptColumn -Label 'Live' -Alignment Center -Width 4 -Script {
+                })
+                New-AltScriptColumn -Label 'Live' -Alignment Center -Width 4 -Script $clrThreadHelpers.NewBoundScriptBlock({
                     if( $_.get_IsAlive() ) {
                         New-ColorString -Content ([char] 0x221a) -Fore Green
                     } else {
                         New-ColorString -Content 'X' -Fore DarkRed
                     }
-                }
+                })
                 New-AltScriptColumn -Label 'BG' -Alignment Right -Width 2 -Script {
                     if( $_.get_IsBackground() ) {
                         'Y'
@@ -657,12 +660,12 @@ Register-AltTypeFormatEntries {
                         New-ColorString -Content 'n' -Fore Blue
                     }
                 }
-                New-AltScriptColumn -Label '(Category)' -Alignment Center -Width 11 -Script {
+                New-AltScriptColumn -Label '(Category)' -Alignment Center -Width 11 -Script $clrThreadHelpers.NewBoundScriptBlock({
                     GetThreadCategoryString $_ $true
-                } -CaptureContext
-                New-AltScriptColumn -Label 'COM' -Alignment Center -Width 3 -Script {
+                })
+                New-AltScriptColumn -Label 'COM' -Alignment Center -Width 3 -Script $clrThreadHelpers.NewBoundScriptBlock({
                     GetThreadComStateString $_ $true
-                } -CaptureContext
+                })
                 New-AltScriptColumn -Label 'AppDomain' -Alignment Center -Width 17 -Tag 'Address' -Script {
                     Format-DbgAddress $_.get_AppDomain()
                 }
@@ -680,21 +683,21 @@ Register-AltTypeFormatEntries {
             New-AltScriptListItem -Label 'Address' {
                 Format-DbgAddress $_.get_Address()
             }
-            New-AltScriptListItem -Label '(Category)' {
+            New-AltScriptListItem -Label '(Category)' $clrThreadHelpers.NewBoundScriptBlock({
                 GetThreadCategoryString $_
-            } -CaptureContext
+            })
             New-AltScriptListItem -Label 'StackBase' {
                 Format-DbgAddress $_.get_StackBase()
             }
             New-AltScriptListItem -Label 'StackLimit' {
                 Format-DbgAddress $_.get_StackLimit()
             }
-            New-AltScriptListItem -Label '(State)' {
+            New-AltScriptListItem -Label '(State)' $clrThreadHelpers.NewBoundScriptBlock({
                 GetThreadStateString $_
-            } -CaptureContext
-            New-AltScriptListItem -Label '(COM State)' {
+            })
+            New-AltScriptListItem -Label '(COM State)' $clrThreadHelpers.NewBoundScriptBlock({
                 GetThreadComStateString $_
-            } -CaptureContext
+            })
             New-AltScriptListItem -Label 'Teb' {
                 Format-DbgAddress $_.get_Teb()
             }
@@ -704,9 +707,9 @@ Register-AltTypeFormatEntries {
             New-AltScriptListItem -Label 'AppDomain' {
                 Format-DbgAddress $_.get_AppDomain()
             }
-            New-AltScriptListItem -Label 'LockCount' {
+            New-AltScriptListItem -Label 'LockCount' $clrThreadHelpers.NewBoundScriptBlock({
                 GetLockCountString $_
-            } -CaptureContext
+            })
             # TODO: need to find a thread like this so I can figure a better way to format it.
             New-AltPropertyListItem -PropertyName 'CurrentException'
             New-AltPropertyListItem -PropertyName 'StackTrace'
@@ -714,7 +717,7 @@ Register-AltTypeFormatEntries {
         } # end List view
 
 
-        New-AltSingleLineViewDefinition {
+        New-AltSingleLineViewDefinition $clrThreadHelpers.NewBoundScriptBlock({
             $cs = New-ColorString -Content 'Thread:' -Fore Black -Back DarkCyan
             $cs = $cs.Append( ' ' ).Append( $_.get_ManagedThreadId().ToString() )
             $cs = $cs.Append( ' (' ).Append( $_.get_OSThreadId().ToString( 'x' ) ).Append( ') ' )
@@ -724,7 +727,7 @@ Register-AltTypeFormatEntries {
             $cs = $cs.Append( 'LockCount: ' ).Append( (GetLockCountString $_) )
 
             $cs
-        } -CaptureContext # end AltSingleLineViewDefinition
+        }) # end AltSingleLineViewDefinition
     } # end Type Microsoft.Diagnostics.Runtime.ClrThread
 
 
@@ -747,7 +750,7 @@ Register-AltTypeFormatEntries {
             $cs = $cs.Append( ': "' ).Append( $_.get_Message() ).Append( '"' )
 
             $cs
-        } -CaptureContext # end AltSingleLineViewDefinition
+        } # end AltSingleLineViewDefinition
     } # end Type Microsoft.Diagnostics.Runtime.ClrException
 
 
