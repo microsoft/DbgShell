@@ -59,7 +59,7 @@ Register-AltTypeFormatEntries {
                               AppendPushPopFg( [ConsoleColor]::Magenta, $_.right ).
                               Append( ', ' ).
                               AppendPushPopFg( [ConsoleColor]::Magenta, $_.bottom )
-        } -CaptureContext # end AltSingleLineViewDefinition
+        } # end AltSingleLineViewDefinition
     } # end Type XRECTF_RB
 
 
@@ -76,7 +76,7 @@ Register-AltTypeFormatEntries {
                               AppendPushPopFg( [ConsoleColor]::Magenta, $_.Width ).
                               Append( ', ' ).
                               AppendPushPopFg( [ConsoleColor]::Magenta, $_.Height )
-        } -CaptureContext # end AltSingleLineViewDefinition
+        } # end AltSingleLineViewDefinition
     } # end Type XRECTF_WH
 
 
@@ -90,7 +90,7 @@ Register-AltTypeFormatEntries {
                               AppendPushPopFg( [ConsoleColor]::Magenta, $_.width ).
                               Append( ', height = ' ).
                               AppendPushPopFg( [ConsoleColor]::Magenta, $_.height )
-        } -CaptureContext # end AltSingleLineViewDefinition
+        } # end AltSingleLineViewDefinition
     } # end Type XSIZEF
 
 
