@@ -263,7 +263,7 @@ Register-AltTypeFormatEntries {
 
             New-AltColumns {
                 # N.B. To access these variables from a script block, you'll
-                # need to "capture" them using -CaptureContext.
+                # need to "capture" them using GetNewClosure().
                 $enabled = New-ColorString -Foreground Green -Content "E"
                 $enabledDeferred = New-ColorString -Foreground Yellow -Content "e"
                 $disabled = New-ColorString -Foreground Magenta -Content "d"
@@ -293,7 +293,7 @@ Register-AltTypeFormatEntries {
                             $disabled
                         }
                     }
-                } -CaptureContext
+                }.GetNewClosure()
                 New-AltScriptColumn -Label 'Offset' -Width 10 -Alignment Center -Tag 'Address' -Script {
                     if( $_.get_Offset() -eq [UInt64]::MaxValue )
                     {
@@ -365,7 +365,7 @@ Register-AltTypeFormatEntries {
                         Append( ': Disabled, ' ).
                         Append( $disabledDeferred ).
                         Append( ': Disabled and deferred' )
-                } -CaptureContext
+                }.GetNewClosure()
             } # End Columns
         } # end Table view
     } # end Type MS.Dbg.DbgBreakpointInfo
@@ -557,7 +557,7 @@ Register-AltTypeFormatEntries {
                     } elseif( $isEvent ) {
                         $eventThreadMarker
                     }
-                } -CaptureContext
+                }.GetNewClosure()
                 New-AltPropertyColumn -Label 'Id' -PropertyName 'DebuggerId' -Width 5 -Alignment 'Center'
                 New-AltScriptColumn -Label 'Pid.Tid' -Width 11 -Alignment 'Left' -Script {
                     GetOsPidTidString $_
@@ -585,7 +585,7 @@ Register-AltTypeFormatEntries {
                         Append( ' : current thread, ' ).
                         Append( $eventThreadMarker ).
                         Append( ': last event thread' )
-                } -CaptureContext
+                }.GetNewClosure()
             } # End Columns
         } # end Table view
 
@@ -808,7 +808,7 @@ Register-AltTypeFormatEntries {
                 New-AltPropertyColumn -PropertyName 'Size' -Width 7 -Alignment Left -FormatString '0x{0:x}'
 
                 # N.B. To access these variables from a script block, you'll
-                # need to "capture" them using -CaptureContext.
+                # need to "capture" them using .GetNewClosure().
                 $StaticFlag   = New-ColorString -Foreground DarkYellow -Content "S"
                 $ConstantFlag = New-ColorString -Foreground DarkCyan -Content "C"
                 $ArrayFlag    = New-ColorString -Foreground DarkGreen -Content "A"
@@ -849,7 +849,7 @@ Register-AltTypeFormatEntries {
                         $cs = New-ColorString -Foreground DarkBlue -Content '-'
                     }
                     $cs
-                } -CaptureContext # N.B. Closure required to get $StaticFlag, et al.
+                }.GetNewClosure() # N.B. Closure required to get $StaticFlag, et al.
 
                 New-AltTableFooter -Alignment Center -Script {
                     (New-ColorString -Background Cyan -Foreground Black -Content 'Flags legend:').
@@ -862,7 +862,7 @@ Register-AltTypeFormatEntries {
                         Append( ': Array, ' ).
                         Append( $PointerFlag ).
                         Append( ': Pointer' )
-                } -CaptureContext # N.B. Closure required to get $StaticFlag, et al.
+                }.GetNewClosure() # N.B. Closure required to get $StaticFlag, et al.
             } # End Columns
         } # end Table view
 
