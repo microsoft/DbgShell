@@ -17,9 +17,9 @@
 Register-AltTypeFormatEntries {
 
     # We keep private, shared functions in FmtUtils.ps1. If you have a script block that
-    # needs to use them, be sure to use -CaptureContext, else they won't be available when
+    # needs to use them, be sure to use $fmtFunctions.NewBoundScriptBlock, else they won't be available when
     # the script block is run.
-    . "$PSScriptRoot\FmtUtils.ps1"
+    $fmtFunctions = New-Module { . "$PSScriptRoot\FmtUtils.ps1" }
 
 
     New-AltTypeFormatEntry -TypeName '!XPOINTF' {

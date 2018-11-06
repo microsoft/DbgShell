@@ -120,20 +120,20 @@ Register-AltTypeFormatEntries {
 
     New-AltTypeFormatEntry -TypeName 'System.UInt64' {
 
-        #[Console]::WriteLine( "Get-PsContext: current module context is: $($ExecutionContext.SessionState.Module)" )
-        #$host.EnterNestedPrompt()
-        function fmtUlong( $ulong ) {
-            if( $ulong -lt 10 ) { return $ulong.ToString() }
-            return [string]::Format( '0x{0}', ([MS.Dbg.DbgProvider]::FormatUInt64( $ulong, $true )) )
+        $fmt = New-Module {
+            function fmtUlong( $ulong ) {
+                if( $ulong -lt 10 ) { return $ulong.ToString() }
+                return [string]::Format( '0x{0}', ([MS.Dbg.DbgProvider]::FormatUInt64( $ulong, $true )) )
+            }
         }
 
-        New-AltSingleLineViewDefinition {
+        New-AltSingleLineViewDefinition $fmt.NewBoundScriptBlock({
             fmtUlong $_
-        } -CaptureContext # end AltSingleLineViewDefinition
+        }) # end AltSingleLineViewDefinition
 
-        New-AltCustomViewDefinition {
+        New-AltCustomViewDefinition $fmt.NewBoundScriptBlock({
             fmtUlong $_
-        } -CaptureContext # end AltCustomViewDefinition
+        }) # end AltCustomViewDefinition
     } # end Type System.UInt64
 
     New-AltTypeFormatEntry -TypeName 'System.UInt32' {
