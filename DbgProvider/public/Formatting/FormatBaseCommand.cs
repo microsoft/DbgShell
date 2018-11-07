@@ -3,7 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Management.Automation;
+using System.Management.Automation.Internal;
+using System.Reflection;
 using System.Text;
 using MS.Dbg.Commands;
 
@@ -112,7 +115,7 @@ namespace MS.Dbg.Formatting.Commands
         private bool m_warnedAboutNoSuchGroupByProperty;
 
 
-        protected PsContext m_groupByHeaderCtx;
+	    protected PSModuleInfo m_groupByHeaderContext;
 
         private void _WriteGroupByGroupHeader( object newResult )
         {
@@ -122,23 +125,21 @@ namespace MS.Dbg.Formatting.Commands
                                                                                      out preserveHeaderContext );
             if( null != customHeaderScript )
             {
-                // ISSUE: Or maybe the group-by evaluation functions should return a
-                // PSObject instead.
-                PSObject pso = newResult as PSObject;
-                if( (null == pso) && (null != newResult) )
-                    pso = new PSObject( newResult ); // you can't pass null to the PSObject constructor.
+	            // ISSUE: Or maybe the group-by evaluation functions should return a
+	            // PSObject instead.
+	            PSObject pso = newResult as PSObject;
+	            if ((null == pso) && (null != newResult))
+		            pso = new PSObject(newResult); // you can't pass null to the PSObject constructor.
 
-                using( var pch = new PsContextHelper( customHeaderScript,
-                                                      headerCtx,
-                                                      preserveHeaderContext ) )
-                {
-                    string val = RenderScriptValue( pso, pch.AdjustedScriptBlock, true, pch.WithContext );
+	            if (preserveHeaderContext)
+	            {
+		            m_groupByHeaderContext = new PSModuleInfo(false);
+	            }
 
-                    m_groupByHeaderCtx = pch.SavedContext;
+	            string val = RenderScriptValue(pso, customHeaderScript, true, null, m_groupByHeaderContext);
 
-                    if( null != val )
-                        WriteObject( val );
-                }
+	            if (null != val)
+		            WriteObject(val);
             }
             else
             {
@@ -771,13 +772,9 @@ namespace MS.Dbg.Formatting.Commands
         protected string RenderScriptValue( PSObject inputObject,
                                             ScriptBlock script,
                                             bool dontGroupMultipleResults,
-                                            PsContext context )
+                                            PsContext context, PSModuleInfo invokeWithinModule = null )
         {
-            // Let the script also use context created by the custom header script (if any).
-            context = context + m_groupByHeaderCtx;
-            Collection< PSObject > results = null;
-
-            if( null == context )
+	        if( null == context )
                 context = new PsContext();
 
             if( null == m_pipeIndexPSVar )
@@ -787,8 +784,7 @@ namespace MS.Dbg.Formatting.Commands
             context.Vars[ "PSItem" ] = new PSVariable( "PSItem", inputObject );
             context.Vars[ "PipeOutputIndex" ] = m_pipeIndexPSVar;
 
-            PowerShell shell;
-            using( DbgProvider.LeaseShell( out shell ) )
+	        using( DbgProvider.LeaseShell( out var shell ) )
             {
 #if DEBUG
                 sm_renderScriptCallDepth++;
@@ -800,53 +796,68 @@ namespace MS.Dbg.Formatting.Commands
                 }
 #endif
 
-                //
-                // This code is a lot nicer-looking. But the problem with it is that non-
-                // terminating errors get squelched (there's no way for us to get them),
-                // and I'd prefer that no errors get hidden. Strangely, non-terminating
-                // errors do NOT get squelched when calling script.InvokeWithContext
-                // directly in InvokeScriptCommand.InvokeWithContext. I don't know what is
-                // making the difference. I thought it might have something to do with the
-                // SessionState attached to the ScriptBlock, but I couldn't demonstrate
-                // that.
-                //
-                // Things to try with both methods:
-                //
-                //      $ctx = $null
-                //      $savedCtx = $null
-                //      Invoke-Script -ScriptBlock { "hi" ; Write-Error "non-term" ; "bye" } -WithContext $ctx
-                //
-                //      { "hi" ; Write-Error "non-term" ; "bye" }.InvokeWithContext( @{}, @() )
-                //
-                //      $tmpMod = New-Module { }
-                //      $scriptBlockWithDifferentExecCtx = & $tmpMod { { "hi" ; Write-Error "non-term" ; "bye" } }
-                //      $scriptBlockWithDifferentExecCtx.InvokeWithContext( @{}, @() )
-                //
-                //      Register-AltTypeFormatEntries { New-AltTypeFormatEntry -TypeName 'System.Int32' { New-AltCustomViewDefinition { "It's an int: $_" ; Write-Error "this is non-terminating" ; "done" } } }
-                //      42
-                //
-            //  try
-            //  {
-            //      // Note that StrictMode will be enforced for value converters, because
-            //      // they execute in the scope of Debugger.Formatting.psm1, which sets
-            //      // StrictMode.
-            //      results = script.InvokeWithContext( context.Funcs, context.VarList );
-            //  }
-            //  catch( RuntimeException e )
-            //  {
-            //      return new ColorString( ConsoleColor.Red,
-            //                              Util.Sprintf( "<Error: {0}>", e ) )
-            //                  .ToString( DbgProvider.HostSupportsColor );
-            //  }
+				//
+				// This code is a lot nicer-looking. But the problem with it is that non-
+				// terminating errors get squelched (there's no way for us to get them),
+				// and I'd prefer that no errors get hidden. Strangely, non-terminating
+				// errors do NOT get squelched when calling script.InvokeWithContext
+				// directly in InvokeScriptCommand.InvokeWithContext. I don't know what is
+				// making the difference. I thought it might have something to do with the
+				// SessionState attached to the ScriptBlock, but I couldn't demonstrate
+				// that.
+				//
+				// Things to try with both methods:
+				//
+				//      $ctx = $null
+				//      $savedCtx = $null
+				//      Invoke-Script -ScriptBlock { "hi" ; Write-Error "non-term" ; "bye" } -WithContext $ctx
+				//
+				//      { "hi" ; Write-Error "non-term" ; "bye" }.InvokeWithContext( @{}, @() )
+				//
+				//      $tmpMod = New-Module { }
+				//      $scriptBlockWithDifferentExecCtx = & $tmpMod { { "hi" ; Write-Error "non-term" ; "bye" } }
+				//      $scriptBlockWithDifferentExecCtx.InvokeWithContext( @{}, @() )
+				//
+				//      Register-AltTypeFormatEntries { New-AltTypeFormatEntry -TypeName 'System.Int32' { New-AltCustomViewDefinition { "It's an int: $_" ; Write-Error "this is non-terminating" ; "done" } } }
+				//      42
+				//
+				//  try
+				//  {
+				//      // Note that StrictMode will be enforced for value converters, because
+				//      // they execute in the scope of Debugger.Formatting.psm1, which sets
+				//      // StrictMode.
+				//      results = script.InvokeWithContext( context.Funcs, context.VarList );
+				//  }
+				//  catch( RuntimeException e )
+				//  {
+				//      return new ColorString( ConsoleColor.Red,
+				//                              Util.Sprintf( "<Error: {0}>", e ) )
+				//                  .ToString( DbgProvider.HostSupportsColor );
+				//  }
+	            Collection<PSObject> results;
 
-                shell.AddScript( @"$args[ 0 ].InvokeWithContext( $args[ 1 ].Funcs, $args[ 1 ].VarList )",
-                                 true )
-                     .AddArgument( script )
-                     .AddArgument( context );
+				if (invokeWithinModule != null)
+				{
+					script = invokeWithinModule.NewBoundScriptBlock(script);
+					PSObject result = (PSObject) DoInvokeReturnAsIsInvoker(script, false, 1 /*writeToCurrentErrorPipe */, inputObject, AutomationNull.Value,
+						AutomationNull.Value, null);
+		            results = new Collection<PSObject> {result};
+	            }
+	            else
+	            {
+					if (m_groupByHeaderContext != null)
+					{
+						script = m_groupByHeaderContext.NewBoundScriptBlock(script);
+					}
+					shell.AddScript(@"$args[ 0 ].InvokeWithContext( $args[ 1 ].Funcs, $args[ 1 ].VarList )",
+				            true)
+			            .AddArgument(script)
+			            .AddArgument(context);
 
-                results = shell.Invoke();
+		            results = shell.Invoke();
+	            }
 
-                // Let's not keep the input object rooted.
+	            // Let's not keep the input object rooted.
                 context.Vars.Remove( "_" );
                 context.Vars.Remove( "PSItem" );
 #if DEBUG
@@ -908,11 +919,42 @@ namespace MS.Dbg.Formatting.Commands
 
         protected override bool TrySetDebuggerContext { get { return false; } }
         protected override bool LogCmdletOutline { get { return false; } }
-    } // end class FormatBaseCommand
+
+	    private static Func<ScriptBlock, bool, int, object, object, object, object[], object> DoInvokeReturnAsIsInvoker =
+		    GetMethodInvoker<ScriptBlock, bool, int, object, object, object, object[], object>("DoInvokeReturnAsIs");
 
 
+		public const BindingFlags UniversalBindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-    public abstract class FormatBaseCommand< TView > : FormatBaseCommand where TView : class
+		public static Func<TObject, TArgs1, TArgs2, TArgs3, TArgs4, TArgs5, TArgs6, TResult> GetMethodInvoker<TObject, TArgs1, TArgs2, TArgs3, TArgs4, TArgs5, TArgs6, TResult>(string methodName)
+		{
+			var errBehaviorType = typeof(TObject).Assembly.GetType("System.Management.Automation.ScriptBlock+ErrorHandlingBehavior");
+		    //var methodInfo = typeof(TObject).GetMethod(methodName, UniversalBindingFlags, null, new[] { typeof(TArgs1), typeof(TArgs2), typeof(TArgs3), typeof(TArgs4), typeof(TArgs5), typeof(TArgs6) }, null);
+		    var methodInfo = typeof(TObject).GetMethod(methodName, UniversalBindingFlags);
+
+		    var thisParam = Expression.Parameter(typeof(TObject), "thisArg");
+
+			var argParams = new[]
+		    { Expression.Parameter(typeof(TArgs1), "arg1"),
+			    Expression.Parameter(typeof(TArgs2), "arg2"),
+			    Expression.Parameter(typeof(TArgs3), "arg3"),
+			    Expression.Parameter(typeof(TArgs4), "arg4"),
+			    Expression.Parameter(typeof(TArgs5), "arg5"),
+			    Expression.Parameter(typeof(TArgs6), "arg6")};
+
+			var convertExpression = Expression.Convert(argParams[1], errBehaviorType);
+			var callParams = new Expression[] {argParams[0], convertExpression, argParams[2], argParams[3], argParams[4], argParams[5]};
+
+		    var call = Expression.Call(thisParam, methodInfo, callParams);
+
+		    var lambda = Expression.Lambda(typeof(Func<TObject, TArgs1, TArgs2, TArgs3, TArgs4, TArgs5, TArgs6, TResult>), call, thisParam, argParams[0], argParams[1], argParams[2], argParams[3], argParams[4], argParams[5]);
+		    var compiled = (Func<TObject, TArgs1, TArgs2, TArgs3, TArgs4, TArgs5, TArgs6, TResult>)lambda.Compile();
+		    return compiled;
+	    }
+	} // end class FormatBaseCommand
+
+
+	public abstract class FormatBaseCommand< TView > : FormatBaseCommand where TView : class
     {
         protected TView m_view;
         private bool m_alreadyAutoGenerated;
