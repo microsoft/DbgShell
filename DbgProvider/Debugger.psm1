@@ -3993,7 +3993,7 @@ Set-Alias .f- .f_minus
 
 <#
 .Synopsis
-    Converts hex addresses into numbers, so you can do math on them.
+    Converts unqualified hex addresses into numbers, so you can do math on them. It's a convenient way to manually apply the [AddressTransformation] attribute to something. 
 #>
 function ConvertTo-Number
 {
@@ -4003,7 +4003,7 @@ function ConvertTo-Number
                        Position = 0,
                        ValueFromPipeline = $true )]
            [MS.Dbg.Commands.AddressTransformation()]
-           [UInt64] $Address
+           [UInt64] $Numberish
          )
     process
     {
