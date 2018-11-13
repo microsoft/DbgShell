@@ -34,6 +34,9 @@ int (**g_ppSomeIntsNull)[5][4] = &g_pSomeIntsNull;
 LPSTR g_narrowString = nullptr;
 LPWSTR g_wideString = nullptr;
 
+
+LPSTR g_strAtAmbiguousAddress = nullptr;
+
 typedef struct _ODD_THING
 {
     union
@@ -1021,6 +1024,44 @@ void _AllocatePageBufferFollowedByNoAccessPage( T& result )
 }
 
 
+LPSTR AllocatePageAtAmbiguousAddress()
+{
+    LPVOID buf = nullptr;
+
+    while( !buf )
+    {
+        // We need four digits in the range 0-9, which we'll then shift over, into the
+        // form 0x0NNNN000.
+        ULONGLONG digit1 = rand() % 9;
+        ULONGLONG digit2 = rand() % 9;
+        ULONGLONG digit3 = rand() % 9;
+        ULONGLONG digit4 = rand() % 9;
+
+        ULONGLONG candidateAddr = (digit1 << 0x18) |
+                                  (digit3 << 0x14) |
+                                  (digit2 << 0x10) |
+                                  (digit1 << 0xc);
+
+        if( !candidateAddr )
+        {
+            continue; // don't pass "0"; it means "give me whatever address is convenient"
+        }
+
+        printf( "candidateAddr: %#I64x\n", candidateAddr );
+
+        buf = VirtualAlloc( reinterpret_cast<LPVOID>( candidateAddr ),
+                                                      GetSystemPageSize(),
+                                                      MEM_RESERVE | MEM_COMMIT,
+                                                      PAGE_READWRITE );
+        if( !buf )
+        {
+            printf( "GLE: %#x\n", GetLastError() );
+        }
+    }
+
+    return static_cast<LPSTR>( buf );
+}
+
 void _InitGlobals()
 {
 	InitializeCriticalSection( &g_cs );
@@ -1080,6 +1121,17 @@ void _InitGlobals()
                               0 ); // flags
     }
     hr = S_OK;
+
+
+    g_strAtAmbiguousAddress = AllocatePageAtAmbiguousAddress();
+
+    hr = StringCchCopyA( g_strAtAmbiguousAddress,
+                         GetSystemPageSize(),
+                         "This string is at an ambiguous address." );
+    if( hr )
+    {
+        RaiseFailFastException( nullptr, nullptr, 0 );
+    }
 
 
     /*
