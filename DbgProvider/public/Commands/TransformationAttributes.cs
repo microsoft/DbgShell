@@ -208,11 +208,17 @@ namespace MS.Dbg.Commands
                 //
                 // In that case, we need to figure out whether or not the user typed an
                 // "0x", because if they did not, that means that PowerShell parsed it
-                // incorrectly (as a base-10 number instead of a base-16 number).
+                // incorrectly (as a base-10 number, and possibly using scientific
+                // notation, instead of a base-16 number).
                 //
                 // Fortunately, if we have the PSObject for that typed number, we can get
-                // the original typed string, which will let us know if there was an "0x"
-                // or not.
+                // the originally typed string, which will let us know if there was an
+                // "0x" or not.
+                //
+                // Update: "if we have the PSObject for that typed number, we can get the
+                // originally typed string": unfortunately, that is not always true, such
+                // as when the address is piped in. TODO: can we change PowerShell to
+                // allow us to get the string as originally typed in more cases?
 
                 //Console.WriteLine( "{0} 5: BaseObject type: {1}", DebuggingTag, pso.BaseObject.GetType().FullName );
                 if( (pso.BaseObject is int) ||
@@ -220,21 +226,60 @@ namespace MS.Dbg.Commands
                     (pso.BaseObject is double) ||
                     (pso.BaseObject is float) )
                 {
-                    // This will get what the user actually typed (if it was typed).
-                    var asTyped = LanguagePrimitives.ConvertTo< string >( pso );
-                    //Console.WriteLine( "As typed: {0}", asTyped );
-                    if( (null != asTyped) && asTyped.StartsWith( "0x", StringComparison.OrdinalIgnoreCase ) )
-                    {
-                        // Yes, they typed an "0x", so PS correctly parsed as hex.
-                        //
-                        // The cast to (int) first is to un-box. Then to (uint) to prevent sign extension.
-                        if( pso.BaseObject is int )
-                            return (ulong) (uint) (int) pso.BaseObject;
+                    // The standard way to get the originally typed string is to use
+                    // LanguagePrimitives.ConvertTo< string >. However, it seems that it
+                    // wants to /always/ give us a string back, even if it doesn't have
+                    // the originally typed string. So if we use that method, we don't
+                    // know if the string we get back actually is what was originally
+                    // typed or not.
+                    //var asTyped = LanguagePrimitives.ConvertTo< string >( pso );
 
-                        if( pso.BaseObject is long )
-                            return unchecked( (ulong) (long) pso.BaseObject );
+                    // This /will/ get what the user actually typed (if it was typed),
+                    // but relies on reflection to get at PS internals. :(
+                    var asTyped = _GetAsTyped_usingIckyPrivateReflection( pso );
+                    //Console.WriteLine( "As typed: {0}", asTyped );
+
+                    if( null != asTyped )
+                    {
+                        if( asTyped.StartsWith( "0x", StringComparison.OrdinalIgnoreCase ) )
+                        {
+                            // Yes, they typed an "0x", so PS correctly parsed as hex.
+                            //
+                            // The cast to (int) first is to un-box. Then to (uint) to
+                            // prevent sign extension.
+                            if( pso.BaseObject is int )
+                                return (ulong) (uint) (int) pso.BaseObject;
+
+                            if( pso.BaseObject is long )
+                                return unchecked( (ulong) (long) pso.BaseObject );
+
+                            // Should not reach here.
+                            Util.Fail( "How could the typed string start with 0x but get parsed as something besides an int or long?" );
+                        }
+
+                        inputData = asTyped; // we'll re-parse it below as base-16
                     }
-                    inputData = asTyped; // we'll parse it here as base-16
+                    else
+                    {
+                        // If we get here, then it /was/ typed, but piped in:
+                        //
+                        //    01234000 | ConvertTo-Number
+                        //  0x01234000 | ConvertTo-Number
+                        //
+                        // So PS parsed it... but if we ended up with an integer type, we
+                        // don't know if it parsed as decimal or hex, so we can't be sure
+                        // how to undo that parsing. :(  For now we'll have to just assume
+                        // that the user knows that they need to use 0x when piping in.
+                        //
+                        // That sounds bad, because actually a user probably will /not/
+                        // know that, but the alternative is worse; a user who directly
+                        // specifies hex ("0x01230000 | something") should never get the
+                        // wrong result.
+                        //
+                        // TODO: see if we can get PS to preserve the as-typed value for
+                        // things that are piped in.
+                        inputData = pso.BaseObject;
+                    }
                 }
                 else
                 {
@@ -265,7 +310,7 @@ namespace MS.Dbg.Commands
          // }
 
             if( inputData is int )
-                return (ulong) (int) inputData; // need two casts in order to unbox first.
+                return (ulong) (uint) (int) inputData; // 1st cast unboxes; 2nd prevents sign extension
 
             if( inputData is long )
                 return (ulong) (long) inputData; // need two casts in order to unbox first.
@@ -370,6 +415,16 @@ namespace MS.Dbg.Commands
             // by property name), this exception needs to wrap a PSInvalidCastException.
             throw CreateRecoverableAtme( "Could not convert '{0}' to an address.", inputData );
         } // end Transform()
+
+
+        private static FieldInfo s_tokenTextField =
+            typeof( PSObject ).GetField( "TokenText",
+                                         BindingFlags.Instance | BindingFlags.NonPublic );
+
+        private static string _GetAsTyped_usingIckyPrivateReflection( PSObject pso )
+        {
+            return (string) s_tokenTextField.GetValue( pso );
+        } // end _GetAsTyped_usingIckyPrivateReflection()
 
 
         private static string _GetDbgProviderPath( string suppliedDbgProviderPath, EngineIntrinsics engineIntrinsics )
