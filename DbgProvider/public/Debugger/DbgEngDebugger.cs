@@ -51,7 +51,7 @@ namespace MS.Dbg
             return _GlobalDebugger;
         }
 
-        public void LoadCrashDump( string dumpFileName,
+        internal void LoadCrashDump( string dumpFileName,
                                    string targetFriendlyName )
         {
             DbgEngThread.Singleton.Execute( () =>
@@ -75,8 +75,7 @@ namespace MS.Dbg
                      targetFriendlyName = dumpFileName;
                  }
                  var debugger = _GlobalDebugger;
-                 debugger.CheckHr( debugger.m_debugClient.OpenDumpFileWide( dumpFileName, 0 ) );
-                 debugger.SetNextTargetName( targetFriendlyName );
+                 debugger.LoadCrashDump( dumpFileName, targetFriendlyName );
                  debugger.CheckHr( debugger.m_debugControl.WaitForEvent( DEBUG_WAIT.DEFAULT, UInt32.MaxValue ) );
                  debugger.GetCurrentTargetInternal();
                  return debugger;
