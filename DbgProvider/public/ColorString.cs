@@ -69,9 +69,9 @@ namespace MS.Dbg
             Append( other );
         }
 
-        //This constructor is private, used only by the string -> ColorString implicit conversion
-        //because if it is public, the C# compiler will favor it over the FormattableString constructor
-        //for interpolated strings
+        // This constructor is private, used only by the string -> ColorString implicit conversion
+        // because if it is public, the C# compiler will favor it over the FormattableString constructor
+        // for interpolated strings
         private ColorString(string content)
         {
             // The content might not be "pure"; it might be pre-rendered colorized text.
@@ -142,7 +142,7 @@ namespace MS.Dbg
         {
             if( includeColorMarkup )
             {
-                if (null == m_colorCache)
+                if( null == m_colorCache )
                     m_colorCache = _GatherAllElements( true );
 
                 return m_colorCache;
@@ -173,10 +173,10 @@ namespace MS.Dbg
             return new ColorString( s );
         }
 
-        //This conversion is pretty pointless and not actually intended to be used
-        //It exists only because otherwise the compiler considers the choice between
-        //the string -> ColorString conversion and FormattableString to be ambiguous
-        //for interpolated strings.
+        // This conversion is pretty pointless and not actually intended to be used
+        // It exists only because otherwise the compiler considers the choice between
+        // the string -> ColorString conversion and FormattableString to be ambiguous
+        // for interpolated strings.
         public static implicit operator ColorString( FormattableString arg )
         {
             return $"{arg}";
@@ -555,13 +555,12 @@ namespace MS.Dbg
             {
                 m_formatString = formatString ?? throw new ArgumentNullException( nameof( formatString ) );
                 m_args = args ?? throw new ArgumentNullException( nameof( args ) );
-            }
+            } // end FormatStringElement()
 
             public override StringBuilder AppendTo( StringBuilder sb, bool withColor )
             {
                 return sb.AppendFormat( withColor ? sm_colorProvider : sm_noColorProvider, m_formatString, m_args );
-            }
-
+            } // end AppendTo()
 
             private static string ArgumentToString( object theArg, string theFormat, bool withColor )
             {
@@ -574,7 +573,7 @@ namespace MS.Dbg
                     default:
                         return theArg.ToString();
                 }
-            }
+            } // end ArgumentToString()
 
             private class ColorStringFormatProvider : IFormatProvider
             {
@@ -587,12 +586,9 @@ namespace MS.Dbg
 
                 public object GetFormat( Type formatType )
                 {
-                    if( typeof( ICustomFormatter ).IsAssignableFrom( formatType ) )
-                        return m_formatter;
-
-                    return null;
+                    return typeof( ICustomFormatter ).IsAssignableFrom( formatType ) ? m_formatter : null;
                 }
-            }
+            } // end class ColorStringFormatProvider
 
             private class ColorStringFormatter : ICustomFormatter
             {
@@ -601,7 +597,7 @@ namespace MS.Dbg
                     if( arg == null )
                         return String.Empty;
 
-                    var formatPieces = format?.Split( ',' ) ?? new[] { String.Empty };
+                    string[] formatPieces = format?.Split( ',' ) ?? new[] { String.Empty };
 
                     bool hasFg = Enum.TryParse<ConsoleColor>( formatPieces.ElementAtOrDefault( 1 ), out var fgColor );
                     bool hasBg = Enum.TryParse<ConsoleColor>( formatPieces.ElementAtOrDefault( 2 ), out var bgColor );
@@ -628,8 +624,8 @@ namespace MS.Dbg
                     }
 
                     return ArgumentToString( arg, formatPieces[ 0 ], true );
-                }
-            }
+                } // end Format()
+            } // end class ColorStringFormatter
 
             private class NoColorStringFormatter : ICustomFormatter
             {
@@ -642,11 +638,11 @@ namespace MS.Dbg
 
                     return ArgumentToString( arg, formatPieces[ 0 ], false );
                 }
-            }
-        }
+            } // end class NoColorStringFormatter
+        }  // end class FormatStringElement
 
 
-        #region String stuff
+#region String stuff
 
         public char this[ int index ]
         {
