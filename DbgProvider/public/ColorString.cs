@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Management.Automation;
 using System.Text;
 
@@ -63,14 +64,34 @@ namespace MS.Dbg
             AppendPushFg( foreground );
         }
 
-        public ColorString( string content )
-        {
-            Append( content );
-        }
-
         public ColorString( ColorString other )
         {
             Append( other );
+        }
+
+        // This constructor is private, used only by the string -> ColorString implicit conversion
+        // because if it is public, the C# compiler will favor it over the FormattableString constructor
+        // for interpolated strings
+        private ColorString(string content)
+        {
+            // The content might not be "pure"; it might be pre-rendered colorized text.
+            var noColorLength = CaStringUtil.Length( content );
+            if( noColorLength == content.Length )
+            {
+                m_elements.Add( new ContentElement( content ) );
+            }
+            else
+            {
+                // TODO: Might be handy to be able to decompose a pre-rendered color
+                // string. For now we'll just dump it in.
+                m_elements.Add( new ContentElement( content ) );
+            }
+            m_apparentLength = noColorLength;
+        }
+
+        public ColorString(FormattableString content)
+        {
+            Append(content);
         }
 
 
@@ -95,28 +116,20 @@ namespace MS.Dbg
             AppendPop();
         }
 
-        private string _GatherContentElements()
+        private string _GatherAllElements(bool withColor)
         {
-            StringBuilder sb = new StringBuilder( m_apparentLength + 1 );
-            foreach( ColorStringElement cse in m_elements )
-            {
-                ContentElement ce = cse as ContentElement;
-                if( null != ce )
-                    ce.AppendTo( sb );
-            }
-            return sb.ToString();
-        } // end _GatherContentElements()
-
-
-        private string _GatherAllElements()
-        {
-            StringBuilder sb = new StringBuilder( m_apparentLength + 40 );
-            foreach( ColorStringElement cse in m_elements )
-            {
-                cse.AppendTo( sb );
-            }
-            return sb.ToString();
+            StringBuilder sb = new StringBuilder( m_apparentLength + (withColor ? 40 : 1) );
+            return AppendTo( sb, withColor ).ToString();
         } // end _GatherAllElements()
+
+        private StringBuilder AppendTo(StringBuilder sb, bool withColor )
+        {
+            foreach (ColorStringElement cse in m_elements)
+            {
+                cse.AppendTo(sb, withColor);
+            }
+            return sb;
+        } // end AppendTo
 
 
         public override string ToString()
@@ -130,14 +143,14 @@ namespace MS.Dbg
             if( includeColorMarkup )
             {
                 if( null == m_colorCache )
-                    m_colorCache = _GatherAllElements();
+                    m_colorCache = _GatherAllElements( true );
 
                 return m_colorCache;
             }
             else
             {
                 if( null == m_noColorCache )
-                    m_noColorCache = _GatherContentElements();
+                    m_noColorCache = _GatherAllElements( false );
 
                 return m_noColorCache;
             }
@@ -160,6 +173,14 @@ namespace MS.Dbg
             return new ColorString( s );
         }
 
+        // This conversion is pretty pointless and not actually intended to be used
+        // It exists only because otherwise the compiler considers the choice between
+        // the string -> ColorString conversion and FormattableString to be ambiguous
+        // for interpolated strings.
+        public static implicit operator ColorString( FormattableString arg )
+        {
+            return $"{arg}";
+        }
 
         public bool IsReadOnly { get { return m_readOnly; } }
 
@@ -182,26 +203,8 @@ namespace MS.Dbg
 
         private List< ColorStringElement > m_elements = new List< ColorStringElement >();
 
-        public ColorString Append( string content )
-        {
-            _CheckReadOnly( true );
-            // The content might not be "pure"; it might be pre-rendered colorized text.
-            var noColorLength = CaStringUtil.Length( content );
-            if( noColorLength == content.Length )
-            {
-                m_elements.Add( new ContentElement( content ) );
-            }
-            else
-            {
-                // TODO: Might be handy to be able to decompose a pre-rendered color
-                // string. For now we'll just dump it in.
-                m_elements.Add( new ContentElement( content ) );
-            }
-            m_apparentLength += noColorLength;
-            return this;
-        }
 
-        public ColorString AppendLine( string content )
+        public ColorString AppendLine( FormattableString content )
         {
             Append( content );
             return AppendLine();
@@ -214,6 +217,7 @@ namespace MS.Dbg
 
         private const int PUSH = 56;
         private const int POP = 57;
+        private static readonly int[] PopArray = { POP };
 
         public ColorString AppendPush()
         {
@@ -251,7 +255,7 @@ namespace MS.Dbg
         public ColorString AppendPop()
         {
             _CheckReadOnly( false );
-            m_elements.Add( new SgrControlSequence( new int[] { POP } ) );
+            m_elements.Add( new SgrControlSequence( PopArray ) );
             return this;
         }
 
@@ -263,7 +267,7 @@ namespace MS.Dbg
             m_elements.Add( new ContentElement( content ) );
             // The content might not be "pure"; it might be pre-rendered colorized text.
             m_apparentLength += CaStringUtil.Length( content );
-            m_elements.Add( new SgrControlSequence( new int[] { POP } ) );
+            m_elements.Add( new SgrControlSequence( PopArray ) );
             return this;
         }
 
@@ -276,7 +280,7 @@ namespace MS.Dbg
             m_elements.Add( new ContentElement( content ) );
             // The content might not be "pure"; it might be pre-rendered colorized text.
             m_apparentLength += CaStringUtil.Length( content );
-            m_elements.Add( new SgrControlSequence( new int[] { POP } ) );
+            m_elements.Add( new SgrControlSequence( PopArray ) );
             return this;
         }
 
@@ -320,6 +324,18 @@ namespace MS.Dbg
             return AppendLine();
         }
 
+
+        public ColorString AppendFormat( string format, params object[] args )
+        {
+            _CheckReadOnly( true );
+            m_elements.Add( new FormatStringElement( format, args ) );
+            return this;
+        }
+
+        public ColorString Append( FormattableString formatString )
+        {
+            return AppendFormat( formatString.Format, formatString.GetArguments() );
+        }
 
         public static ColorString operator +( ColorString a, ColorString b )
         {
@@ -477,7 +493,7 @@ namespace MS.Dbg
 
         private abstract class ColorStringElement
         {
-            public abstract StringBuilder AppendTo( StringBuilder sb );
+            public abstract StringBuilder AppendTo( StringBuilder sb, bool withColor );
         } // end class ColorStringElement
 
         [DebuggerDisplay( "ContentElement: {Content}" )]
@@ -487,13 +503,10 @@ namespace MS.Dbg
 
             public ContentElement( string content )
             {
-                if( null == content )
-                    throw new ArgumentNullException( "content" );
-
-                Content = content;
+                Content = content ?? throw new ArgumentNullException( nameof(content) );
             } // end constructor
 
-            public override StringBuilder AppendTo( StringBuilder sb )
+            public override StringBuilder AppendTo( StringBuilder sb, bool _ )
             {
                 return sb.Append( Content );
             } // end AppendTo();
@@ -505,29 +518,128 @@ namespace MS.Dbg
 
             public SgrControlSequence( IReadOnlyList< int > commands )
             {
-                if( null == commands )
-                    throw new ArgumentNullException( "commands" );
-
-                Commands = commands;
+                Commands = commands ?? throw new ArgumentNullException( nameof(commands) );
             } // end constructor
 
             private const char CSI = '\x9b';  // "Control Sequence Initiator"
             private const char SGR = 'm';     // "Select Graphics Rendition"
 
-            public override StringBuilder AppendTo( StringBuilder sb )
+            public override StringBuilder AppendTo( StringBuilder sb, bool withColor )
+            {
+                return withColor ? AppendCommands(sb, Commands) : sb;
+            } // end AppendTo();
+
+            public static StringBuilder AppendCommands(StringBuilder sb, IReadOnlyList<int> commands)
             {
                 sb.Append( CSI );
-                for( int i = 0; i < Commands.Count; i++ )
+                for( int i = 0; i < commands.Count; i++ )
                 {
-                    sb.Append( Commands[ i ].ToString( CultureInfo.InvariantCulture ) );
-                    if( i != (Commands.Count - 1) )
+                    sb.Append( commands[ i ].ToString( CultureInfo.InvariantCulture ) );
+                    if( i != (commands.Count - 1) )
                         sb.Append( ';' );
                 }
 
                 return sb.Append( SGR );
-            } // end AppendTo();
+            } // end AppendCommands();
+
         } // end class SgrControlSequence
 
+        private class FormatStringElement : ColorStringElement
+        {
+            private readonly string m_formatString;
+            private readonly object[] m_args;
+            private static readonly ColorStringFormatProvider sm_colorProvider = new ColorStringFormatProvider( true );
+            private static readonly ColorStringFormatProvider sm_noColorProvider = new ColorStringFormatProvider( false );
+
+            public FormatStringElement( string formatString, object[] args )
+            {
+                m_formatString = formatString ?? throw new ArgumentNullException( nameof( formatString ) );
+                m_args = args ?? throw new ArgumentNullException( nameof( args ) );
+            } // end FormatStringElement()
+
+            public override StringBuilder AppendTo( StringBuilder sb, bool withColor )
+            {
+                return sb.AppendFormat( withColor ? sm_colorProvider : sm_noColorProvider, m_formatString, m_args );
+            } // end AppendTo()
+
+            private static string ArgumentToString( object theArg, string theFormat, bool withColor )
+            {
+                switch( theArg )
+                {
+                    case ISupportColor colorSupporter:
+                        return colorSupporter.ToColorString().ToString( withColor );
+                    case IFormattable formattable:
+                        return formattable.ToString( theFormat, null );
+                    default:
+                        return theArg.ToString();
+                }
+            } // end ArgumentToString()
+
+            private class ColorStringFormatProvider : IFormatProvider
+            {
+                private readonly ICustomFormatter m_formatter;
+
+                public ColorStringFormatProvider( bool withColor )
+                {
+                    m_formatter = withColor ? (ICustomFormatter) new ColorStringFormatter() : new NoColorStringFormatter();
+                }
+
+                public object GetFormat( Type formatType )
+                {
+                    return typeof( ICustomFormatter ).IsAssignableFrom( formatType ) ? m_formatter : null;
+                }
+            } // end class ColorStringFormatProvider
+
+            private class ColorStringFormatter : ICustomFormatter
+            {
+                public string Format( string format, object arg, IFormatProvider formatProvider )
+                {
+                    if( arg == null )
+                        return String.Empty;
+
+                    string[] formatPieces = format?.Split( ',' ) ?? new[] { String.Empty };
+
+                    bool hasFg = Enum.TryParse<ConsoleColor>( formatPieces.ElementAtOrDefault( 1 ), out var fgColor );
+                    bool hasBg = Enum.TryParse<ConsoleColor>( formatPieces.ElementAtOrDefault( 2 ), out var bgColor );
+
+                    if( hasFg || hasBg )
+                    {
+                        var sb = new StringBuilder();
+                        var commands = new List<int> { PUSH };
+                        if( hasFg ) { commands.Add( CaStringUtil.ForegroundColorMap[ fgColor ] ); }
+                        if( hasBg ) { commands.Add( CaStringUtil.BackgroundColorMap[ bgColor ] ); }
+                        SgrControlSequence.AppendCommands( sb, commands );
+
+                        if( arg is ISupportColor asColor )
+                        {
+                            asColor.ToColorString().AppendTo( sb, true );
+                        }
+                        else
+                        {
+                            sb.Append( ArgumentToString( arg, formatPieces[ 0 ], true ) );
+                        }
+
+                        SgrControlSequence.AppendCommands( sb, PopArray );
+                        return sb.ToString();
+                    }
+
+                    return ArgumentToString( arg, formatPieces[ 0 ], true );
+                } // end Format()
+            } // end class ColorStringFormatter
+
+            private class NoColorStringFormatter : ICustomFormatter
+            {
+                public string Format( string format, object arg, IFormatProvider formatProvider )
+                {
+                    if( arg == null )
+                        return String.Empty;
+
+                    var formatPieces = format?.Split( ',' ) ?? new[] { String.Empty };
+
+                    return ArgumentToString( arg, formatPieces[ 0 ], false );
+                }
+            } // end class NoColorStringFormatter
+        }  // end class FormatStringElement
 
 
 #region String stuff

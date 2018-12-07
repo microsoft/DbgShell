@@ -38,6 +38,9 @@ you write an object to the output stream which implements `ISupportColor` (and t
 some other formatting view that covers it), the custom F+O will call `.ToColorString()` on
 it for display.
 
+### Interpolated Strings & Format Strings
+`ColorString` supports applying color with custom format strings for both interpolated and tradtional format strings, using a comma delimited list of `format,foreground,background`. For example, `new ColorString($"{value:X4,Red,Blue}")`, `new ColorString().Append($"{value:,Red,Blue}")`, or `new ColorString().AppendFormat("{0:X4,Red,Blue}", value)` will all format `value` with a red foreground and blue background. In all cases, the formatting is lazy - the arguments are not transformed to strings until they are displayed.
+
 ## Why?
 
 You've been staring at your debugger session for close to an hour... the numbers, the
