@@ -49,7 +49,7 @@ course. But in my opinion they are not meeting people's needs.
   are so many is because there aren't viable alternatives.
 * Existing attempts at providing a better interface (such as
   [PowerDbg](http://powerdbg.codeplex.com/)) are based on "scraping" and text parsing,
-  which is hugely limiting (not to mention idealogically annoying) and thus are not able
+  which is hugely limiting (not to mention ideologically annoying) and thus are not able
   to fulfill the promise of a truly better interface (they are only marginally better, at
   best).
 * Existing attempts to provide an easier way to write a debugger extension are merely a
