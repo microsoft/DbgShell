@@ -51,7 +51,7 @@ namespace MS.Dbg
             return _GlobalDebugger;
         }
 
-        public void LoadCrashDump( string dumpFileName,
+        internal void LoadCrashDump( string dumpFileName,
                                    string targetFriendlyName )
         {
             DbgEngThread.Singleton.Execute( () =>
@@ -59,6 +59,27 @@ namespace MS.Dbg
                     CheckHr( m_debugClient.OpenDumpFileWide( dumpFileName, 0 ) );
                     SetNextTargetName( targetFriendlyName );
                 } );
+        }
+
+        public static DbgEngDebugger OpenDumpFile( string dumpFileName, string targetFriendlyName = "" )
+        {
+            return OpenDumpFileAsync( dumpFileName, targetFriendlyName ).Result;
+        }
+
+        public static async Task< DbgEngDebugger > OpenDumpFileAsync( string dumpFileName, string targetFriendlyName = "" )
+        {
+            return await DbgEngThread.Singleton.ExecuteAsync( () =>
+             {
+                 if( String.IsNullOrEmpty( targetFriendlyName ) )
+                 {
+                     targetFriendlyName = dumpFileName;
+                 }
+                 var debugger = _GlobalDebugger;
+                 debugger.LoadCrashDump( dumpFileName, targetFriendlyName );
+                 debugger.CheckHr( debugger.m_debugControl.WaitForEvent( DEBUG_WAIT.DEFAULT, UInt32.MaxValue ) );
+                 debugger.GetCurrentTargetInternal();
+                 return debugger;
+             } );
         }
 
         public void AttachToProcess( int pid, IPipelineCallback psPipe )
@@ -114,17 +135,17 @@ namespace MS.Dbg
         } // end AttachToProcess()
 
 
-        public void CreateProcessAndAttach( string commandLine, string targetFriendlyName )
+        public static DbgEngDebugger CreateProcessAndAttach( string commandLine, string targetFriendlyName )
         {
-            CreateProcessAndAttach( commandLine, targetFriendlyName, false, false );
+            return CreateProcessAndAttachAsync( commandLine, targetFriendlyName, false, false ).Result;
         }
 
-        public void CreateProcessAndAttach( string commandLine,
+        public async static Task< DbgEngDebugger > CreateProcessAndAttachAsync( string commandLine,
                                             string targetFriendlyName,
                                             bool skipInitialBreakpoint,
                                             bool skipFinalBreakpoint )
         {
-            DbgEngThread.Singleton.Execute( () =>
+            return await DbgEngThread.Singleton.ExecuteAsync( () =>
                 {
                     var debugger = _GlobalDebugger;
 
@@ -140,6 +161,7 @@ namespace MS.Dbg
                     debugger.SkipInitialBreakpoint = skipInitialBreakpoint;
                     debugger.SkipFinalBreakpoint = skipFinalBreakpoint;
                     debugger.SetNextTargetName( targetFriendlyName );
+                    return debugger;
                 } );
         } // end CreateProcessAndAttach()
 
@@ -4432,53 +4454,45 @@ namespace MS.Dbg
 
         private Dictionary< DbgEngContext, DbgTarget > m_targets = new Dictionary< DbgEngContext, DbgTarget >();
 
-        public DbgTarget GetCurrentTarget()
+        public DbgTarget GetCurrentTarget() => ExecuteOnDbgEngThread( GetCurrentTargetInternal );
+
+        private DbgTarget GetCurrentTargetInternal()
         {
-            return ExecuteOnDbgEngThread( () =>
+            DbgEngContext ctx;
+            CheckHr( m_debugSystemObjects.GetCurrentSystemId( out uint sysId ) );
+
+            bool kernelMode = IsKernelMode;
+
+            if( kernelMode )
+            {
+                ctx = new DbgEngContext( sysId, true );
+            }
+            else
+            {
+                // User-mode
+                CheckHr( m_debugSystemObjects.GetCurrentProcessId( out uint procId ) );
+                ctx = new DbgEngContext( sysId, procId );
+            }
+
+            if( !m_targets.TryGetValue( ctx, out DbgTarget t ) )
+            {
+                if( kernelMode )
                 {
-                    uint sysId;
-                    DbgEngContext ctx;
-                    DbgTarget t;
-                    CheckHr( m_debugSystemObjects.GetCurrentSystemId( out sysId ) );
+                    t = new DbgKModeTarget( this, ctx, _GetKmTargetName( sysId ) );
+                }
+                else
+                {
+                    // User-mode
+                    CheckHr( m_debugSystemObjects.GetCurrentProcessSystemId( out uint sysProcId ) );
+                    t = new DbgUModeProcess( this, ctx, sysProcId, _GetUmTargetName( sysProcId ) );
+                }
 
-                    bool kernelMode = IsKernelMode;
+                t.ClrMdDisabled = m_clrMdDisabled;
+                m_targets.Add( ctx, t );
+            }
 
-                    if( kernelMode )
-                    {
-                        ctx = new DbgEngContext( sysId, true );
-                    }
-                    else
-                    {
-                        // User-mode
-
-                        uint procId;
-                        CheckHr( m_debugSystemObjects.GetCurrentProcessId( out procId ) );
-                        ctx = new DbgEngContext( sysId, procId );
-                    }
-
-                    if( !m_targets.TryGetValue( ctx, out t ) )
-                    {
-                        if( kernelMode )
-                        {
-                            t = new DbgKModeTarget( this, ctx, _GetKmTargetName( sysId ) );
-                        }
-                        else
-                        {
-                            // User-mode
-                            uint sysProcId;
-                            CheckHr( m_debugSystemObjects.GetCurrentProcessSystemId( out sysProcId ) );
-                            t = new DbgUModeProcess( this,
-                                                     ctx,
-                                                     sysProcId,
-                                                     _GetUmTargetName( sysProcId ) );
-                        }
-                        t.ClrMdDisabled = m_clrMdDisabled;
-                        m_targets.Add( ctx, t );
-                    }
-
-                    return t;
-                } );
-        } // end GetCurrentTarget()
+            return t;
+        } // end GetCurrentTargetInternal()
 
 
         public DbgUModeProcess GetCurrentUModeProcess()
