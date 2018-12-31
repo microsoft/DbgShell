@@ -1244,7 +1244,7 @@ namespace MS.Dbg
             }
         }
 
-        public T[] ReadAs_TArray< T >( uint count )
+        public T[] ReadAs_TArray< T >( uint count ) where T : unmanaged
         {
             if( IsValueInRegister )
             {
