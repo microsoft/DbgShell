@@ -112,17 +112,47 @@ namespace MS.Dbg
         } // end constructor
 
 
-        internal byte[] _GetBackingBytes() { return m_bytes; }
+        // When I first tried out the Span/Memory stuff, I originally planned to expose
+        // the Bytes only as a ReadOnlyMemory< byte >, but ran into some complications.
+        //
+        // 1. I had hoped to also expose the other properties as ReadOnlyMemory< T > views
+        //    of the same underlying byte[] (without a copy), but couldn't figure out a
+        //    way to do it: MemoryMarshal.Cast only works to give you a Span, and Spans
+        //    aren't good enough for me, because I often need to pass stuff to the dbgeng
+        //    thread in a lambda (and you can't do that with a Span). So that left the
+        //    Bytes property having a different type than the other properties
+        //    (ReadOnlyMemory< T > versus IReadOnlyList< T >
+        //
+        // 2. The Memory/Span stuff does not work very well in PowerShell script. Span< T
+        //    > does not implement IEnumerable< T >, so PowerShell does not unroll it,
+        //    even though there is a GetEnumerator() method. Secondly, trying to directly
+        //    access elements of a span ($memoryThing.Span[123]) yields a
+        //    VerificationException saying "Operation could destabilize the runtime."
+        //    Yikes!
+        //
+        // So for now, Memory/Span stuff needs to only be used internally, or if exposed
+        // (such as in a C# method signature), you can't expect it to be usable from
+        // script.
 
+        // I'll leave this as public for now as an easy demo of the it-doesn't-work-in-
+        // script situation.
+        public ReadOnlyMemory< byte > GetMemory() { return m_bytes; }
+
+
+        private ReadOnlyCollection< byte > m_bytesRoCollection;
 
         public IReadOnlyList< byte > Bytes
         {
             get
             {
-                return new ReadOnlyCollection< byte >( m_bytes );
+                if( null == m_bytesRoCollection )
+                {
+                    m_bytesRoCollection = new ReadOnlyCollection< byte >( m_bytes );
+                }
+
+                return m_bytesRoCollection;
             }
         }
-
 
         private ReadOnlyCollection< ushort > m_words;
 

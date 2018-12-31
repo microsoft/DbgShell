@@ -74,10 +74,7 @@ namespace MS.Dbg.Commands
             else
             {
                 Util.Assert( null != Memory );
-                // TODO: use some fancy new C# features to get a span or array view or
-                // something so I don't have to have this crummy internal accessor in
-                // order to avoid a copy.
-                Debugger.WriteMem( Address, Memory._GetBackingBytes() );
+                Debugger.WriteMem( Address, Memory.GetMemory() );
             }
         }
     }

@@ -2129,6 +2129,49 @@ namespace MS.Dbg
         } // end ReadMem()
 
 
+        /// <summary>
+        ///    Reads the specified number of bytes from the specified address in the
+        ///    target's memory space, filling the specified pre-allocated buffer. This
+        ///    method requires you to read a valid number of bytes, rather than letting
+        ///    you specify a "failIfReadSmaller" bool and filling the remainder of the
+        ///    buffer with zeroes or a pattern or something.
+        /// </summary>
+        public unsafe void ReadMem< T >( ulong address, Memory< T > fillMe ) where T : unmanaged
+        {
+            ExecuteOnDbgEngThread( () =>
+                {
+                    uint lengthDesired = (uint) (fillMe.Length * sizeof( T ));
+
+                    using( var memHandle = fillMe.Pin() )
+                    {
+                        _CheckMemoryReadHr( address,
+                                            m_debugDataSpaces.ReadVirtualDirect( address,
+                                                                                 lengthDesired,
+                                                                                 (byte*) memHandle.Pointer,
+                                                                                 out uint bytesRead ) );
+
+
+                        if( lengthDesired != bytesRead )
+                        {
+                            string addrString = DbgProvider.FormatAddress( address, TargetIs32Bit, true );
+                            LogManager.Trace( "Error: under-read: Wanted {0} bytes from address {1}, but only got {2}.",
+                                              lengthDesired,
+                                              addrString,
+                                              bytesRead );
+
+                            throw new DbgMemoryAccessException( address,
+                                                                Util.Sprintf( "Error reading virtual memory at {0}: could not read full 0x{1:x} bytes (read 0x{2:x}).",
+                                                                              addrString,
+                                                                              lengthDesired,
+                                                                              bytesRead ),
+                                                                "UnderRead",
+                                                                System.Management.Automation.ErrorCategory.ReadError );
+                        }
+                    }
+                } );
+        } // end ReadMem< T >()
+
+
         private void _HandleWriteMemError( int hr,
                                            ulong address,
                                            uint cbRequested,
@@ -2155,16 +2198,6 @@ namespace MS.Dbg
             }
         } // end _HandleWriteMemError()
 
-        public void WriteMem( ulong address, byte[] changes )
-        {
-            ExecuteOnDbgEngThread( () =>
-                {
-                    uint written = 0;
-                    int hr = m_debugDataSpaces.WriteVirtual( address, changes, out written );
-                    _HandleWriteMemError( hr, address, (uint) changes.Length, written );
-                } );
-        } // end WriteMem()
-
         public unsafe void WriteMem( ulong address, byte* changes, uint cbChanges )
         {
             ExecuteOnDbgEngThread( () =>
@@ -2175,56 +2208,22 @@ namespace MS.Dbg
                 } );
         } // end WriteMem()
 
-        public unsafe void WriteMem( ulong address, uint[] changes )
+        public unsafe void WriteMem< T >( ulong address, ReadOnlyMemory< T > changes ) where T : unmanaged
         {
             ExecuteOnDbgEngThread( () =>
                 {
-                    fixed( uint* p = changes )
+                    using( var memHandle = changes.Pin() )
                     {
                         WriteMem( address,
-                                  (byte*) p,
-                                  (uint) (changes.Length * sizeof( uint )) );
+                                  (byte*) memHandle.Pointer,
+                                  (uint) (changes.Length * sizeof( T )) );
                     }
                 } );
         } // end WriteMem()
 
-        public unsafe void WriteMem( ulong address, int[] changes )
+        public unsafe void WriteMem< T >( ulong address, T[] changes ) where T : unmanaged
         {
-            ExecuteOnDbgEngThread( () =>
-                {
-                    fixed( int* p = changes )
-                    {
-                        WriteMem( address,
-                                  (byte*) p,
-                                  (uint) (changes.Length * sizeof( int )) );
-                    }
-                } );
-        } // end WriteMem()
-
-        public unsafe void WriteMem( ulong address, ulong[] changes )
-        {
-            ExecuteOnDbgEngThread( () =>
-                {
-                    fixed( ulong* p = changes )
-                    {
-                        WriteMem( address,
-                                  (byte*) p,
-                                  (uint) (changes.Length * sizeof( ulong )) );
-                    }
-                } );
-        } // end WriteMem()
-
-        public unsafe void WriteMem( ulong address, long[] changes )
-        {
-            ExecuteOnDbgEngThread( () =>
-                {
-                    fixed( long* p = changes )
-                    {
-                        WriteMem( address,
-                                  (byte*) p,
-                                  (uint) (changes.Length * sizeof( long )) );
-                    }
-                } );
+            WriteMem( address, new ReadOnlyMemory< T >( changes ) );
         } // end WriteMem()
 
 
@@ -2420,20 +2419,26 @@ namespace MS.Dbg
             return new Guid( raw );
         } // end ReadMemAs_Guid()
 
-        public T[] ReadMemAs_TArray< T >( ulong address, uint count )
+        public T[] ReadMemAs_TArray< T >( ulong address, uint count ) where T: unmanaged
         {
-            byte[] raw = ReadMem( address, count * (uint) Marshal.SizeOf( typeof( T ) ), true );
             T[] dest = new T[ count ];
-            Buffer.BlockCopy( raw, 0, dest, 0, raw.Length );
+
+            ReadMem( address, (Memory< T >) dest );
+
             return dest;
         } // end ReadMemAs_TArray< T >()
 
         // This way looks weird, but it's much more convenient for PowerShell.
+        // If this ever gets implemented in PowerShell, then we could get rid of this
+        // method: https://github.com/PowerShell/PowerShell/issues/5146
         public Array ReadMemAs_TArray( ulong address, uint count, Type T )
         {
             if( null == T )
                 throw new ArgumentNullException( "T" );
 
+            // It would be nice change this to read directly into the pre-allocated
+            // buffer, like the generic overload of this method, but I don't have a way to
+            // pin or get the address of the first element of an "Array" instance.
             byte[] raw = ReadMem( address, count * (uint) Marshal.SizeOf( T ), true );
             Array dest = Array.CreateInstance( T, (int) count );
             Buffer.BlockCopy( raw, 0, dest, 0, raw.Length );
