@@ -19,7 +19,6 @@ namespace MS.Dbg
                     if( null == value )
                         value = String.Empty;
 
-                    var oldPrefix = m_prefix;
                     m_prefix = value;
                 }
             } // end property Prefix

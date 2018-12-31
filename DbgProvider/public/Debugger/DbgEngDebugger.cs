@@ -1569,8 +1569,8 @@ namespace MS.Dbg
                     m_outputCallbacks.Prefix = currentPrefix;
                     m_outputCallbacks.ConsumeLine = currentCl;
                 } );
-            m_outputCallbacks.Prefix = String.Empty;
             m_outputCallbacks.Flush();
+            m_outputCallbacks.Prefix = String.Empty;
             m_outputCallbacks.ConsumeLine = consumeLine;
             return disposer;
         } // end HandleDbgEngOutput()
