@@ -2001,33 +2001,36 @@ namespace MS.Dbg
             MassageTypeNameTestCase[] testCases = {
      /*  0 */   new MassageTypeNameTestCase( "System.Collections.Generic.Dictionary`2[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]",
                                              "System.Collections.Generic.Dictionary<System.String,System.Int32>",
-                                             true ),
+                                             expectIsGeneric: true ),
      /*  1 */   new MassageTypeNameTestCase( "System.String",
                                              "System.String",
-                                             false ),
+                                             expectIsGeneric: false ),
      /*  2 */   new MassageTypeNameTestCase( "System.Collections.Generic.Dictionary`2[[System.Collections.Generic.KeyValuePair`2[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.Tuple`2[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.Collections.Generic.List`1[[System.Char, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.Tuple`2[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]",
                                              "System.Collections.Generic.Dictionary<System.Collections.Generic.KeyValuePair<System.Int32,System.Tuple<System.String,System.Collections.Generic.List<System.Char>>>,System.Tuple<System.Int32,System.String>>",
-                                             true ),
+                                             expectIsGeneric: true ),
      /*  3 */   new MassageTypeNameTestCase( "System.String`xxxx",
                                              "System.String`xxxx", // (this now looks like a native type name with a backtick in it)
-                                             false ),
+                                             expectIsGeneric: false ),
      /*  4 */   new MassageTypeNameTestCase( "Blarg`2[[asdf, blah],[jkl, blah]]",
                                              "Blarg<asdf,jkl>",
-                                             true ),
+                                             expectIsGeneric: true ),
      /*  5 */   new MassageTypeNameTestCase( "Blarg`2[[asdf, blah],[jkl, blah], [qwer, blah]]",
                                              null,
-                                             true ),
+                                             expectIsGeneric: true ),
      /*  6 */   new MassageTypeNameTestCase( "clr!Indexer<unsigned short,SString::Iterator>", // <-- a native template type! (no '`')
                                              "clr!Indexer<unsigned short,SString::Iterator>",
-                                             false ), // it's not a generic; it's a native template
+                                             expectIsGeneric: false ), // it's not a generic; it's a native template
      /*  7 */   new MassageTypeNameTestCase( "System.Collections.Generic.Dictionary`2[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]",
                                              true,
                                              "Dictionary<String,Int32>",
-                                             true ),
+                                             expectIsGeneric: true ),
                                              // This was a real type name from CLR.dll.
      /*  8 */   new MassageTypeNameTestCase( "VolatilePtr<`anonymous namespace'::AptcaKillBitList,A0x8f085d03::AptcaKillBitList *>",
                                              "VolatilePtr<`anonymous namespace'::AptcaKillBitList,A0x8f085d03::AptcaKillBitList *>",
-                                             false ),
+                                             expectIsGeneric: false ),
+     /*  9 */   new MassageTypeNameTestCase( "System.ReadOnlySpan`1+Enumerator[[System.Byte, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]",
+                                             "System.ReadOnlySpan<System.Byte>+Enumerator",
+                                             expectIsGeneric: true ),
             };
 
 
@@ -2123,6 +2126,16 @@ namespace MS.Dbg
                                                     StringBuilder output,
                                                     ref bool isGeneric )
         {
+            void _CheckIdxNotPastBounds( int idxNotRef ) // can't use 'ref' idx directly; hrmph
+            {
+                if( idxNotRef >= input.Length )
+                {
+                    throw new Exception( String.Format( "Unexpected end of input at index {0}: \"{1}\".",
+                                                        idxNotRef,
+                                                        input ) );
+                }
+            }
+
             int outputStartPos = output.Length;
             while( idx < input.Length )
             {
@@ -2133,8 +2146,7 @@ namespace MS.Dbg
                     while( ']' != input[ idx ] )
                     {
                         idx++;
-                        if( idx >= input.Length )
-                            throw new Exception( "Unexpected end of input." );
+                        _CheckIdxNotPastBounds( idx );
                     }
                     return;
                 }
@@ -2160,6 +2172,7 @@ namespace MS.Dbg
                     // to tell the difference.
 
                     idx++;
+                    _CheckIdxNotPastBounds( idx );
                     char c = input[ idx ];
 
                     if( !Char.IsDigit( c ) )
@@ -2178,13 +2191,39 @@ namespace MS.Dbg
                             numGenericParams *= 10; // TODO: It's in base 10, right?
                             numGenericParams += CharToByte( c ); // base 10
                             idx++;
+                            _CheckIdxNotPastBounds( idx );
                             c = input[ idx ];
                         }
 
+                        // TODO: spanify
+                        string nestedTypeName = null;
+
+                        if( '+' == input[ idx ] )
+                        {
+                            // It's a nested type, nested inside a generic type. We need
+                            // to pull out the nested type name, then set it aside to tack
+                            // on after we handle the generic type parameters.
+
+                            // TODO: recursively use MassageManagedTypeName? I should try
+                            // some crazy nesting generics.
+
+                            idx++;
+                            _CheckIdxNotPastBounds( idx );
+                            int startIdx = idx;
+                            while( '[' != input[ idx ] )
+                            {
+                                idx++;
+                                _CheckIdxNotPastBounds( idx );
+                            }
+
+                            nestedTypeName = input.Substring( startIdx, idx - startIdx );
+                        }
+
                         if( '[' != input[ idx ] )
-                            throw new Exception( String.Format( "Expected '[' at position {0}.", idx ) );
+                            throw new Exception( String.Format( "Expected '[' at index {0}: \"{1}\".", idx, input ) );
 
                         idx++;
+                        _CheckIdxNotPastBounds( idx );
 
                         output.Append( '<' );
 
@@ -2193,30 +2232,37 @@ namespace MS.Dbg
                             if( 0 != i )
                             {
                                 if( ',' != input[ idx ] )
-                                    throw new Exception( String.Format( "Expected ',' at position {0}.", idx ) );
+                                    throw new Exception( String.Format( "Expected ',' at index {0}: \"{1}\".", idx, input ) );
 
                                 idx++;
+                                _CheckIdxNotPastBounds( idx );
                                 output.Append( ',' );
                             }
 
                             if( '[' != input[ idx ] )
-                                throw new Exception( String.Format( "Expected '[' at position {0}.", idx ) );
+                                throw new Exception( String.Format( "Expected '[' at index {0}: \"{1}\".", idx, input ) );
 
                             idx++;
+                            _CheckIdxNotPastBounds( idx );
 
                             MassageManagedTypeName( input, removeNamespaces, ref idx, output, ref isGeneric );
 
                             if( ']' != input[ idx ] )
-                                throw new Exception( String.Format( "Expected ']' at position {0}.", idx ) );
+                                throw new Exception( String.Format( "Expected ']' at index {0}: \"{1}\".", idx, input ) );
 
                             idx++;
                         } // end foreach( generic type param )
 
                         if( ']' != input[ idx ] )
-                            throw new Exception( String.Format( "Expected ']' at position {0}.", idx ) );
+                            throw new Exception( String.Format( "Expected ']' at index {0}: \"{1}\".", idx, input ) );
 
                         idx++;
                         output.Append( '>' );
+
+                        if( !String.IsNullOrEmpty( nestedTypeName ) )
+                        {
+                            output.Append( '+' ).Append( nestedTypeName );
+                        }
                     } // end( it's a generic type )
                 } // end( found backtick; maybe a generic type )
             } // end while( idx < length )
