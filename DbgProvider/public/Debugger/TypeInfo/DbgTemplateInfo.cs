@@ -491,6 +491,7 @@ namespace MS.Dbg
             if( !_TryCrackTemplate( name, 0, out templatePart, out problem ) )
             {
                 // TODO: SQM? I think that this can only happen if there are unbalanced brackets.
+                // (or a case that we don't yet handle)
                 LogManager.Trace( "Warning: weird type name: {0}", name );
                 LogManager.Trace( "Warning: Problem: {0}", problem );
                 Util.Fail( Util.Sprintf( "Weird type name ({0}): {1}", problem, name ) );
