@@ -166,21 +166,10 @@ function Expand-LIST_ENTRY
             [int] $idx = 0
 
             # $curListEntry is a pointer, so can compare directly to $headAddr.
-            while( $curListEntry -ne $headAddr )
+            while( ($curListEntry -isnot [MS.Dbg.DbgValueError]) -and
+                   ($curListEntry -ne $headAddr) -and
+                   !$curListEntry.DbgIsNull() )
             {
-                # If things go badly, this is likely where we find out--$curListEntry will
-                # be a DbgValueError, and thus won't have a DbgGetPointer() method. We can
-                # make the error a little nicer.
-                if( $curListEntry -is [MS.Dbg.DbgValueError] )
-                {
-                    $er = New-Object 'System.Management.Automation.ErrorRecord' `
-                                        -ArgumentList @( $curListEntry.DbgGetError(),
-                                                         'ErrorWhileTraversingList', # ErrorId
-                                                         'NotSpecified',             # ErrorCategory
-                                                         $curListEntry )             # TargetObject
-                    $PSCmdlet.ThrowTerminatingError( $er )
-                }
-
                 # N.B. $curListEntry is a pointer, but we need to get the raw pointer else
                 # pointer arithmetic will mess things up.
 
@@ -200,9 +189,26 @@ function Expand-LIST_ENTRY
                 # want. (without iex, it will complain that $val has no such member
                 # "Tcb.ThreadListEntry", which is true)
 
+                # TODO: Using 'Flink' won't work for singly-linked lists (the link pointer
+                # in SINGLE_LIST_ENTRY is called 'Next'). We should just switch to just
+                # follow the pointer at offset 0.
                 $curListEntry = Invoke-Expression "`$val.$ListEntryMemberName.Flink"
                 $idx++
             }
+
+            # If things go badly, this is likely where we find out--$curListEntry will
+            # be a DbgValueError, and thus won't have a DbgGetPointer() method. We can
+            # make the error a little nicer.
+            if( $curListEntry -is [MS.Dbg.DbgValueError] )
+            {
+                $er = New-Object 'System.Management.Automation.ErrorRecord' `
+                                    -ArgumentList @( $curListEntry.DbgGetError(),
+                                                     'ErrorWhileTraversingList', # ErrorId
+                                                     'NotSpecified',             # ErrorCategory
+                                                     $curListEntry )             # TargetObject
+                $PSCmdlet.ThrowTerminatingError( $er )
+            }
+
         }
         finally { }
     } # end 'process' block
