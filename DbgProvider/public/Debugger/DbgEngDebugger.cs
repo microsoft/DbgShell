@@ -6131,51 +6131,65 @@ namespace MS.Dbg
                 head = head.DbgFollowPointers();
             }
 
-            DbgSymbol sym = head.DbgGetOperativeSymbol();
-            string itemNamePrefix = sym.Name + "_";
+            DbgSymbol headSym = head.DbgGetOperativeSymbol();
+            string itemNamePrefix = headSym.Name + "_";
 
-            ulong headAddr = sym.Address;
+            // Likely always zero?
+            uint flinkOffset = ((DbgUdtTypeInfo) headSym.Type).Members[ "Flink" ].Offset;
+
+            ulong headAddr = headSym.Address;
 
             dynamic curListEntry = head.Flink;
+            DbgPointerTypeInfo listEntryPointerType = curListEntry.DbgGetOperativeSymbol().Type;
 
             int idx = 0;
 
-            while( curListEntry != headAddr )
+            while( !(curListEntry is DbgValueError) && (curListEntry != headAddr) )
             {
-                // If things go badly, this is likely where we find out--curListEntry will
-                // be a DbgValueError, and thus won't have a DbgGetPointer() method. We
-                // can make the error a little nicer.
-                if( curListEntry is DbgValueError )
-                {
-                    throw new DbgProviderException( Util.Sprintf( "LIST_ENTRY enumeration failed: {0}",
-                                                                  Util.GetExceptionMessages( curListEntry.DbgGetError() ) ),
-                                                    "LIST_ENTRY_EnumerationFailed",
-                                                    System.Management.Automation.ErrorCategory.ReadError,
-                                                    (Exception) curListEntry.DbgGetError(),
-                                                    head );
-                }
-
-                // N.B. curListEntry is a pointer, but we need to get the raw pointer else
-                // pointer arithmetic will mess things up.
+                // N.B. curListEntry is already a pointer, but we need to get the raw
+                // pointer else pointer arithmetic will mess things up.
 
                 ulong curItemAddr = curListEntry.DbgGetPointer() - listEntryOffset;
 
-                dynamic val = Debugger.GetValueForAddressAndType( curItemAddr,
-                                                                  entryType,
-                                                                  itemNamePrefix + idx.ToString(),
-                                                                  false,
-                                                                  false );
-                yield return val;
+                var pso = Debugger.GetValueForAddressAndType( curItemAddr,
+                                                              entryType,
+                                                              itemNamePrefix + idx.ToString(),
+                                                              skipConversion: false,
+                                                              skipDerivedTypeDetection: false );
 
-                // TODO:
-                // $curListEntry = Invoke-Expression "`$val.$ListEntryMemberName.Flink"
+                // Need to output the DbgValue, not the PSObject.
+                yield return (DbgValue) pso.BaseObject; // need to output the DbgValue, not the PSObject
+
+                // The PowerShell script equivalent of this method does:
                 //
-                // There's not a simple way to do this in C#...
-                // BUT... I think it can be done by building dynamic callsites.
-                throw new NotImplementedException();
+                //    $curListEntry = Invoke-Expression "`$val.$ListEntryMemberName.Flink"
+                //
+                // There's not a simple way to do this in C#... it could be done by
+                // building a dynamic callsite, but the simpler thing is to just use the
+                // already -calculcated offset.
 
-                //idx++;
+                // Note that we don't manually follow the pointer, because we WANT
+                // curListEntry to be a pointer, so that it can be compared to headAddr.
+                curListEntry = Debugger.GetValueForAddressAndType( curListEntry.DbgGetPointer() + flinkOffset,
+                                                                   listEntryPointerType,
+                                                                   itemNamePrefix + "listEntry_" + idx.ToString(),
+                                                                   skipConversion: true,
+                                                                   skipDerivedTypeDetection: true );
+
+                idx++;
             } // end while( cur != head )
+
+            if( curListEntry is DbgValueError )
+            {
+                // Perhaps we ran across some memory that was not available, or perhaps we
+                // just had bad data to start with.
+                throw new DbgProviderException( Util.Sprintf( "LIST_ENTRY enumeration failed: {0}",
+                                                              Util.GetExceptionMessages( curListEntry.DbgGetError() ) ),
+                                                "LIST_ENTRY_EnumerationFailed",
+                                                System.Management.Automation.ErrorCategory.ReadError,
+                                                (Exception) curListEntry.DbgGetError(),
+                                                head );
+            }
         } // end EnumerateLIST_ENTRY()
 
 
@@ -6313,7 +6327,7 @@ namespace MS.Dbg
         }
 
         public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( ulong headAddr,
-                                                             int listEntryOffset,
+                                                             int listEntryOffset, // signed in case of negative offset
                                                              CancellationToken cancelToken )
         {
             return StreamFromDbgEngThread< ulong >( cancelToken, ( ct, emit ) =>
