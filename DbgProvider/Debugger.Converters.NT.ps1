@@ -195,7 +195,9 @@ Register-DbgValueConverterInfo {
 
             $handleCount = $null
 
-            if( $val.ObjectTable -and ($val.ObjectTable -isnot [MS.Dbg.DbgValueError]) )
+            if( $val.ObjectTable -and
+                ($val.ObjectTable -isnot [MS.Dbg.DbgValueError]) -and
+                !$val.ObjectTable.DbgIsNull() )
             {
                 $handleCount = 0
                 foreach( $fl in $val.ObjectTable.FreeLists )
