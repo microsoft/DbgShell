@@ -1155,6 +1155,14 @@ namespace DbgEngWrapper
   //        [In] Int32 BuildStringSize,
   //        [Out] ULONG% BuildStringUsed);
 
+        int GetSystemVersion(
+            [Out] ULONG% PlatformId,
+            [Out] ULONG% Major,
+            [Out] ULONG% Minor,
+            [Out] String^% ServicePackString,
+            [Out] ULONG% ServicePackNumber,
+            [Out] String^% BuildString);
+
   //    int GetPageSize(
   //        [Out] ULONG% Size);
 
@@ -1747,12 +1755,12 @@ namespace DbgEngWrapper
     //      [In, MarshalAs(UnmanagedType.LPWStr)] string File,
     //      [Out] out DEBUG_LOG Flags);
 
-    //  int GetSystemVersionValues(
-    //      [Out] ULONG% PlatformId,
-    //      [Out] ULONG% Win32Major,
-    //      [Out] ULONG% Win32Minor,
-    //      [Out] ULONG% KdMajor,
-    //      [Out] ULONG% KdMinor);
+        int GetSystemVersionValues(
+            [Out] ULONG% PlatformId,
+            [Out] ULONG% Win32Major,
+            [Out] ULONG% Win32Minor,
+            [Out] ULONG% KdMajor,
+            [Out] ULONG% KdMinor);
 
     //  int GetSystemVersionString(
     //      [In] DEBUG_SYSVERSTR Which,
@@ -1765,6 +1773,10 @@ namespace DbgEngWrapper
     //      [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder Buffer,
     //      [In] Int32 BufferSize,
     //      [Out] ULONG% StringSize);
+
+        int GetSystemVersionStringWide(
+            [In] DEBUG_SYSVERSTR Which,
+            [Out] String^% VersionString);
 
     //  int GetContextStackTrace(
     //      [In] IntPtr StartContext,
