@@ -6084,138 +6084,16 @@ namespace MS.Dbg
         }
 
 
-        public IEnumerable< DbgValue > EnumerateLIST_ENTRY( dynamic head,
-                                                            DbgUdtTypeInfo entryType,
-                                                            string listEntryMemberPath )
-        {
-            // Workaround for INT1a713231 ("Properties dynamically added to PSObject are not seen by C# "dynamic""):
-            head = head.WrappingPSObject;
-
-            if( null == head )
-                throw new ArgumentNullException( "head" );
-
-            if( null == entryType )
-                throw new ArgumentNullException( "entryType" );
-
-            uint listEntryOffset;
-            if( String.IsNullOrEmpty( listEntryMemberPath ) )
-            {
-                // We'll try to deduce it automatically.
-                var listEntryMembers = entryType.Members.Where( ( x ) => 0 == Util.Strcmp_OI( x.DataType.Name, "_LIST_ENTRY" ) ).ToArray();
-                if( listEntryMembers.Length > 1 )
-                {
-                    // TODO: write warning
-                }
-                else if( 0 == listEntryMembers.Length )
-                {
-                    throw new ArgumentException( Util.Sprintf( "Could not find a _LIST_ENTRY member in type '{0}'.",
-                                                               entryType.FullyQualifiedName ) );
-                }
-                listEntryOffset = listEntryMembers[ 0 ].Offset;
-            }
-            else
-            {
-                const string dotFlink = ".Flink";
-                if( listEntryMemberPath.EndsWith( dotFlink, StringComparison.OrdinalIgnoreCase ) )
-                {
-                    // TODO: write warning
-                    // Trim off ".Flink".
-                    listEntryMemberPath.Substring( 0, listEntryMemberPath.Length - dotFlink.Length );
-                }
-                listEntryOffset = entryType.FindMemberOffset( listEntryMemberPath );
-            }
-
-            if( head is DbgPointerValue )
-            {
-                // You're allowed to pass a LIST_ENTRY, a LIST_ENTRY*, a LIST_ENTRY**, ...
-                head = head.DbgFollowPointers();
-            }
-
-            DbgSymbol headSym = head.DbgGetOperativeSymbol();
-            string itemNamePrefix = headSym.Name + "_";
-
-            // Likely always zero?
-            uint flinkOffset = ((DbgUdtTypeInfo) headSym.Type).Members[ "Flink" ].Offset;
-
-            ulong headAddr = headSym.Address;
-
-            dynamic curListEntry = head.Flink;
-            DbgPointerTypeInfo listEntryPointerType = curListEntry.DbgGetOperativeSymbol().Type;
-
-            int idx = 0;
-
-            while( !(curListEntry is DbgValueError) && (curListEntry != headAddr) )
-            {
-                // N.B. curListEntry is already a pointer, but we need to get the raw
-                // pointer else pointer arithmetic will mess things up.
-
-                ulong curItemAddr = curListEntry.DbgGetPointer() - listEntryOffset;
-
-                var pso = Debugger.GetValueForAddressAndType( curItemAddr,
-                                                              entryType,
-                                                              itemNamePrefix + idx.ToString(),
-                                                              skipConversion: false,
-                                                              skipDerivedTypeDetection: false );
-
-                // Need to output the DbgValue, not the PSObject.
-                yield return (DbgValue) pso.BaseObject; // need to output the DbgValue, not the PSObject
-
-                // The PowerShell script equivalent of this method does:
-                //
-                //    $curListEntry = Invoke-Expression "`$val.$ListEntryMemberName.Flink"
-                //
-                // There's not a simple way to do this in C#... it could be done by
-                // building a dynamic callsite, but the simpler thing is to just use the
-                // already -calculcated offset.
-
-                // Note that we don't manually follow the pointer, because we WANT
-                // curListEntry to be a pointer, so that it can be compared to headAddr.
-                curListEntry = Debugger.GetValueForAddressAndType( curListEntry.DbgGetPointer() + flinkOffset,
-                                                                   listEntryPointerType,
-                                                                   itemNamePrefix + "listEntry_" + idx.ToString(),
-                                                                   skipConversion: true,
-                                                                   skipDerivedTypeDetection: true );
-
-                idx++;
-            } // end while( cur != head )
-
-            if( curListEntry is DbgValueError )
-            {
-                // Perhaps we ran across some memory that was not available, or perhaps we
-                // just had bad data to start with.
-                throw new DbgProviderException( Util.Sprintf( "LIST_ENTRY enumeration failed: {0}",
-                                                              Util.GetExceptionMessages( curListEntry.DbgGetError() ) ),
-                                                "LIST_ENTRY_EnumerationFailed",
-                                                System.Management.Automation.ErrorCategory.ReadError,
-                                                (Exception) curListEntry.DbgGetError(),
-                                                head );
-            }
-        } // end EnumerateLIST_ENTRY()
-
-
-        public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( string headSymName,
-                                                             string entryTypeName,
-                                                             string listEntryMemberPath ) // optional
-        {
-            return EnumerateLIST_ENTRY_raw( headSymName,
-                                            entryTypeName,
-                                            listEntryMemberPath,
-                                            CancellationToken.None );
-        }
-
-
-        public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( string headSymName,
-                                                             string entryTypeName,
-                                                             string listEntryMemberPath, // optional
-                                                             CancellationToken cancelToken )
+        public IEnumerable< DbgValue > EnumerateLIST_ENTRY( string headSymName,
+                                                            string entryTypeName,
+                                                            string listEntryMemberPath ) // optional
         {
             ulong headAddr = 0;
 
             try
             {
                 var headSym = FindSymbol_Search( headSymName,
-                                                 GlobalSymbolCategory.Data,
-                                                 cancelToken ).FirstOrDefault();
+                                                 GlobalSymbolCategory.Data ).FirstOrDefault();
 
                 headAddr = headSym.Address;
             }
@@ -6229,31 +6107,17 @@ namespace MS.Dbg
                                                 headSymName );
             }
 
-            return EnumerateLIST_ENTRY_raw( headAddr, entryTypeName, listEntryMemberPath, cancelToken );
+            return EnumerateLIST_ENTRY( headAddr, entryTypeName, listEntryMemberPath );
         }
 
-
-
-        public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( ulong headAddr,
-                                                             string entryTypeName,
-                                                             string listEntryMemberPath ) // optional
-        {
-            return EnumerateLIST_ENTRY_raw( headAddr,
-                                            entryTypeName,
-                                            listEntryMemberPath,
-                                            CancellationToken.None );
-        }
-
-        public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( ulong headAddr,
-                                                             string entryTypeName,
-                                                             string listEntryMemberPath, // optional
-                                                             CancellationToken cancelToken )
+        public IEnumerable< DbgValue > EnumerateLIST_ENTRY( ulong headAddr,
+                                                            string entryTypeName,
+                                                            string listEntryMemberPath ) // optional
         {
             DbgUdtTypeInfo entryType = null;
             try
             {
-                entryType = (DbgUdtTypeInfo) GetTypeInfoByName( entryTypeName,
-                                                                cancelToken ).FirstOrDefault();
+                entryType = (DbgUdtTypeInfo) GetTypeInfoByName( entryTypeName ).FirstOrDefault();
             }
             catch( DbgProviderException dpe )
             {
@@ -6265,25 +6129,127 @@ namespace MS.Dbg
                                                 entryTypeName );
             }
 
-            return EnumerateLIST_ENTRY_raw( headAddr, entryType, listEntryMemberPath, cancelToken );
+            return EnumerateLIST_ENTRY( headAddr, entryType, listEntryMemberPath );
+        }
+
+
+        public IEnumerable< DbgValue > EnumerateLIST_ENTRY( DbgValue head,
+                                                            DbgUdtTypeInfo entryType,
+                                                            string listEntryMemberPath )
+        {
+            if( null == head )
+                throw new ArgumentNullException( "head" );
+
+            if( head is DbgPointerValue )
+            {
+                // You're allowed to pass a LIST_ENTRY, a LIST_ENTRY*, a LIST_ENTRY**, ...
+                head = (DbgValue) (((DbgPointerValue) head).DbgFollowPointers()).BaseObject;
+            }
+
+            DbgSymbol headSym = head.DbgGetOperativeSymbol();
+            string itemNamePrefix = headSym.Name + "_";
+
+            ulong headAddr = headSym.Address;
+
+            return EnumerateLIST_ENTRY( headAddr,
+                                        entryType,
+                                        listEntryMemberPath,
+                                        itemNamePrefix );
+        }
+
+        public IEnumerable< DbgValue > EnumerateLIST_ENTRY( ulong headAddr,
+                                                            DbgUdtTypeInfo entryType,
+                                                            string listEntryMemberPath ) // optional
+        {
+            return EnumerateLIST_ENTRY( headAddr,
+                                        entryType,
+                                        listEntryMemberPath,
+                                        null ); // itemNamePrefix
+        }
+
+        public IEnumerable< DbgValue > EnumerateLIST_ENTRY( ulong headAddr,
+                                                            DbgUdtTypeInfo entryType,
+                                                            string listEntryMemberPath,  // optional
+                                                            string itemNamePrefix )      // optional
+        {
+            int idx = 0;
+
+            if( String.IsNullOrEmpty( itemNamePrefix ) )
+            {
+                itemNamePrefix = "listEntry_";
+            }
+
+            foreach( ulong entryAddr in EnumerateLIST_ENTRY_raw( headAddr,
+                                                                 entryType,
+                                                                 listEntryMemberPath ) )
+            {
+                var pso = Debugger.GetValueForAddressAndType( entryAddr,
+                                                              entryType,
+                                                              "listEntry_" + idx.ToString(),
+                                                              skipConversion: false,
+                                                              skipDerivedTypeDetection: false );
+
+                yield return (DbgValue) pso.BaseObject;
+
+                idx++;
+            }
+        }
+
+
+        public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( string headSymName,
+                                                             string entryTypeName,
+                                                             string listEntryMemberPath ) // optional
+        {
+            ulong headAddr = 0;
+
+            try
+            {
+                var headSym = FindSymbol_Search( headSymName,
+                                                 GlobalSymbolCategory.Data ).FirstOrDefault();
+
+                headAddr = headSym.Address;
+            }
+            catch( DbgProviderException dpe )
+            {
+                throw new DbgProviderException( Util.Sprintf( "Could not find head symbol \"{0}\". Are you missing the PDB?",
+                                                              headSymName ),
+                                                "HeadSymNotFound_maybeNoPdb",
+                                                System.Management.Automation.ErrorCategory.ObjectNotFound,
+                                                dpe,
+                                                headSymName );
+            }
+
+            return EnumerateLIST_ENTRY_raw( headAddr, entryTypeName, listEntryMemberPath );
+        }
+
+
+
+        public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( ulong headAddr,
+                                                             string entryTypeName,
+                                                             string listEntryMemberPath ) // optional
+        {
+            DbgUdtTypeInfo entryType = null;
+            try
+            {
+                entryType = (DbgUdtTypeInfo) GetTypeInfoByName( entryTypeName ).FirstOrDefault();
+            }
+            catch( DbgProviderException dpe )
+            {
+                throw new DbgProviderException( Util.Sprintf( "Could not find type information for \"{0}\". Are you missing the PDB?",
+                                                              entryTypeName ),
+                                                "NoTypeInfo_maybeMissingPdb",
+                                                System.Management.Automation.ErrorCategory.ObjectNotFound,
+                                                dpe,
+                                                entryTypeName );
+            }
+
+            return EnumerateLIST_ENTRY_raw( headAddr, entryType, listEntryMemberPath );
         }
 
 
         public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( ulong headAddr,
                                                              DbgUdtTypeInfo entryType,
                                                              string listEntryMemberPath ) // optional
-        {
-            return EnumerateLIST_ENTRY_raw( headAddr,
-                                            entryType,
-                                            listEntryMemberPath,
-                                            CancellationToken.None );
-        }
-
-
-        public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( ulong headAddr,
-                                                             DbgUdtTypeInfo entryType,
-                                                             string listEntryMemberPath, // optional
-                                                             CancellationToken cancelToken )
         {
             if( null == entryType )
                 throw new ArgumentNullException( "entryType" );
@@ -6316,29 +6282,22 @@ namespace MS.Dbg
                 listEntryOffset = (int) entryType.FindMemberOffset( listEntryMemberPath );
             }
 
-            return EnumerateLIST_ENTRY_raw( headAddr, listEntryOffset, cancelToken );
+            return EnumerateLIST_ENTRY_raw( headAddr, listEntryOffset );
         }
 
 
         public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( ulong headAddr,
                                                              int listEntryOffset )
         {
-            return EnumerateLIST_ENTRY_raw( headAddr, listEntryOffset, CancellationToken.None );
-        }
-
-        public IEnumerable< ulong > EnumerateLIST_ENTRY_raw( ulong headAddr,
-                                                             int listEntryOffset, // signed in case of negative offset
-                                                             CancellationToken cancelToken )
-        {
-            return StreamFromDbgEngThread< ulong >( cancelToken, ( ct, emit ) =>
+            return StreamFromDbgEngThread< ulong >( CancellationToken.None, ( ct, emit ) =>
             {
                 try
                 {
-                    ulong curListEntry = ReadMemAs_pointer( headAddr ); // reading first .Flink
+                    ulong curListEntry = ReadMemAs_pointer( headAddr ); // reading first .Flink (or .Next, for singly-linked lists)
 
                     int idx = 0;
 
-                    while( curListEntry != headAddr )
+                    while( (curListEntry != headAddr) && (curListEntry != 0) )
                     {
                         // The listEntryOffset is a signed integer in case somebody wants
                         // to do something crazy like have a negative offset.
@@ -6352,10 +6311,11 @@ namespace MS.Dbg
                         if( ct.IsCancellationRequested )
                             break;
 
-                        curListEntry = ReadMemAs_pointer( curListEntry ); // reading Flink
+                        // The .Flink (or .Next) field should be the very first thing in the list entry.
+                        curListEntry = ReadMemAs_pointer( curListEntry );
 
                         idx++;
-                    } // end while( cur != head )
+                    } // end while( (cur != head) && cur )
                 }
                 catch( DbgEngException dee )
                 {
@@ -6452,8 +6412,7 @@ namespace MS.Dbg
 
                 foreach( var addr in EnumerateLIST_ENTRY_raw( headSym.Address,
                                                               entryType,
-                                                              "ActiveProcessLinks",
-                                                              ct ) )
+                                                              "ActiveProcessLinks" ) )
                 {
                     emit( new DbgKmProcessInfo( this, target, addr ) );
                 }
