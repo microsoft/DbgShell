@@ -1537,6 +1537,60 @@ int WDebugControl::GetNumberProcessors(
 //        [In] Int32 BuildStringSize,
 //        [Out] ULONG% BuildStringUsed);
 
+int WDebugControl::GetSystemVersion(
+    [Out] ULONG% PlatformId,
+    [Out] ULONG% Major,
+    [Out] ULONG% Minor,
+    [Out] String^% ServicePackString,
+    [Out] ULONG% ServicePackNumber,
+    [Out] String^% BuildString)
+{
+    WDebugClient::g_log->Write( L"DebugControl::GetSystemVersion" );
+
+    ServicePackString = nullptr;
+    BuildString = nullptr;
+    PlatformId = 0;
+    Major = 0;
+    Minor = 0;
+    ServicePackNumber = 0;
+
+    pin_ptr<ULONG> ppPlatformId = &PlatformId;
+    pin_ptr<ULONG> ppMajor = &Major;
+    pin_ptr<ULONG> ppMinor = &Minor;
+    pin_ptr<ULONG> ppServicePackNumber = &ServicePackNumber;
+
+    char servicePackStringStackBuf[ 512 ] = { 0 };
+    char buildStringStackBuf[ 1024 ] = { 0 };
+    pin_ptr<char> ppServicePackStringStackBuf = &servicePackStringStackBuf[ 0 ];
+    pin_ptr<char> ppBuildStringStackBuf = &buildStringStackBuf[ 0 ];
+
+    ULONG servicePackStringUsed = 0;
+    ULONG buildStringUsed = 0;
+
+    HRESULT hr = m_pNative->GetSystemVersion(
+        ppPlatformId,
+        ppMajor,
+        ppMinor,
+        ppServicePackStringStackBuf,
+        sizeof( servicePackStringStackBuf ),
+        &servicePackStringUsed,
+        ppServicePackNumber,
+        ppBuildStringStackBuf,
+        sizeof( buildStringStackBuf ),
+        &buildStringUsed );
+
+    if (SUCCEEDED(hr))
+    {
+        // It might've returned S_FALSE if the string buffers were too small... but I don't really care.
+        ServicePackString = Marshal::PtrToStringAnsi( static_cast<IntPtr>( servicePackStringStackBuf ) );
+        BuildString       = Marshal::PtrToStringAnsi( static_cast<IntPtr>( buildStringStackBuf ) );
+    }
+
+    return hr;
+}
+
+
+
 //    int GetPageSize(
 //        [Out] ULONG% Size);
 
@@ -2665,12 +2719,33 @@ int WDebugControl::SetTextReplacementWide(
 //      [In, MarshalAs(UnmanagedType.LPWStr)] string File,
 //      [Out] out DEBUG_LOG Flags);
 
-//  int GetSystemVersionValues(
-//      [Out] ULONG% PlatformId,
-//      [Out] ULONG% Win32Major,
-//      [Out] ULONG% Win32Minor,
-//      [Out] ULONG% KdMajor,
-//      [Out] ULONG% KdMinor);
+int WDebugControl::GetSystemVersionValues(
+    [Out] ULONG% PlatformId,
+    [Out] ULONG% Win32Major,
+    [Out] ULONG% Win32Minor,
+    [Out] ULONG% KdMajor,
+    [Out] ULONG% KdMinor)
+{
+    PlatformId = 0;
+    Win32Major = 0;
+    Win32Minor = 0;
+    KdMajor = 0;
+    KdMinor = 0;
+
+    WDebugClient::g_log->Write( L"WDebugControl::GetSystemVersionValues" );
+
+    pin_ptr<ULONG> ppPlatformId = &PlatformId;
+    pin_ptr<ULONG> ppWin32Major = &Win32Major;
+    pin_ptr<ULONG> ppWin32Minor = &Win32Minor;
+    pin_ptr<ULONG> ppKdMajor    = &KdMajor;
+    pin_ptr<ULONG> ppKdMinor    = &KdMinor;
+
+    return m_pNative->GetSystemVersionValues( ppPlatformId ,
+                                              ppWin32Major ,
+                                              ppWin32Minor ,
+                                              ppKdMajor    ,
+                                              ppKdMinor );
+}
 
 //  int GetSystemVersionString(
 //      [In] DEBUG_SYSVERSTR Which,
@@ -2683,6 +2758,32 @@ int WDebugControl::SetTextReplacementWide(
 //      [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder Buffer,
 //      [In] Int32 BufferSize,
 //      [Out] ULONG% StringSize);
+
+int WDebugControl::GetSystemVersionStringWide(
+    [In] DEBUG_SYSVERSTR Which,
+    [Out] String^% VersionString)
+{
+    WDebugClient::g_log->Write( L"DebugControl::GetSystemVersionStringWide" );
+
+    VersionString = nullptr;
+
+    WCHAR buf[ 512 ] = { 0 };
+    pin_ptr<WCHAR> ppBuf = &buf[ 0 ];
+
+    ULONG cchUsed = 0;
+    HRESULT hr = m_pNative->GetSystemVersionStringWide( static_cast< ULONG >( Which ),
+                                                        ppBuf,
+                                                        _countof( buf ),
+                                                        &cchUsed );
+
+    // S_FALSE means the string was truncated, but I don't really care.
+    if( SUCCEEDED( hr ) )
+    {
+        VersionString = gcnew String( buf );
+    }
+
+    return hr;
+}
 
 //  int GetContextStackTrace(
 //      [In] IntPtr StartContext,

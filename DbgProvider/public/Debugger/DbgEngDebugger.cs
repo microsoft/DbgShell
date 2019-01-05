@@ -2812,7 +2812,7 @@ namespace MS.Dbg
                 // This isn't just an optimization--we need to skip the code below because
                 // the "fixed" keyword, when used with a 0-length array, will yield a null
                 // pointer, and then the decoder.Convert API will complain.
-                // 
+                //
                 // (I did file a bug for Decoder.Convert to accept a null char buffer when
                 // the size of it is zero anyway, but it was Wont' Fix-ed. I didn't bother
                 // filing a bug for the "fixed" keyword; I doubt they could change that.)
@@ -6418,5 +6418,95 @@ namespace MS.Dbg
                 }
             } );
         } // end KmEnumerateProcesses()
+
+
+        /// <summary>
+        ///    Corresponds to the IDebugControlX GetSystemVersion method. Note that the
+        ///    numbers reported here are often lies, particularly in user mode.
+        ///
+        ///    Notes from dbgeng.h:
+        ///
+        ///    "GetSystemVersion always returns the kd major/minor version numbers, which
+        ///    are different than the Win32 version numbers. GetSystemVersionValues can be
+        ///    used to determine the Win32 version values."
+        /// </summary>
+        public void GetSystemVersion( out uint platformId,
+                                      out uint major,
+                                      out uint minor,
+                                      out string servicePackString,
+                                      out uint servicePack,
+                                      out string build )
+        {
+            uint tmpPlatformId  = platformId  = 0;
+            uint tmpMajor       = major       = 0;
+            uint tmpMinor       = minor       = 0;
+            uint tmpServicePack = servicePack = 0;
+
+            string tmpServicePackString = servicePackString = null;
+            string tmpBuild             = build             = null;
+
+            ExecuteOnDbgEngThread( () =>
+                {
+                    CheckHr( m_debugControl.GetSystemVersion( out tmpPlatformId,
+                                                              out tmpMajor,
+                                                              out tmpMinor,
+                                                              out tmpServicePackString,
+                                                              out tmpServicePack,
+                                                              out tmpBuild ) );
+                } );
+
+            platformId        = tmpPlatformId;
+            major             = tmpMajor;
+            minor             = tmpMinor;
+            servicePackString = tmpServicePackString;
+            servicePack       = tmpServicePack;
+            build             = tmpBuild;
+        }
+
+
+        /// <summary>
+        ///    Corresponds to the IDebugControlX GetSystemVersionValues method. Note that
+        ///    the numbers reported here are often lies, particularly in user mode.
+        /// </summary>
+        public void GetSystemVersionValues( out uint platformId,
+                                            out uint win32Major,
+                                            out uint win32Minor,
+                                            out uint kdMajor,
+                                            out uint kdMinor )
+        {
+            uint tmpPlatformId  = platformId = 0;
+            uint tmpWin32Major  = win32Major = 0;
+            uint tmpWin32Minor  = win32Minor = 0;
+            uint tmpKdMajor     = kdMajor    = 0;
+            uint tmpKdMinor     = kdMinor    = 0;
+
+            ExecuteOnDbgEngThread( () =>
+                {
+                    CheckHr( m_debugControl.GetSystemVersionValues( out tmpPlatformId,
+                                                                    out tmpWin32Major,
+                                                                    out tmpWin32Minor,
+                                                                    out tmpKdMajor,
+                                                                    out tmpKdMinor ) );
+                } );
+
+            platformId = tmpPlatformId;
+            win32Major = tmpWin32Major;
+            win32Minor = tmpWin32Minor;
+            kdMajor    = tmpKdMajor;
+            kdMinor    = tmpKdMinor;
+        }
+
+
+        /// <summary>
+        ///    Corresponds to the IDebugControlX GetSystemVersionStringWide method.
+        /// </summary>
+        public string GetSystemVersionString( DEBUG_SYSVERSTR which )
+        {
+            return ExecuteOnDbgEngThread( () =>
+                {
+                    CheckHr( m_debugControl.GetSystemVersionStringWide( which, out string str ) );
+                    return str;
+                } );
+        }
     } // end class DbgEngDebugger
 }
