@@ -102,12 +102,31 @@ Register-DbgValueConverterInfo {
     } # end _*STRING converter
 
 
+    $NtConverterContext = New-Module {
+
+        function GetSessionSpaceType()
+        {
+            return Get-DbgTargetCacheItem -Type 'nt!_MM_SESSION_SPACE'
+        }
+
+        function GetKThreadStateType()
+        {
+            return Get-DbgTargetCacheItem -Type 'nt!_KTHREAD_STATE'
+        }
+
+        function GetFreeListCount()
+        {
+            return Get-DbgTargetCacheItem -Symbol 'nt!ExpFreeListCount'
+        }
+    }
+
+
     # _HANDLE_TABLE has a FreeLists member declared as a _HANDLE_TABLE_FREE_LIST[1], but
     # the true number of elements in the array is nt!ExpFreeListCount. We'll use this
     # converter to automagically expand that out.
     #
     # TODO: before build 7773 this was different. Do we care about stuff that old?
-    New-DbgValueConverterInfo -TypeName 'nt!_HANDLE_TABLE' -Converter {
+    New-DbgValueConverterInfo -TypeName 'nt!_HANDLE_TABLE' -Converter $NtConverterContext.NewBoundScriptBlock({
         try
         {
             # N.B. We make a copy of the stock value, because it would be really bad if we
@@ -119,7 +138,7 @@ Register-DbgValueConverterInfo {
 
             try
             {
-                $numFreeLists = dt nt!ExpFreeListCount
+                $numFreeLists = GetFreeListCount
                 if( $null -ne $numFreeLists ) # not sure if this is possible. Is it in paged mem?
                 {
                     # I believe this is what ExpFreeListCount gets initialized to. Hopefully this is valid...
@@ -143,10 +162,10 @@ Register-DbgValueConverterInfo {
             return $val
         }
         finally { }
-    } # end _HANDLE_TABLE converter
+    }) # end _HANDLE_TABLE converter
 
 
-    New-DbgValueConverterInfo -TypeName 'nt!_EPROCESS' -Converter {
+    New-DbgValueConverterInfo -TypeName 'nt!_EPROCESS' -Converter $NtConverterContext.NewBoundScriptBlock({
         try
         {
             # N.B. We make a copy of the stock value, because it would be really bad if we
@@ -161,8 +180,7 @@ Register-DbgValueConverterInfo {
             # (BTW... apparently this is true since build no. 2280. Do I care about dumps
             # older than that? (How old exactly is that? I think pretty old.)
 
-            # TODO: Should we cache this type info?
-            $t = dt 'nt!_MM_SESSION_SPACE'
+            $t = GetSessionSpaceType
             if( !$t )
             {
                 Write-Error "Could not find type 'nt!_MM_SESSION_SPACE'."
@@ -257,10 +275,10 @@ Register-DbgValueConverterInfo {
             return $val
         }
         finally { }
-    } # end _EPROCESS converter
+    }) # end _EPROCESS converter
 
 
-    New-DbgValueConverterInfo -TypeName 'nt!_KTHREAD' -Converter {
+    New-DbgValueConverterInfo -TypeName 'nt!_KTHREAD' -Converter $NtConverterContext.NewBoundScriptBlock({
         try
         {
             # N.B. We make a copy of the stock value, because it would be really bad if we
@@ -274,8 +292,7 @@ Register-DbgValueConverterInfo {
             # 'State' is stored as a byte. Let's change the type to nt!_KTHREAD_STATE.
             #
 
-            # TODO: Should we cache this type info?
-            $t = dt 'nt!_KTHREAD_STATE'
+            $t = GetKThreadStateType
             if( !$t )
             {
                 Write-Error "Could not find type 'nt!_KTHREAD_STATE'."
@@ -307,6 +324,6 @@ Register-DbgValueConverterInfo {
             return $val
         }
         finally { }
-    } # end _KTHREAD converter
+    }) # end _KTHREAD converter
 }
 

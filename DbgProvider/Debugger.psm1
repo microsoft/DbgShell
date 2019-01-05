@@ -4155,6 +4155,100 @@ function Find-DbgThread
 
 <#
 .SYNOPSIS
+    Allows you to cache objects for the current target, optionally additionally scoped by module, so that when module information is discarded, user-cached items are also cleared. (The -Type and -Symbol parameter sets automatically use the appropriate module scope.)
+#>
+function Get-DbgTargetCacheItem
+{
+    [CmdletBinding( DefaultParameterSetName = 'ShortcutForCachedSymParamSet' )]
+    param( [Parameter( Mandatory = $false, ParameterSetName = 'FullParamSet' )]
+           [MS.Dbg.Commands.ModuleTransformation()]
+           [AllowNull()]
+           [MS.Dbg.DbgModuleInfo] $ModuleScope,
+
+           [Parameter( Mandatory = $true, ParameterSetName = 'FullParamSet' )]
+           [string] $Name,
+
+           [Parameter( Mandatory = $true, ParameterSetName = 'FullParamSet' )]
+           [ScriptBlock] $InitWith,
+
+           [Parameter( Mandatory = $true, Position = 0, ParameterSetName = 'ShortcutForCachedSymParamSet' )]
+           [string] $Symbol,
+
+           [Parameter( Mandatory = $true, Position = 0, ParameterSetName = 'ShortcutForCachedTypeParamSet' )]
+           [string] $Type
+         )
+
+    begin { }
+    end { }
+
+    process
+    {
+        try
+        {
+            if( $Symbol -or $Type)
+            {
+                if( $Symbol )
+                {
+                    $Name = $Symbol
+                    $InitWith = { Get-DbgSymbolValue $Name }
+                }
+                else
+                {
+                    $Name = $Type
+                    $InitWith = { Get-DbgTypeInfo $Name }
+                }
+
+                # We need to pull the module name from the Symbol (or Type) so that we can
+                # look up the module.
+
+                $bangIdx = $Name.IndexOf( [char] '!' )
+                if( $bangIdx -lt 0 )
+                {
+                    throw "Symbol/Type name must be module-qualified ($Name)."
+                }
+
+                $modName = $Name.Substring( 0, $bangIdx )
+
+                if( $modName.IndexOf( [char] '*' ) -ge 0 )
+                {
+                    throw "The module name cannot contain wildcards ($Name)."
+                }
+
+                $ModuleScope = Get-DbgModuleInfo $modName
+            }
+
+            $target = $Debugger.GetCurrentTarget()
+
+            if( !$target )
+            {
+                throw "There is no current target." # so how would I cache a per-target item?
+            }
+
+            [object] $val = $null
+            [UInt64] $modBase = 0
+            if( $ModuleScope )
+            {
+                $modBase = $ModuleScope.BaseAddress
+            }
+            if( $target.TryGetFromUserCache( $modBase, $Name, [ref] $val ) )
+            {
+                return $val
+            }
+
+            $val = & $InitWith
+
+            $target.AddToUserCache( $modBase, $Name, $val )
+
+            return $val
+        }
+        finally { }
+    }
+} # end Get-DbgTargetCacheItem
+
+
+
+<#
+.SYNOPSIS
     Inserts a 'TypeName' into an object's TypeNames list at the location just before the specified TypeName. Note that the TypeName can be anything (it doesn't have to be the name of any actual "type").
 
     This is useful for symbol value converter scripts who want to let others know that they were applied to a particular symbol value. For instance, you could use the TypeName applied by a converter script to apply a custom view definition to only objects that had that converter applied.
