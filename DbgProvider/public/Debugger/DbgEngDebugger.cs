@@ -4905,7 +4905,14 @@ namespace MS.Dbg
         {
             m_cachedContext = null;
             m_sysTree = null;
-            m_targets.Clear();
+
+            // We need to hold on to the DbgTarget objects, as they contain important
+            // state (user cache, ClrMd settings) that we don't want to throw away.
+            foreach( var target in m_targets.Values )
+            {
+                target.DiscardCachedModuleInfo();
+            }
+
             m_usedTargetNames.Clear();
             UpdateNamespace();
         }
@@ -5094,9 +5101,18 @@ namespace MS.Dbg
 
         public void DiscardCachedModuleInfo()
         {
+            _DiscardCachedModuleInfo( alsoDiscardBlogalUserCache: false );
+        }
+
+        private void _DiscardCachedModuleInfo( bool alsoDiscardBlogalUserCache )
+        {
             foreach( var target in m_targets.Values )
             {
                 target.DiscardCachedModuleInfo();
+                if( alsoDiscardBlogalUserCache )
+                {
+                    target.DiscardUserCacheForModule( 0 );
+                }
             }
         } // end DiscardCachedModuleInfo()
 
@@ -5104,12 +5120,13 @@ namespace MS.Dbg
         {
             if( modBase == 0 )
             {
-                DiscardCachedModuleInfo();
+                _DiscardCachedModuleInfo( alsoDiscardBlogalUserCache: true );
                 return;
             }
             foreach( var target in m_targets.Values )
             {
                 target.RefreshModuleAt( modBase );
+                target.DiscardUserCacheForModule( modBase );
             }
         } // end DiscardCachedModuleInfo()
 
@@ -5122,7 +5139,6 @@ namespace MS.Dbg
                 target.BumpSymbolCookie( modBase );
             }
 
-            //DbgHelp.DumpSyntheticTypeInfoForModule( m_debugClient, modBase );
             DbgHelp.DumpSyntheticTypeInfoForModule( modBase );
         } // end BumpSymbolCookie()
 

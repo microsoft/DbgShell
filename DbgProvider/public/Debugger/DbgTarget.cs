@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.Diagnostics.Runtime;
@@ -33,6 +34,10 @@ namespace MS.Dbg
             : base( debugger )
         {
             Context = context.AsTargetContext();
+
+            // We are currently assuming that the current context is the target context
+            // (if it were not, the IsLive call below might be wrong).
+            Util.Assert( Context == debugger.GetCurrentDbgEngContext().AsTargetContext() );
 
             IsLive = Debugger.IsLive;
             m_targetFriendlyName = targetFriendlyName;
@@ -277,7 +282,32 @@ namespace MS.Dbg
             RefreshModuleInfo(); // Need to tell modules to dump their cache for anyone holding onto a reference
             m_modules = null;
             m_unloadedModules = null;
+
+            // We'll also dump the per-module user-cached stuff (but preserve the "global"
+            // (modBase:0) user cache).
+
+            ConcurrentDictionary< string, object > notModuleSpecificCache = null;
+            // Preserve global (per-target) user cache:
+            m_userCache?.TryGetValue( 0, out notModuleSpecificCache );
+
+            m_userCache?.Clear();
+
+            if( null != notModuleSpecificCache )
+            {
+                // Restore global user cache.
+                m_userCache.TryAdd( 0, notModuleSpecificCache );
+            }
         } // end DiscardCachedModuleInfo()
+
+
+        /// <summary>
+        ///     DiscardCachedModuleInfo will discard all per-module user cache. To discard
+        ///     "global" (per-target) cache, pass 0 for modBase.
+        /// </summary>
+        public void DiscardUserCacheForModule( ulong modBase )
+        {
+            m_userCache?.TryRemove( modBase, out _ );
+        }
 
 
         private Dictionary< ulong, int > m_symbolCookies = new Dictionary< ulong, int >();
@@ -303,6 +333,8 @@ namespace MS.Dbg
                 {
                     m_symbolCookies[ modBase ] = curCookie + 1;
                 }
+
+                DiscardUserCacheForModule( modBase );
             }
             else // modBase is 0
             {
@@ -311,6 +343,8 @@ namespace MS.Dbg
                 {
                     m_symbolCookies[ key ] = m_symbolCookies[ key ] + 1;
                 }
+
+                m_userCache?.Clear();
             }
         } // end BumpSymbolCookie()
 
@@ -329,6 +363,143 @@ namespace MS.Dbg
             return curCookie;
         } // end GetSymbolCookie()
 
+
+        //
+        // User cache stuff
+        //
+        // Sometimes one needs to be able to cache stuff on a per-target basis (such as
+        // symbol information that you don't want to have to keep looking up), but it may
+        // not be convenient for the user to maintain their own per-target cache--for
+        // instance, in PowerShell script. So we'll provide a cache on the DbgTarget
+        // object itself.
+        //
+
+        //                           modBase                        key     item
+        private ConcurrentDictionary< ulong, ConcurrentDictionary< string, object > > m_userCache = null;
+
+        private bool m_cacheDisabled = false;
+
+        public bool UserCacheEnabled
+        {
+            get
+            {
+                return !m_cacheDisabled;
+            }
+            set
+            {
+                if( !m_cacheDisabled && !value ) // crossing boundary to disabled
+                {
+                    m_cacheDisabled = true;
+                    m_userCache.Clear();
+                    m_userCache = null;
+                    m_cacheHits = 0;
+                    m_cacheMisses = 0;
+                }
+                else if( m_cacheDisabled && value ) // crossing boundary to enabled
+                {
+                    Util.Assert( 0 == m_cacheHits );
+                    m_cacheMisses = 0;
+                }
+            }
+        }
+
+
+        private static TValue _GetCacheEntryOrCreate< TKey, TValue >( TKey key, IDictionary< TKey, TValue > cache )
+            where TValue : new()
+        {
+            TValue val = default( TValue );
+            if( !cache.TryGetValue( key, out val ) )
+            {
+                val = new TValue();
+                cache.Add( key, val );
+            }
+            return val;
+        } // end _GetCacheEntryOrCreate()
+
+
+        private int m_cacheHits;
+        private int m_cacheMisses;
+
+        public int CacheHits { get { return m_cacheHits; } }
+        public int CacheMisses { get { return m_cacheMisses; } }
+
+        public void ResetCacheStatistics()
+        {
+            m_cacheHits = 0;
+            m_cacheMisses = 0;
+        } // end ResetCacheStatistics()
+
+        public void PurgeCache()
+        {
+            if( null == m_userCache )
+                return;
+
+            m_userCache.Clear();
+        } // end PurgeCache()
+
+        public int GetCacheSize()
+        {
+            if( null == m_userCache )
+                return 0;
+
+            int total = 0;
+            foreach( var modCache in m_userCache.Values )
+            {
+                total += modCache.Count;
+            }
+            return total;
+        } // end GetCacheSize()
+
+     // // For debugging purposes only.
+     // public ConcurrentDictionary< ulong, ConcurrentDictionary< string, object > > GetCache()
+     // {
+     //     return m_userCache;
+     // }
+
+        public bool TryGetFromUserCache( ulong moduleBase, string key, out object value )
+        {
+            value = null;
+            bool retVal = false;
+
+            if( null != m_userCache )
+            {
+                ConcurrentDictionary<string, object> perModCache;
+                if( m_userCache.TryGetValue( moduleBase, out perModCache ) )
+                {
+                    retVal = perModCache.TryGetValue( key, out value );
+                }
+            }
+
+            if( retVal )
+                m_cacheHits++;
+            else
+                m_cacheMisses++;
+
+            return retVal;
+        } // end TryGetFromUserCache()
+
+        public void AddToUserCache( ulong modBase, string key, object value )
+        {
+            if( m_cacheDisabled )
+                return;
+
+            if( null == m_userCache )
+            {
+                m_userCache = new ConcurrentDictionary< ulong, ConcurrentDictionary< string, object > >();
+            }
+
+            var perModCache = _GetCacheEntryOrCreate( modBase, m_userCache );
+            // Two threads could have both had a cache miss for the same type and then
+            // subsequently try to add the type to the cache, so we don't fail if it
+            // already exists.
+            //perModCache.Add( key, value );
+            perModCache[ key ] = value;
+        } // end AddToUserCache()
+
+
+        //
+        // ClrMd stuff
+        //
 
         // This will give us access to the ClrMd stuff.
         private DataTarget m_dataTarget;
