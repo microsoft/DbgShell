@@ -21,7 +21,7 @@ function ThrowIfNotKernelMode
         {
             if( !$Debugger.IsKernelMode )
             {
-                'This command requires you be attached to a kernel-mode target.'
+                throw 'This command requires you be attached to a kernel-mode target.'
             }
         }
         finally { }
