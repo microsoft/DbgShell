@@ -4459,12 +4459,23 @@ namespace MS.Dbg
 
         private Dictionary< DbgEngContext, DbgTarget > m_targets = new Dictionary< DbgEngContext, DbgTarget >();
 
+        /// <summary>
+        ///    Returns a DbgTarget object representing the current target, or null if
+        ///    there is none.
+        /// </summary>
         public DbgTarget GetCurrentTarget() => ExecuteOnDbgEngThread( GetCurrentTargetInternal );
 
         private DbgTarget GetCurrentTargetInternal()
         {
             DbgEngContext ctx;
-            CheckHr( m_debugSystemObjects.GetCurrentSystemId( out uint sysId ) );
+            int hr = m_debugSystemObjects.GetCurrentSystemId( out uint sysId );
+
+            if( E_UNEXPECTED == hr )
+            {
+                return null; // No current target.
+            }
+
+            CheckHr( hr );
 
             bool kernelMode = IsKernelMode;
 

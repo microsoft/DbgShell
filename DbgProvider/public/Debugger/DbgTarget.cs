@@ -7,6 +7,15 @@ using Microsoft.Diagnostics.Runtime;
 
 namespace MS.Dbg
 {
+    /// <summary>
+    ///    Represents something that the debugger is attached to: a user-mode process, a
+    ///    kernel target, or a dump.
+    ///
+    ///    Note that the DbgShell concept of a "target" slices things a little differently
+    ///    than how dbgeng thinks of things--for that see the DbgEngContext class. This
+    ///    class has a DbgEngContext property indicating what it represents in terms of
+    ///    how dbgeng sees things.
+    /// </summary>
     public class DbgTarget : DebuggerObject,
                              ICanSetContext,
                              IEquatable< DbgTarget >,
@@ -23,10 +32,7 @@ namespace MS.Dbg
                             string targetFriendlyName )
             : base( debugger )
         {
-            if( (bool) context.IsKernelContext )
-                Context = context.AsSystemContext();
-            else
-                Context = context.AsProcessContext();
+            Context = context.AsTargetContext();
 
             IsLive = Debugger.IsLive;
             m_targetFriendlyName = targetFriendlyName;
@@ -109,7 +115,12 @@ namespace MS.Dbg
         }
 
 
-        public DbgEngContext Context { get; private set; }
+        /// <summary>
+        ///    Represents the normalized (so, for example, no thread context) dbgeng
+        ///    context corresponding to this target.
+        /// </summary>
+        public readonly DbgEngContext Context;
+
         private List< DbgModuleInfo > m_modules;
         private IList< DbgModuleInfo > m_modulesRo;
         private List< DbgModuleInfo > m_unloadedModules;
