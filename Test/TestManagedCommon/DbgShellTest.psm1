@@ -386,9 +386,11 @@ function Get-DbgTypeCacheStats
         {
             $hits = [MS.Dbg.DbgTypeInfo]::CacheHits
             $misses = [MS.Dbg.DbgTypeInfo]::CacheMisses
-            if( $misses -gt 0 )
+            $total = $hits + $misses
+
+            if( $total -gt 0 )
             {
-                $hitPercent = [int] (($hits / $misses) * 100)
+                $hitPercent = [int] (($hits / $total) * 100)
             }
             else
             {
