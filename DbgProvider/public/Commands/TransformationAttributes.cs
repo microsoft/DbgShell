@@ -646,6 +646,11 @@ namespace MS.Dbg.Commands
                 return inputData;
             }
 
+            if( null == inputData )
+            {
+                return null;
+            }
+
             string path = engineIntrinsics.SessionState.Path.CurrentProviderLocation( DbgProvider.ProviderId ).ProviderPath;
             var debugger = DbgProvider.GetDebugger( path );
 
@@ -653,6 +658,11 @@ namespace MS.Dbg.Commands
             string str = inputData as string;
             if( null != str )
             {
+                if( 0 == str.Length )
+                {
+                    return null;
+                }
+
                 try
                 {
                     var foundMod = debugger.Modules.FirstOrDefault( (m) => 0 == Util.Strcmp_OI( m.Name, str ) );
