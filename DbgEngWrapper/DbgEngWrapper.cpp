@@ -5048,6 +5048,26 @@ int WDebugDataSpaces::ReadVirtualDirect(
     return hr;
 }
 
+generic <typename TValue>
+where TValue : value class
+int WDebugDataSpaces::ReadVirtualValue(
+	[In] UInt64 Offset,
+	[Out] TValue% value)
+{
+	ULONG BytesRead;
+	pin_ptr<TValue> pval = &value;
+	int hr = m_pNative->ReadVirtual( Offset,
+									 pval,
+									 sizeof(TValue),
+									 &BytesRead);
+	
+	//Since we are reading a single discrete value, treat under-read as failure
+	if (hr == S_OK && BytesRead < sizeof(TValue))
+	{
+		return HRESULT_FROM_WIN32(ERROR_READ_FAULT);
+	}
+	return hr;
+}
 
 // Note that not all bytes may be written!
 int WDebugDataSpaces::WriteVirtual(
