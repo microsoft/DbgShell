@@ -409,7 +409,7 @@ namespace MS.Dbg
                 if( 0 == Util.Strcmp_OI( Name, "$peb" ) )
                 {
                     var si = DbgHelp.EnumTypesByName( Debugger.DebuggerInterface,
-                                                      0,
+                                                      TypeModule,
                                                       "ntdll!_PEB",
                                                       System.Threading.CancellationToken.None ).FirstOrDefault();
                     if( null == si )
@@ -434,7 +434,7 @@ namespace MS.Dbg
                 if( 0 == Util.Strcmp_OI( Name, "$teb" ) )
                 {
                     var si = DbgHelp.EnumTypesByName( Debugger.DebuggerInterface,
-                                                      0,
+                                                      TypeModule,
                                                       "ntdll!_TEB",
                                                       System.Threading.CancellationToken.None ).FirstOrDefault();
                     if( null == si )
