@@ -2767,6 +2767,12 @@ namespace DbgEngWrapper
             [In] ULONG BytesRequested,
             [In] BYTE* buffer,
             [Out] ULONG% BytesRead);
+		
+		generic <typename TValue>
+			where TValue : value class //should be `unmanaged` but that's not a choice we have
+			int ReadVirtualValue(
+				[In] UInt64 Offset,
+				[Out] TValue% value);
 
         // Note that not all bytes may be written!
         int WriteVirtual(

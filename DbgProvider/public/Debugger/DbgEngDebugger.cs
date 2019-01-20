@@ -1033,6 +1033,26 @@ namespace MS.Dbg
                 } );
         } // end QueryTargetIs32Bit()
 
+        internal bool QueryTargetIsWow64()
+        {
+            return ExecuteOnDbgEngThread( () =>
+            {
+                CheckHr(m_debugControl.GetActualProcessorType(out IMAGE_FILE_MACHINE type ));
+                if( type == IMAGE_FILE_MACHINE.AMD64 || (uint)type == 0xAA64 /*ARM64*/ ) //Wow64 supported architectures
+                {
+                    CheckHr(m_debugSystemObjects.GetCurrentThreadTeb( out var teb ));
+                    var wow64offset = teb + 0x1488; //TODO: TlsSlots[1] - 1 == WOW64_TLS_CPURESERVED
+                    //Note that we want to do a 64-bit pointer read here regardless of the current effective pointer size
+                    _CheckMemoryReadHr( wow64offset, m_debugDataSpaces.ReadVirtualValue( wow64offset, out ulong cpureservedOffset ) );
+                    //now we have a pointer to a WOW64_CPURESERVED struct, which is a pair of ushort values
+                    //If we wanted to know the WoW guest architecture, we'd want to read the second one (only actually necessary
+                    //for windows builds >= 9925, which I presume was the first time it might have been a value other than i386.
+                    //but that's not what we are checking here.
+                    return cpureservedOffset != 0;
+                }
+                return false;
+            } );
+        }
 
         private RealDebugEventCallbacks m_internalEventCallbacks;
         private IDebugInputCallbacksImp m_inputCallbacks;
@@ -2128,6 +2148,14 @@ namespace MS.Dbg
                 } );
         } // end ReadMem()
 
+        public T ReadMemAs< T >( ulong address ) where T : unmanaged
+        {
+            return ExecuteOnDbgEngThread( () =>
+                {
+                    _CheckMemoryReadHr( address, m_debugDataSpaces.ReadVirtualValue( address, out T tempValue ) );
+                    return tempValue;
+                } );
+        }
 
         /// <summary>
         ///    Reads the specified number of bytes from the specified address in the
@@ -2337,74 +2365,62 @@ namespace MS.Dbg
 
         public short ReadMemAs_short( ulong address )
         {
-            byte[] raw = ReadMem( address, 2, true );
-            return BitConverter.ToInt16( raw, 0 );
+            return ReadMemAs< short >( address );
         } // end ReadMemAs_short()
 
         public ushort ReadMemAs_ushort( ulong address )
         {
-            byte[] raw = ReadMem( address, 2, true );
-            return BitConverter.ToUInt16( raw, 0 );
+            return ReadMemAs< ushort >( address );
         } // end ReadMemAs_ushort()
 
         public byte ReadMemAs_byte( ulong address )
         {
-            byte[] raw = ReadMem( address, 1, true );
-            return raw[ 0 ];
+            return ReadMemAs< byte >( address );
         } // end ReadMemAs_byte()
 
         public sbyte ReadMemAs_sbyte( ulong address )
         {
-            byte[] raw = ReadMem( address, 1, true );
-            return (sbyte) raw[ 0 ];
+            return ReadMemAs< sbyte >( address );
         } // end ReadMemAs_sbyte()
 
         public char ReadMemAs_WCHAR( ulong address )
         {
-            byte[] raw = ReadMem( address, 2, true );
-            return BitConverter.ToChar( raw, 0 );
+            return ReadMemAs< char >( address );
         } // end ReadMemAs_WCHAR()
 
         public int ReadMemAs_Int32( ulong address )
         {
-            byte[] raw = ReadMem( address, 4, true );
-            return BitConverter.ToInt32( raw, 0 );
+            return ReadMemAs< int >( address );
         } // end ReadMemAs_Int32()
 
         public uint ReadMemAs_UInt32( ulong address )
         {
-            byte[] raw = ReadMem( address, 4, true );
-            return BitConverter.ToUInt32( raw, 0 );
+            return ReadMemAs< uint >( address );
         } // end ReadMemAs_UInt32()
 
         public long ReadMemAs_Int64( ulong address )
         {
-            byte[] raw = ReadMem( address, 8, true );
-            return BitConverter.ToInt64( raw, 0 );
+            return ReadMemAs< long >( address );
         } // end ReadMemAs_Int64()
 
         public ulong ReadMemAs_UInt64( ulong address )
         {
-            byte[] raw = ReadMem( address, 8, true );
-            return BitConverter.ToUInt64( raw, 0 );
+            return ReadMemAs< ulong >( address );
         } // end ReadMemAs_UInt64()
 
         public bool ReadMemAs_CPlusPlusBool( ulong address )
         {
-            byte[] raw = ReadMem( address, 1, true );
-            return BitConverter.ToBoolean( raw, 0 );
+            return ReadMemAs< byte >( address ) != 0;
         } // end ReadMemAs_CPlusPlusBool()
 
         public float ReadMemAs_float( ulong address )
         {
-            byte[] raw = ReadMem( address, 4, true );
-            return BitConverter.ToSingle( raw, 0 );
+            return ReadMemAs< float >( address );
         } // end ReadMemAs_float()
 
         public double ReadMemAs_double( ulong address )
         {
-            byte[] raw = ReadMem( address, 8, true );
-            return BitConverter.ToDouble( raw, 0 );
+            return ReadMemAs< double >( address );
         } // end ReadMemAs_double()
 
         public ulong ReadMemAs_pointer( ulong address )
@@ -2415,8 +2431,7 @@ namespace MS.Dbg
 
         public Guid ReadMemAs_Guid( ulong address )
         {
-            byte[] raw = ReadMem( address, 16, true );
-            return new Guid( raw );
+            return ReadMemAs< Guid >( address );
         } // end ReadMemAs_Guid()
 
         public T[] ReadMemAs_TArray< T >( ulong address, uint count ) where T: unmanaged
