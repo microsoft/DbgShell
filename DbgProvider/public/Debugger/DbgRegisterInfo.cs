@@ -408,10 +408,7 @@ namespace MS.Dbg
 
                 if( 0 == Util.Strcmp_OI( Name, "$peb" ) )
                 {
-                    var si = DbgHelp.EnumTypesByName( Debugger.DebuggerInterface,
-                                                      TypeModule,
-                                                      "ntdll!_PEB",
-                                                      System.Threading.CancellationToken.None ).FirstOrDefault();
+                    var si = DbgHelp.TryGetTypeFromName( Debugger.DebuggerInterface, TypeModule, "_PEB" );
                     if( null == si )
                     {
                         throw new DbgProviderException( "Can't find type ntdll!_PEB. No symbols?",
@@ -433,10 +430,7 @@ namespace MS.Dbg
 
                 if( 0 == Util.Strcmp_OI( Name, "$teb" ) )
                 {
-                    var si = DbgHelp.EnumTypesByName( Debugger.DebuggerInterface,
-                                                      TypeModule,
-                                                      "ntdll!_TEB",
-                                                      System.Threading.CancellationToken.None ).FirstOrDefault();
+                    var si = DbgHelp.TryGetTypeFromName( Debugger.DebuggerInterface, TypeModule, "_TEB" );
                     if( null == si )
                     {
                         throw new DbgProviderException( "Can't find type ntdll!_TEB. No symbols?",

@@ -35,20 +35,6 @@ namespace MS.Dbg
             }
         }
 
-        private WDebugSystemObjects __dso;
-        private WDebugSystemObjects _DSO
-        {
-            get
-            {
-                if( null == __dso )
-                {
-                    __dso = (WDebugSystemObjects) Debugger.DebuggerInterface;
-                }
-                return __dso;
-            }
-        } // end property _DSO
-
-
         internal DbgUModeThreadInfo( DbgEngDebugger debugger,
                                      DbgEngContext context,
                                      uint sysTid )
@@ -105,55 +91,34 @@ namespace MS.Dbg
             {
                 if( 0 == m_teb )
                 {
-                    Debugger.ExecuteOnDbgEngThread( () =>
-                        {
-                            using( new DbgEngContextSaver( Debugger, Context ) )
-                            {
-                                CheckHr( _DSO.GetCurrentThreadTeb( out m_teb ) );
-                                // TODO: BUGBUG? Is this going to wipe out a frame context?
-                            }
-                        } );
+                    using( new DbgEngContextSaver( Debugger, Context ) )
+                    {
+                        m_teb = Debugger.GetCurrentThreadTebAddressNative();
+                        // TODO: BUGBUG? Is this going to wipe out a frame context?
+                    }
                 }
                 return m_teb;
             }
         } // end property TebAddress
 
 
-        private DbgSymbol __tebSym;
+        private DbgSymbol m_tebSym;
         [NsLeafItem]
         public dynamic Teb
         {
             get
             {
-                if( null == __tebSym )
+                if( null == m_tebSym )
                 {
-                    string symName = Util.Sprintf( "Thread_0x{0}_TEB", DebuggerId );
                     using( var ctrlC = new CancelOnCtrlC() )
+                    using( new DbgEngContextSaver( Debugger, Context ) )
                     {
-                        using( new DbgEngContextSaver( Debugger, Context ) )
-                        {
-                            try
-                            {
-                                __tebSym = Debugger.CreateSymbolForAddressAndType( TebAddress,
-                                                                                   "ntdll!_TEB",
-                                                                                   ctrlC.CTS.Token,
-                                                                                   symName );
-                            }
-                            catch( DbgProviderException dpe )
-                            {
-                                throw new DbgProviderException( "Could not create symbol for TEB. Are you missing the PDB for ntdll?",
-                                                                "NoTebSymbol",
-                                                                System.Management.Automation.ErrorCategory.ObjectNotFound,
-                                                                dpe,
-                                                                this );
-                            }
-                        }
+                        m_tebSym = Debugger.GetCurrentThreadTebNative( ctrlC.CTS.Token );
                     }
                 }
-                return __tebSym.Value;
+                return m_tebSym.Value;
             }
         }
-
 
         /// <summary>
         ///    The address of a block of pointers of TLS storage ("implicit" TLS
