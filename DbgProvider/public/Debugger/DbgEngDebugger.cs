@@ -1046,8 +1046,8 @@ namespace MS.Dbg
                     _CheckMemoryReadHr( wow64offset, m_debugDataSpaces.ReadVirtualValue( wow64offset, out ulong cpureservedOffset ) );
                     //now we have a pointer to a WOW64_CPURESERVED struct, which is a pair of ushort values
                     //If we wanted to know the WoW guest architecture, we'd want to read the second one (only actually necessary
-                    //for windows builds >= 9925, which I presume was the first time it might have been a value other than i386.
-                    //but that's not what we are checking here.
+                    //for windows builds >= 9925, which I presume was the first time it might have been a value other than i386).
+                    //but that it populated at all tells us it is indeed Wow64.
                     return cpureservedOffset != 0;
                 }
                 return false;
@@ -2114,6 +2114,106 @@ namespace MS.Dbg
             } );
         } // end GetModuleByName()
 
+        //Retrieves the ntdll module associated with what DbgEng considers to be the native architecture
+        //regardless of the current effective machine type
+        public DbgModuleInfo GetNtdllModuleNative()
+        {
+            return ExecuteOnDbgEngThread( () =>
+            {
+                CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntnsym}!", out var modBase ) );
+                return GetModuleByAddress( modBase );
+            } );
+        } // end GetNativeNtDllModule()
+
+        //Retrieves the 32 bit ntdll module, whether it is a pure 32 bit process or WoW64
+        //Throws on pure 64 bit processes
+        public DbgModuleInfo GetNtdllModule32()
+        {
+            return ExecuteOnDbgEngThread( () =>
+            {
+                CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntwsym}!", out var modBase ) );
+                return GetModuleByAddress( modBase );
+            } );
+        } // end Get32bitNtDllModule()
+
+        public ulong GetCurrentThreadTebAddressNative()
+        {
+            return Debugger.ExecuteOnDbgEngThread( () =>
+            {
+                CheckHr( m_debugSystemObjects.GetCurrentThreadTeb( out var teb ) );
+                return teb;
+            } );
+        } // end GetCurrentThreadTebAddressNative()
+
+        public DbgSymbol GetCurrentThreadTebNative( CancellationToken token = default )
+        {
+            return _CreateNtdllSymbolForAddress( force32bit: false,
+                                                 GetCurrentThreadTebAddressNative(),
+                                                 "_TEB",
+                                                 $"Thread_0x{m_cachedContext.ThreadIndexOrAddress}_TEB",
+                                                 token );
+        }  // end GetCurrentThreadTebNative()
+
+        public ulong GetCurrentThreadTebAddress32()
+        {
+            return Debugger.ExecuteOnDbgEngThread( () =>
+            {
+                var nativeTebAddress = GetCurrentThreadTebAddressNative();
+                if(QueryTargetIsWow64())
+                {
+                    var tebType = Debugger.GetModuleTypeByName( GetNtdllModuleNative(), "_TEB" );
+                    var wowtebOffset = 8192u; //It's been that for 15 years now, so seems like a safe enough default
+                    if(tebType is DbgUdtTypeInfo udtType && udtType.Members.HasItemNamed( "WowTebOffset" ))
+                    {
+                        var wowtebOffsetOffset = udtType.FindMemberOffset( "WowTebOffset" );
+                        wowtebOffset = ReadMemAs< uint >( nativeTebAddress + wowtebOffsetOffset );
+                    }
+                    return nativeTebAddress + wowtebOffset;
+                }
+                else
+                {
+                    if( !TargetIs32Bit )
+                    {
+                        throw new DbgProviderException( "No 32 bit guest TEB to retrieve",
+                                                        "Not32bit",
+                                                        System.Management.Automation.ErrorCategory.InvalidOperation,
+                                                        this );
+                    }
+                    return nativeTebAddress;
+                }
+            } );
+        } // end GetCurrentThreadTebAddress32()
+
+        public DbgSymbol GetCurrentThreadTeb32( CancellationToken token = default )
+        {
+            return _CreateNtdllSymbolForAddress( force32bit: true, 
+                                                 GetCurrentThreadTebAddress32(), 
+                                                 "_TEB", 
+                                                 $"Thread_0x{m_cachedContext.ThreadIndexOrAddress}_TEB32", 
+                                                 token );
+        }  // end GetCurrentThreadTeb32()
+
+        internal DbgSymbol _CreateNtdllSymbolForAddress( bool force32bit, ulong address, string type, string symbolName, CancellationToken token = default )
+        {
+            return Debugger.ExecuteOnDbgEngThread( () =>
+            {
+                try
+                {
+                    var module = force32bit ? GetNtdllModule32() : GetNtdllModuleNative();
+                    var tebType = GetModuleTypeByName( module, type, token );
+                    var tebSym = CreateSymbolForAddressAndType( address, tebType, symbolName );
+                    return tebSym;
+                }
+                catch( DbgProviderException dpe )
+                {
+                    throw new DbgProviderException( $"Could not create symbol for {type}. Are you missing the PDB for ntdll?",
+                                                    "NoTebSymbol",
+                                                    System.Management.Automation.ErrorCategory.ObjectNotFound,
+                                                    dpe,
+                                                    this );
+                }
+            } );
+        } // end _CreateNtdllSymbolForAddress
 
         public byte[] ReadMem( ulong address, uint lengthDesired )
         {
@@ -3404,11 +3504,7 @@ namespace MS.Dbg
             string bareSym;
             ulong offset;
             DbgProvider.ParseSymbolName( pattern, out modName, out bareSym, out offset );
-            if( pattern.IndexOf( '!' ) < 0 )
-            {
-                Util.Assert( 0 == Util.Strcmp_OI( "*", modName ) );
-                pattern = "*!" + pattern;
-            }
+            pattern = AdjustPattern( pattern, ref modName );
 
             _EnsureSymbolsLoaded( modName, cancelToken );
 
@@ -3430,6 +3526,29 @@ namespace MS.Dbg
             } );
         } // end FindSymbol_Enum()
 
+        private string AdjustPattern( string pattern, ref string modName )
+        {
+            var bangIdx = pattern.IndexOf( '!' );
+            if( bangIdx < 0 )
+            {
+                Util.Assert( 0 == Util.Strcmp_OI( "*", modName ) );
+                pattern = "*!" + pattern;
+            }
+            else if ( "nt" == modName )
+            {
+                var ntdllModule = GetNtdllModuleNative();
+                modName = ntdllModule.Name;
+                pattern = modName + "!" + pattern.Substring( bangIdx + 1 );
+            }
+            else if( "nt32" == modName )
+            {
+                var ntdllModule = GetNtdllModule32();
+                modName = ntdllModule.Name;
+                pattern = modName + "!" + pattern.Substring( bangIdx + 1 );
+            }
+
+            return pattern;
+        }
 
         public IEnumerable< DbgSymbol > FindSymbol_Search( string pattern )
         {
@@ -3459,11 +3578,7 @@ namespace MS.Dbg
             string bareSym;
             ulong offset;
             DbgProvider.ParseSymbolName( pattern, out modName, out bareSym, out offset );
-            if( pattern.IndexOf( '!' ) < 0 )
-            {
-                Util.Assert( 0 == Util.Strcmp_OI( "*", modName ) );
-                pattern = "*!" + pattern;
-            }
+            pattern = AdjustPattern( pattern, ref modName );
 
             _EnsureSymbolsLoaded( modName, cancelToken );
 
@@ -3555,14 +3670,7 @@ namespace MS.Dbg
             string modName;
             string bareSym;
             ulong offset;
-            // TODO: BUGBUG: Crud, what about types with a '+' in the name?
             DbgProvider.ParseSymbolName( typeName, out modName, out bareSym, out offset );
-         // if( 0 != offset )
-         // {
-         //     throw new ArgumentException( Util.Sprintf( "You can't provide an offset as part of a type name ().",
-         //                                                pattern ),
-         //                                  "pattern" );
-         // }
 
 
             var mods = GetModuleByName( modName, cancelToken ).ToArray();
@@ -3580,13 +3688,20 @@ namespace MS.Dbg
 
             DbgModuleInfo mod = mods[ 0 ];
 
-            _EnsureSymbolsLoaded( mod, cancelToken );
+            return GetModuleTypeByName( mod, bareSym, cancelToken );
+        } // end GetSingleTypeByName()
 
+        public DbgNamedTypeInfo GetModuleTypeByName( DbgModuleInfo module, 
+                                                     string typeName,
+                                                     CancellationToken cancelToken = default)
+        {
+
+            _EnsureSymbolsLoaded( module, cancelToken );
             return ExecuteOnDbgEngThread( () =>
             {
                 SymbolInfo symInfo = DbgHelp.TryGetTypeFromName( m_debugClient,
-                                                                 mod.BaseAddress,
-                                                                 bareSym );
+                                                                 module.BaseAddress,
+                                                                 typeName );
 
                 if( null != symInfo )
                 {
@@ -3599,8 +3714,7 @@ namespace MS.Dbg
 
                 return null;
             } );
-        } // end GetSingleTypeByName()
-
+        } // end GetModuleTypeByName()
 
         public IEnumerable<DbgNamedTypeInfo> GetTypeInfoByName( string pattern )
         {
@@ -3654,21 +3768,12 @@ namespace MS.Dbg
                                                           Func< SymbolInfo, T > convert )
         {
             // May need to trigger symbol load; dbghelp won't do it.
-
-            if( pattern.IndexOf( '!' ) < 0 )
-                pattern = "*!" + pattern;
-
             string modName;
             string bareSym;
             ulong offset;
-            // TODO: BUGBUG: Crud, what about types with a '+' in the name?
+
             DbgProvider.ParseSymbolName( pattern, out modName, out bareSym, out offset );
-         // if( 0 != offset )
-         // {
-         //     throw new ArgumentException( Util.Sprintf( "You can't provide an offset as part of a type name ().",
-         //                                                pattern ),
-         //                                  "pattern" );
-         // }
+            pattern = AdjustPattern( pattern, ref modName );
 
             _EnsureSymbolsLoaded( modName, cancelToken );
 
