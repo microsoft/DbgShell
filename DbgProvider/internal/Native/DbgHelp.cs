@@ -228,6 +228,21 @@ namespace MS.Dbg
                                                native_SYM_ENUMERATESYMBOLS_CALLBACK callback,
                                                IntPtr pUserContext,
                                                SymSearchOptions options );
+
+        [DefaultDllImportSearchPaths( DllImportSearchPath.LegacyBehavior )]
+        [DllImport( "dbghelp.dll",
+            SetLastError = true,
+            CharSet = CharSet.Unicode,
+            EntryPoint = "SymLoadModuleExW" )]
+        internal static unsafe extern ulong SymLoadModuleEx( IntPtr hProcess,
+                                                            IntPtr hFile,
+                                                            string ImageName,
+                                                            string ModuleName,
+                                                            ulong BaseOfDll,
+                                                            uint DllSize,
+                                           /*MODLOAD_DATA*/ IntPtr Data,
+                                                            uint Flags );
+
     } // end partial class NativeMethods
 
 
@@ -3704,6 +3719,16 @@ namespace MS.Dbg
                 Marshal.FreeHGlobal( buf );
             }
         } // end SymFromInlineContext_naked()
+
+        public static int SymLoadModule( WDebugClient debugClient, ulong moduleBaseAddress)
+        {
+            IntPtr hProc = _GetHProcForDebugClient( debugClient );
+            if( 0 == NativeMethods.SymLoadModuleEx( hProc, default, null, null, moduleBaseAddress, 0, default, 0 ))
+            {
+                return Marshal.GetHRForLastWin32Error();
+            }
+            return 0;
+        }
     } // end class DbgHelp
 
 
