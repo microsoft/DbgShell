@@ -564,22 +564,12 @@ namespace MS.Dbg
                 {
                     if( (0 != (int) (Flags & (DEBUG_CSS.LOADS | DEBUG_CSS.UNLOADS))) )
                     {
-                        // I have seen Arguments be 0 (on wow64, with no symbol server in
-                        // the symbol path), which caused a problem, although I don't
-                        // quite understand how. The symptom was that symbols appeared not
-                        // to be loaded, not only when doing "lm" (because refreshing the
-                        // module whose base address is 0 resulted in not refreshing any
-                        // module info), but also when trying to get some type information
-                        // from dbghelp--SymGetTypeInfo would return S_FALSE. I suspect
-                        // the reason for the latter might be related to lots of extra
-                        // ".reload /f" from _EnsureSymbolsLoaded, which happened because
-                        // we hadn't properly refreshed the module info.
-
-                        // I wish we could refresh just the info for the module specified
-                        // by Argument, but we don't know what target this event is for,
-                        // and we can't call into dbgeng to find out.
-
-                        m_debugger.DiscardCachedModuleInfo();
+                        //If we load symbols using DbgEng's Reload command, it will send
+                        //us back an Argument of 0, and we'll be forced to throw away everything.
+                        //But in at least some other cases it faithfully passes along the 
+                        //base address - we still don't know which target it is for, but it is
+                        //at least for no more than one module.
+                        m_debugger.DiscardCachedModuleInfo( Argument );
 
                         // TODO: BUGBUG: To do this right requires knowing the current
                         // context, AND being able to get the dbghelp handle for it. When

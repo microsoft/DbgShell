@@ -3304,7 +3304,7 @@ namespace MS.Dbg
                     if( mod.SymbolType == DEBUG_SYMTYPE.DEFERRED )
                     {
                         // TODO: progress output?
-                        CheckHr( m_debugSymbols.ReloadWide( " /f " + modFileName ) );
+                        CheckHr( DbgHelp.SymLoadModule( m_debugClient, mod.BaseAddress ) );
                     }
 
                     if( mod.SymbolType == DEBUG_SYMTYPE.NONE )
@@ -5138,14 +5138,18 @@ namespace MS.Dbg
             }
         } // end DiscardCachedModuleInfo()
 
-        // TODO: should I use this?
-     // public void DiscardCachedModuleInfo( ulong modBase )
-     // {
-     //     foreach( var target in m_targets.Values )
-     //     {
-     //         target.RefreshModuleAt( modBase );
-     //     }
-     // } // end DiscardCachedModuleInfo()
+        public void DiscardCachedModuleInfo( ulong modBase )
+        {
+            if( modBase == 0 )
+            {
+                DiscardCachedModuleInfo();
+                return;
+            }
+            foreach( var target in m_targets.Values )
+            {
+                target.RefreshModuleAt( modBase );
+            }
+        } // end DiscardCachedModuleInfo()
 
         public void BumpSymbolCookie( ulong modBase )
         {
