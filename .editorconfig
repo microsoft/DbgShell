@@ -52,7 +52,11 @@ csharp_space_between_parentheses = control_flow_statements
 csharp_space_after_keywords_in_control_flow_statements = false
 csharp_space_after_cast = true
 csharp_space_between_square_brackets = true
-#if there were an option include spaces between angle brackets and contained type parameters, it would be set true here
+
+#resharper advanced spacing options
+# space between angle brackets and type parameter, < T >
+csharp_space_within_type_parameter_angles = true
+csharp_space_within_type_argument_angles = true
 
 #Formatting - wrapping options
 
