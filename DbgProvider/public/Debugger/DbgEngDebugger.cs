@@ -2114,8 +2114,8 @@ namespace MS.Dbg
             } );
         } // end GetModuleByName()
 
-        //Retrieves the ntdll module associated with what DbgEng considers to be the native architecture
-        //regardless of the current effective machine type
+        // Retrieves the ntdll module associated with what DbgEng considers to be the native architecture
+        // regardless of the current effective machine type
         public DbgModuleInfo GetNtdllModuleNative()
         {
             return ExecuteOnDbgEngThread( () =>
@@ -2125,7 +2125,7 @@ namespace MS.Dbg
             } );
         } // end GetNativeNtDllModule()
 
-        //Retrieves the ntdll module associated with the current effective machine type
+        // Retrieves the ntdll module associated with the current effective machine type
         public DbgModuleInfo GetNtdllModuleEffective()
         {
             return ExecuteOnDbgEngThread( () =>
@@ -2135,8 +2135,8 @@ namespace MS.Dbg
             } );
         } // end GetNativeNtDllModule()
 
-        //Retrieves the 32 bit ntdll module, whether it is a pure 32 bit process or WoW64
-        //Throws on pure 64 bit processes
+        // Retrieves the 32 bit ntdll module, whether it is a pure 32 bit process or WoW64
+        // Throws on pure 64 bit processes
         public DbgModuleInfo GetNtdllModule32()
         {
             return ExecuteOnDbgEngThread( () =>
