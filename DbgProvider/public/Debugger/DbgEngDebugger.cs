@@ -2125,6 +2125,16 @@ namespace MS.Dbg
             } );
         } // end GetNativeNtDllModule()
 
+        //Retrieves the ntdll module associated with the current effective machine type
+        public DbgModuleInfo GetNtdllModuleEffective()
+        {
+            return ExecuteOnDbgEngThread( () =>
+            {
+                CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntsym}!", out var modBase ) );
+                return GetModuleByAddress( modBase );
+            } );
+        } // end GetNativeNtDllModule()
+
         //Retrieves the 32 bit ntdll module, whether it is a pure 32 bit process or WoW64
         //Throws on pure 64 bit processes
         public DbgModuleInfo GetNtdllModule32()
@@ -3624,7 +3634,7 @@ namespace MS.Dbg
             // May need to trigger symbol load; dbghelp won't do it.
 
             var mod = GetModuleByAddress( address );
-            _EnsureSymbolsLoaded( mod.Name, cancelToken );
+            _EnsureSymbolsLoaded( mod, cancelToken );
 
             return StreamFromDbgEngThread<DbgPublicSymbol>( cancelToken, ( ct, emit ) =>
             {

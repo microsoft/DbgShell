@@ -3724,8 +3724,12 @@ namespace MS.Dbg
         {
             IntPtr hProc = _GetHProcForDebugClient( debugClient );
             if( 0 == NativeMethods.SymLoadModuleEx( hProc, default, null, null, moduleBaseAddress, 0, default, 0 ))
-            {
-                return Marshal.GetHRForLastWin32Error();
+            {   //0 means no new module was loaded... but you don't know if that's because it was already loaded without checking the last error.
+                var err = Marshal.GetLastWin32Error();
+                if( err != 0 )
+                {
+                    return (err | unchecked((int) 0x80070000));
+                }
             }
             return 0;
         }
