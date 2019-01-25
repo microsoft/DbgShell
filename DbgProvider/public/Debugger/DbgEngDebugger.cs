@@ -1033,27 +1033,6 @@ namespace MS.Dbg
                 } );
         } // end QueryTargetIs32Bit()
 
-        internal bool QueryTargetIsWow64()
-        {
-            return ExecuteOnDbgEngThread( () =>
-            {
-                CheckHr(m_debugControl.GetActualProcessorType(out IMAGE_FILE_MACHINE type ));
-                if( type == IMAGE_FILE_MACHINE.AMD64 || (uint)type == 0xAA64 /*ARM64*/ ) //Wow64 supported architectures
-                {
-                    CheckHr(m_debugSystemObjects.GetCurrentThreadTeb( out var teb ));
-                    var wow64offset = teb + 0x1488; //TODO: TlsSlots[1] - 1 == WOW64_TLS_CPURESERVED
-                    //Note that we want to do a 64-bit pointer read here regardless of the current effective pointer size
-                    _CheckMemoryReadHr( wow64offset, m_debugDataSpaces.ReadVirtualValue( wow64offset, out ulong cpureservedOffset ) );
-                    //now we have a pointer to a WOW64_CPURESERVED struct, which is a pair of ushort values
-                    //If we wanted to know the WoW guest architecture, we'd want to read the second one (only actually necessary
-                    //for windows builds >= 9925, which I presume was the first time it might have been a value other than i386).
-                    //but that it populated at all tells us it is indeed Wow64.
-                    return cpureservedOffset != 0;
-                }
-                return false;
-            } );
-        }
-
         private RealDebugEventCallbacks m_internalEventCallbacks;
         private IDebugInputCallbacksImp m_inputCallbacks;
         //private IDebugOutputCallbacksWide m_outputCallbacks;
@@ -2146,30 +2125,14 @@ namespace MS.Dbg
             } );
         } // end Get32bitNtDllModule()
 
-        public ulong GetCurrentThreadTebAddressNative()
+        public ulong GetCurrentThreadTebAddressEffective()
         {
             return Debugger.ExecuteOnDbgEngThread( () =>
             {
-                CheckHr( m_debugSystemObjects.GetCurrentThreadTeb( out var teb ) );
-                return teb;
-            } );
-        } // end GetCurrentThreadTebAddressNative()
-
-        public DbgSymbol GetCurrentThreadTebNative( CancellationToken token = default )
-        {
-            return _CreateNtdllSymbolForAddress( force32bit: false,
-                                                 GetCurrentThreadTebAddressNative(),
-                                                 "_TEB",
-                                                 $"Thread_0x{m_cachedContext.ThreadIndexOrAddress}_TEB",
-                                                 token );
-        }  // end GetCurrentThreadTebNative()
-
-        public ulong GetCurrentThreadTebAddress32()
-        {
-            return Debugger.ExecuteOnDbgEngThread( () =>
-            {
-                var nativeTebAddress = GetCurrentThreadTebAddressNative();
-                if(QueryTargetIsWow64())
+                CheckHr( m_debugSystemObjects.GetCurrentThreadTeb( out var nativeTebAddress ) );
+                CheckHr( m_debugControl.GetActualProcessorType( out IMAGE_FILE_MACHINE actualType ) );
+                CheckHr( m_debugControl.GetEffectiveProcessorType( out IMAGE_FILE_MACHINE effectiveType ) );
+                if(actualType != effectiveType)
                 {
                     var tebType = Debugger.GetModuleTypeByName( GetNtdllModuleNative(), "_TEB" );
                     var wowtebOffset = 8192u; //It's been that for 15 years now, so seems like a safe enough default
@@ -2180,36 +2143,26 @@ namespace MS.Dbg
                     }
                     return nativeTebAddress + wowtebOffset;
                 }
-                else
-                {
-                    if( !TargetIs32Bit )
-                    {
-                        throw new DbgProviderException( "No 32 bit guest TEB to retrieve",
-                                                        "Not32bit",
-                                                        System.Management.Automation.ErrorCategory.InvalidOperation,
-                                                        this );
-                    }
-                    return nativeTebAddress;
-                }
+
+                return nativeTebAddress;
             } );
         } // end GetCurrentThreadTebAddress32()
 
-        public DbgSymbol GetCurrentThreadTeb32( CancellationToken token = default )
+        public DbgSymbol GetCurrentThreadTebEffective( CancellationToken token = default )
         {
-            return _CreateNtdllSymbolForAddress( force32bit: true, 
-                                                 GetCurrentThreadTebAddress32(), 
-                                                 "_TEB", 
-                                                 $"Thread_0x{m_cachedContext.ThreadIndexOrAddress}_TEB32", 
+            return _CreateNtdllSymbolForAddress( GetCurrentThreadTebAddressEffective(),
+                                                 "_TEB",
+                                                 $"Thread_0x{m_cachedContext.ThreadIndexOrAddress}_TEB32",
                                                  token );
         }  // end GetCurrentThreadTeb32()
 
-        internal DbgSymbol _CreateNtdllSymbolForAddress( bool force32bit, ulong address, string type, string symbolName, CancellationToken token = default )
+        internal DbgSymbol _CreateNtdllSymbolForAddress( ulong address, string type, string symbolName, CancellationToken token = default )
         {
             return Debugger.ExecuteOnDbgEngThread( () =>
             {
                 try
                 {
-                    var module = force32bit ? GetNtdllModule32() : GetNtdllModuleNative();
+                    var module = GetNtdllModuleEffective();
                     var tebType = GetModuleTypeByName( module, type, token );
                     var tebSym = CreateSymbolForAddressAndType( address, tebType, symbolName );
                     return tebSym;

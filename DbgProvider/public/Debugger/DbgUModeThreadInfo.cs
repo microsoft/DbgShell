@@ -93,7 +93,7 @@ namespace MS.Dbg
                 {
                     using( new DbgEngContextSaver( Debugger, Context ) )
                     {
-                        m_teb = Debugger.GetCurrentThreadTebAddressNative();
+                        m_teb = Debugger.GetCurrentThreadTebAddressEffective();
                         // TODO: BUGBUG? Is this going to wipe out a frame context?
                     }
                 }
@@ -113,7 +113,7 @@ namespace MS.Dbg
                     using( var ctrlC = new CancelOnCtrlC() )
                     using( new DbgEngContextSaver( Debugger, Context ) )
                     {
-                        m_tebSym = Debugger.GetCurrentThreadTebNative( ctrlC.CTS.Token );
+                        m_tebSym = Debugger.GetCurrentThreadTebEffective( ctrlC.CTS.Token );
                     }
                 }
                 return m_tebSym.Value;
