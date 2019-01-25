@@ -274,7 +274,7 @@ namespace MS.Dbg
 
         public void DiscardCachedModuleInfo()
         {
-            RefreshModuleInfo(); //Need to tell modules to dump their cache for anyone holding onto a reference
+            RefreshModuleInfo(); // Need to tell modules to dump their cache for anyone holding onto a reference
             m_modules = null;
             m_unloadedModules = null;
         } // end DiscardCachedModuleInfo()

@@ -2098,20 +2098,20 @@ namespace MS.Dbg
         public DbgModuleInfo GetNtdllModuleNative()
         {
             return ExecuteOnDbgEngThread( () =>
-            {
-                CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntnsym}!", out var modBase ) );
-                return GetModuleByAddress( modBase );
-            } );
+                {
+                    CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntnsym}!", out var modBase ) );
+                    return GetModuleByAddress( modBase );
+                } );
         } // end GetNativeNtDllModule()
 
         // Retrieves the ntdll module associated with the current effective machine type
         public DbgModuleInfo GetNtdllModuleEffective()
         {
             return ExecuteOnDbgEngThread( () =>
-            {
-                CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntsym}!", out var modBase ) );
-                return GetModuleByAddress( modBase );
-            } );
+                {
+                    CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntsym}!", out var modBase ) );
+                    return GetModuleByAddress( modBase );
+                } );
         } // end GetNativeNtDllModule()
 
         // Retrieves the 32 bit ntdll module, whether it is a pure 32 bit process or WoW64
@@ -2119,33 +2119,33 @@ namespace MS.Dbg
         public DbgModuleInfo GetNtdllModule32()
         {
             return ExecuteOnDbgEngThread( () =>
-            {
-                CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntwsym}!", out var modBase ) );
-                return GetModuleByAddress( modBase );
-            } );
+                {
+                    CheckHr( m_debugSymbols.GetSymbolModuleWide( "${$ntwsym}!", out var modBase ) );
+                    return GetModuleByAddress( modBase );
+                } );
         } // end Get32bitNtDllModule()
 
         public ulong GetCurrentThreadTebAddressEffective()
         {
             return Debugger.ExecuteOnDbgEngThread( () =>
-            {
-                CheckHr( m_debugSystemObjects.GetCurrentThreadTeb( out var nativeTebAddress ) );
-                CheckHr( m_debugControl.GetActualProcessorType( out IMAGE_FILE_MACHINE actualType ) );
-                CheckHr( m_debugControl.GetEffectiveProcessorType( out IMAGE_FILE_MACHINE effectiveType ) );
-                if(actualType != effectiveType)
                 {
-                    var tebType = Debugger.GetModuleTypeByName( GetNtdllModuleNative(), "_TEB" );
-                    var wowtebOffset = 8192u; //It's been that for 15 years now, so seems like a safe enough default
-                    if(tebType is DbgUdtTypeInfo udtType && udtType.Members.HasItemNamed( "WowTebOffset" ))
+                    CheckHr( m_debugSystemObjects.GetCurrentThreadTeb( out var nativeTebAddress ) );
+                    CheckHr( m_debugControl.GetActualProcessorType( out IMAGE_FILE_MACHINE actualType ) );
+                    CheckHr( m_debugControl.GetEffectiveProcessorType( out IMAGE_FILE_MACHINE effectiveType ) );
+                    if( actualType != effectiveType )
                     {
-                        var wowtebOffsetOffset = udtType.FindMemberOffset( "WowTebOffset" );
-                        wowtebOffset = ReadMemAs< uint >( nativeTebAddress + wowtebOffsetOffset );
+                        var tebType = Debugger.GetModuleTypeByName( GetNtdllModuleNative(), "_TEB" );
+                        var wowtebOffset = 8192u; // It's been that for 15 years now, so seems like a safe enough default
+                        if( tebType is DbgUdtTypeInfo udtType && udtType.Members.HasItemNamed( "WowTebOffset" ) )
+                        {
+                            var wowtebOffsetOffset = udtType.FindMemberOffset( "WowTebOffset" );
+                            wowtebOffset = ReadMemAs< uint >( nativeTebAddress + wowtebOffsetOffset );
+                        }
+                        return nativeTebAddress + wowtebOffset;
                     }
-                    return nativeTebAddress + wowtebOffset;
-                }
 
-                return nativeTebAddress;
-            } );
+                    return nativeTebAddress;
+                } );
         } // end GetCurrentThreadTebAddress32()
 
         public DbgSymbol GetCurrentThreadTebEffective( CancellationToken token = default )
@@ -2154,28 +2154,28 @@ namespace MS.Dbg
                                                  "_TEB",
                                                  $"Thread_0x{m_cachedContext.ThreadIndexOrAddress}_TEB32",
                                                  token );
-        }  // end GetCurrentThreadTeb32()
+        } // end GetCurrentThreadTeb32()
 
         internal DbgSymbol _CreateNtdllSymbolForAddress( ulong address, string type, string symbolName, CancellationToken token = default )
         {
             return Debugger.ExecuteOnDbgEngThread( () =>
-            {
-                try
                 {
-                    var module = GetNtdllModuleEffective();
-                    var tebType = GetModuleTypeByName( module, type, token );
-                    var tebSym = CreateSymbolForAddressAndType( address, tebType, symbolName );
-                    return tebSym;
-                }
-                catch( DbgProviderException dpe )
-                {
-                    throw new DbgProviderException( $"Could not create symbol for {type}. Are you missing the PDB for ntdll?",
-                                                    "NoTebSymbol",
-                                                    System.Management.Automation.ErrorCategory.ObjectNotFound,
-                                                    dpe,
-                                                    this );
-                }
-            } );
+                    try
+                    {
+                        var module = GetNtdllModuleEffective();
+                        var tebType = GetModuleTypeByName( module, type, token );
+                        var tebSym = CreateSymbolForAddressAndType( address, tebType, symbolName );
+                        return tebSym;
+                    }
+                    catch( DbgProviderException dpe )
+                    {
+                        throw new DbgProviderException( $"Could not create symbol for {type}. Are you missing the PDB for ntdll?",
+                                                        "NoTebSymbol",
+                                                        System.Management.Automation.ErrorCategory.ObjectNotFound,
+                                                        dpe,
+                                                        this );
+                    }
+                } );
         } // end _CreateNtdllSymbolForAddress
 
         public byte[] ReadMem( ulong address, uint lengthDesired )
@@ -3497,7 +3497,7 @@ namespace MS.Dbg
                 Util.Assert( 0 == Util.Strcmp_OI( "*", modName ) );
                 pattern = "*!" + pattern;
             }
-            else if ( "nt" == modName )
+            else if( "nt" == modName )
             {
                 var ntdllModule = GetNtdllModuleNative();
                 modName = ntdllModule.Name;
@@ -3654,29 +3654,28 @@ namespace MS.Dbg
             return GetModuleTypeByName( mod, bareSym, cancelToken );
         } // end GetSingleTypeByName()
 
-        public DbgNamedTypeInfo GetModuleTypeByName( DbgModuleInfo module, 
+        public DbgNamedTypeInfo GetModuleTypeByName( DbgModuleInfo module,
                                                      string typeName,
-                                                     CancellationToken cancelToken = default)
+                                                     CancellationToken cancelToken = default )
         {
-
             _EnsureSymbolsLoaded( module, cancelToken );
             return ExecuteOnDbgEngThread( () =>
-            {
-                SymbolInfo symInfo = DbgHelp.TryGetTypeFromName( m_debugClient,
-                                                                 module.BaseAddress,
-                                                                 typeName );
-
-                if( null != symInfo )
                 {
-                    return DbgNamedTypeInfo.GetNamedTypeInfo( this,
-                                                              symInfo.ModBase,
-                                                              symInfo.TypeIndex,
-                                                              symInfo.Tag,
-                                                              GetCurrentTarget() );
-                }
+                    SymbolInfo symInfo = DbgHelp.TryGetTypeFromName( m_debugClient,
+                                                                     module.BaseAddress,
+                                                                     typeName );
 
-                return null;
-            } );
+                    if( null != symInfo )
+                    {
+                        return DbgNamedTypeInfo.GetNamedTypeInfo( this,
+                                                                  symInfo.ModBase,
+                                                                  symInfo.TypeIndex,
+                                                                  symInfo.Tag,
+                                                                  GetCurrentTarget() );
+                    }
+
+                    return null;
+                } );
         } // end GetModuleTypeByName()
 
         public IEnumerable<DbgNamedTypeInfo> GetTypeInfoByName( string pattern )

@@ -1,12 +1,15 @@
-# Rules in this file were initially inferred by Visual Studio IntelliCode from the C:\Users\zhent\Source\Repos\DbgShell codebase based on best match to current usage at 11/8/2018
-# You can modify the rules from these initially generated values to suit your own policies
 # You can learn more about editorconfig here: https://docs.microsoft.com/en-us/visualstudio/ide/editorconfig-code-style-settings-reference
-[*.cs]
-
+[*]
 #Core editorconfig formatting - indentation
 
 #use soft tabs (spaces) for indentation
 indent_style = space
+
+#resharper alignment options
+align_multiline_parameter = true
+align_multiline_argument = true
+
+[*.cs]
 
 #Formatting - indentation options
 
@@ -57,6 +60,17 @@ csharp_space_between_square_brackets = true
 # space between angle brackets and type parameter, < T >
 csharp_space_within_type_parameter_angles = true
 csharp_space_within_type_argument_angles = true
+
+csharp_space_within_sizeof_parentheses = true
+csharp_space_within_typeof_parentheses = true
+csharp_space_within_checked_parentheses = true
+csharp_space_within_single_line_array_initializer_braces = true
+
+csharp_blank_lines_after_block_statements = 0
+csharp_blank_lines_around_field = 0
+csharp_place_simple_anonymousmethod_on_single_line = false
+csharp_anonymous_method_declaration_braces = next_line_shifted_2
+
 
 #Formatting - wrapping options
 

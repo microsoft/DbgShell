@@ -234,15 +234,15 @@ namespace MS.Dbg
             SetLastError = true,
             CharSet = CharSet.Unicode,
             EntryPoint = "SymLoadModuleExW" )]
-        internal static unsafe extern ulong SymLoadModuleEx( IntPtr hProcess,
-                                                            IntPtr hFile,
-                                                            string ImageName,
-                                                            string ModuleName,
-                                                            ulong BaseOfDll,
-                                                            uint DllSize,
-                                           /*MODLOAD_DATA*/ IntPtr Data,
-                                                            uint Flags );
-
+        internal static extern ulong SymLoadModuleEx( IntPtr hProcess,
+                                                      IntPtr hFile,
+                                                      string ImageName,
+                                                      string ModuleName,
+                                                      ulong BaseOfDll,
+                                                      uint DllSize,
+                                     /*MODLOAD_DATA*/ IntPtr Data,
+                                                      uint Flags );
+        
     } // end partial class NativeMethods
 
 
@@ -3720,15 +3720,16 @@ namespace MS.Dbg
             }
         } // end SymFromInlineContext_naked()
 
-        public static int SymLoadModule( WDebugClient debugClient, ulong moduleBaseAddress)
+        public static int SymLoadModule( WDebugClient debugClient, ulong moduleBaseAddress )
         {
             IntPtr hProc = _GetHProcForDebugClient( debugClient );
-            if( 0 == NativeMethods.SymLoadModuleEx( hProc, default, null, null, moduleBaseAddress, 0, default, 0 ))
-            {   //0 means no new module was loaded... but you don't know if that's because it was already loaded without checking the last error.
+            if( 0 == NativeMethods.SymLoadModuleEx( hProc, default, null, null, moduleBaseAddress, 0, default, 0 ) )
+            {
+                // 0 means no new module was loaded... but you don't know if that's because it was already loaded without checking the last error.
                 var err = Marshal.GetLastWin32Error();
                 if( err != 0 )
                 {
-                    return (err | unchecked((int) 0x80070000));
+                    return (err | unchecked( (int) 0x80070000 ));
                 }
             }
             return 0;

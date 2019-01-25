@@ -2767,14 +2767,14 @@ namespace DbgEngWrapper
             [In] ULONG BytesRequested,
             [In] BYTE* buffer,
             [Out] ULONG% BytesRead);
-		
-		// This is a convenience wrapper for ReadVirtual for reading a single discrete value
-		// without needing an extra byte array or copies
-		generic <typename TValue>
-			where TValue : value class // should be `unmanaged` but that's not a choice we have
-			int ReadVirtualValue(
-				[In] UInt64 Offset,
-				[Out] TValue% value);
+        
+        // This is a convenience wrapper for ReadVirtual for reading a single discrete value
+        // without needing an extra byte array or copies
+        generic <typename TValue>
+            where TValue : value class // should be `unmanaged` but that's not a choice we have
+            int ReadVirtualValue(
+                [In] UInt64 Offset,
+                [Out] TValue% value);
 
         // Note that not all bytes may be written!
         int WriteVirtual(
