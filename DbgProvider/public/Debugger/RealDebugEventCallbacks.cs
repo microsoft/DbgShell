@@ -564,11 +564,11 @@ namespace MS.Dbg
                 {
                     if( (0 != (int) (Flags & (DEBUG_CSS.LOADS | DEBUG_CSS.UNLOADS))) )
                     {
-                        //If we load symbols using DbgEng's Reload command, it will send
-                        //us back an Argument of 0, and we'll be forced to throw away everything.
-                        //But in at least some other cases it faithfully passes along the 
-                        //base address - we still don't know which target it is for, but it is
-                        //at least for no more than one module.
+                        // If we load symbols using DbgEng's Reload command, it will send
+                        // us back an Argument of 0, and we'll be forced to throw away everything.
+                        // But in at least some other cases it faithfully passes along the 
+                        // base address - we still don't know which target it is for, but it is
+                        // at least for no more than one module.
                         m_debugger.DiscardCachedModuleInfo( Argument );
 
                         // TODO: BUGBUG: To do this right requires knowing the current
