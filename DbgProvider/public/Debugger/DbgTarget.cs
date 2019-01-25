@@ -76,24 +76,6 @@ namespace MS.Dbg
             }
         }
 
-        private bool? m_isWoW64;
-
-        [NsLeafItem]
-        public bool IsWoW64
-        {
-            get
-            {
-                if( null == m_isWoW64 )
-                {
-                    using( new DbgEngContextSaver( Debugger, Context ) )
-                    {
-                        m_isWoW64 = Debugger.QueryTargetIsWow64();
-                    }
-                }
-                return (bool) m_isWoW64;
-            }
-        }
-
         private string m_targetFriendlyName;
 
         public string TargetFriendlyName
