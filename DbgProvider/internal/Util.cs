@@ -1815,6 +1815,14 @@ namespace MS.Dbg
         } // end FailFast()
 
 
+        /// <summary>
+        ///    Note that calls to this method are /not/ compiled out in debug
+        ///    builds. In release builds, you won't get an actual assert popup,
+        ///    but the assert will still be logged. If you have some
+        ///    perf-intensive work that you'd like to assert only in debug
+        ///    builds, use "#if DEBUG".
+        /// </summary>
+        //[System.Diagnostics.Conditional( "DEBUG" )]
         public static void Assert( bool allegedInvariant,
                                    [CallerLineNumber] int line = 0,
                                    [CallerMemberName] string caller = "",
@@ -1826,6 +1834,14 @@ namespace MS.Dbg
             _AssertFailWorker( null, caller, file, line );
         }
 
+        /// <summary>
+        ///    Note that calls to this method are /not/ compiled out in debug
+        ///    builds. In release builds, you won't get an actual assert popup,
+        ///    but the assert will still be logged. If you have some
+        ///    perf-intensive work that you'd like to assert only in debug
+        ///    builds, use "#if DEBUG".
+        /// </summary>
+        //[System.Diagnostics.Conditional( "DEBUG" )]
         public static void Assert( bool allegedInvariant,
                                    string msg,
                                    [CallerLineNumber] int line = 0,
