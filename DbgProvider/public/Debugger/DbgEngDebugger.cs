@@ -6627,5 +6627,42 @@ namespace MS.Dbg
                     return str;
                 } );
         }
+
+
+        public IMAGE_FILE_MACHINE[] GetPossibleExecutingProcessorTypes()
+        {
+            return ExecuteOnDbgEngThread( () =>
+                {
+                    CheckHr( m_debugControl.GetPossibleExecutingProcessorTypes( out var types ) );
+                    return types;
+                } );
+        }
+
+
+        public IMAGE_FILE_MACHINE[] GetSupportedProcessorTypes()
+        {
+            return ExecuteOnDbgEngThread( () =>
+                {
+                    CheckHr( m_debugControl.GetSupportedProcessorTypes( out var types ) );
+                    return types;
+                } );
+        }
+
+
+        public void GetProcessorTypeNames( IMAGE_FILE_MACHINE type,
+                                           out string fullName,
+                                           out string abbrevName )
+        {
+            string tmpFullName = null;
+            string tmpAbbrevName = null;
+
+            ExecuteOnDbgEngThread( () =>
+                {
+                    CheckHr( m_debugControl.GetProcessorTypeNamesWide( type, out tmpFullName, out tmpAbbrevName ) );
+                } );
+
+            fullName = tmpFullName;
+            abbrevName = tmpAbbrevName;
+        }
     } // end class DbgEngDebugger
 }
