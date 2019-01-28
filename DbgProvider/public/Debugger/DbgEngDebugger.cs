@@ -5197,6 +5197,28 @@ namespace MS.Dbg
                 } );
         } // end WriteDump()
 
+
+        /// <summary>
+        ///    Special index that returns the name of the last .dmp file (from
+        ///    GetDumpFile) that failed to load (whether directly or from inside a .cab
+        ///    file). If none, dbgeng returns E_NOINTERFACE.
+        /// </summary>
+        public const uint DEBUG_DUMP_FILE_LOAD_FAILED_INDEX = 0xffffffff;
+
+        /// <summary>
+        ///    Index that returns last cab file opened (from GetDumpFile), this is needed
+        ///    to get the name of original CAB file since debugger returns the extracted
+        ///    dump file in the GetDumpFile method. If none, dbgeng returns E_NOINTERFACE.
+        /// </summary>
+        public const uint DEBUG_DUMP_FILE_ORIGINAL_CAB_INDEX = 0xfffffffe;
+
+        /// <summary>
+        ///    Returns the result of the dbgeng GetDumpFileWide method. Note that for a
+        ///    compressed dump archive (.cab/.zip), this returns the name of the temporary
+        ///    file extracted from the archive. To get the original archive name, you need
+        ///    to use the special constant DEBUG_DUMP_FILE_ORIGINAL_CAB_INDEX, which
+        ///    returns the archive name for the last dump that was loaded.
+        /// </summary>
         public string GetDumpFile( uint index, out uint type )
         {
             type = 0;
