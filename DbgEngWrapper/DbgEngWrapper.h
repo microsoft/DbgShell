@@ -1132,13 +1132,14 @@ namespace DbgEngWrapper
         int GetExecutingProcessorType(
             [Out] IMAGE_FILE_MACHINE% Type);
 
-  //    int GetNumberPossibleExecutingProcessorTypes(
-  //        [Out] ULONG% Number);
+     // int GetNumberPossibleExecutingProcessorTypes(
+     //     [Out] ULONG% Number);
 
-  //    int GetPossibleExecutingProcessorTypes(
-  //        [In] ULONG Start,
-  //        [In] ULONG Count,
-  //        [Out, MarshalAs(UnmanagedType.LPArray)] IMAGE_FILE_MACHINE[] Types);
+        int GetPossibleExecutingProcessorTypes(
+         // [In] ULONG Start,
+         // [In] ULONG Count,
+         // [Out, MarshalAs(UnmanagedType.LPArray)] IMAGE_FILE_MACHINE[] Types);
+            [Out] array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>^% Types);
 
         int GetNumberProcessors(
             [Out] ULONG% Number);
@@ -1175,13 +1176,14 @@ namespace DbgEngWrapper
   //        [Out] out UInt64 Arg3,
   //        [Out] out UInt64 Arg4);
 
-  //    int GetNumberSupportedProcessorTypes(
-  //        [Out] ULONG% Number);
+     // int GetNumberSupportedProcessorTypes(
+     //     [Out] ULONG% Number);
 
-  //    int GetSupportedProcessorTypes(
-  //        [In] ULONG Start,
-  //        [In] ULONG Count,
-  //        [Out, MarshalAs(UnmanagedType.LPArray)] IMAGE_FILE_MACHINE[] Types);
+        int GetSupportedProcessorTypes(
+         // [In] ULONG Start,
+         // [In] ULONG Count,
+         // [Out, MarshalAs(UnmanagedType.LPArray)] IMAGE_FILE_MACHINE[] Types);
+            [Out] array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>^% Types);
 
   //    int GetProcessorTypeNames(
   //        [In] IMAGE_FILE_MACHINE Type,
@@ -1576,14 +1578,17 @@ namespace DbgEngWrapper
             //[Out] ULONG% DisassemblySize,
             [Out] UInt64% EndOffset);
 
-   //   int GetProcessorTypeNamesWide(
-   //       [In] IMAGE_FILE_MACHINE Type,
-   //       [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder FullNameBuffer,
-   //       [In] Int32 FullNameBufferSize,
-   //       [Out] ULONG% FullNameSize,
-   //       [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder AbbrevNameBuffer,
-   //       [In] Int32 AbbrevNameBufferSize,
-   //       [Out] ULONG% AbbrevNameSize);
+        int GetProcessorTypeNamesWide(
+            //[In] IMAGE_FILE_MACHINE Type,
+            //[Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder FullNameBuffer,
+            //[In] Int32 FullNameBufferSize,
+            //[Out] ULONG% FullNameSize,
+            //[Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder AbbrevNameBuffer,
+            //[In] Int32 AbbrevNameBufferSize,
+            //[Out] ULONG% AbbrevNameSize);
+			[In] IMAGE_FILE_MACHINE Type,
+			[Out] String^% FullName,
+			[Out] String^% AbbrevName);
 
    //   int GetTextMacroWide(
    //       [In] ULONG Slot,

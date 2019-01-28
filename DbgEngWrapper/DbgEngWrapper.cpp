@@ -1509,13 +1509,45 @@ int WDebugControl::GetExecutingProcessorType(
     return m_pNative->GetExecutingProcessorType( (PULONG) pp );
 }
 
-//    int GetNumberPossibleExecutingProcessorTypes(
-//        [Out] ULONG% Number);
+/* Not needed; just use GetPossibleExecutingProcessorTypes instead.
+int WDebugControl::GetNumberPossibleExecutingProcessorTypes(
+    [Out] ULONG% Number)
+{
+    WDebugClient::g_log->Write( L"DebugControl::GetNumberPossibleExecutingProcessorTypes" );
+    pin_ptr<ULONG> pp = &Number;
+    return m_pNative->GetNumberPossibleExecutingProcessorTypes( pp );
+}
+*/
 
-//    int GetPossibleExecutingProcessorTypes(
-//        [In] ULONG Start,
-//        [In] ULONG Count,
-//        [Out, MarshalAs(UnmanagedType.LPArray)] IMAGE_FILE_MACHINE[] Types);
+int WDebugControl::GetPossibleExecutingProcessorTypes(
+    //[In] ULONG Start,
+    //[In] ULONG Count,
+    //[Out, MarshalAs(UnmanagedType.LPArray)] IMAGE_FILE_MACHINE[] Types);
+    [Out] array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>^% Types)
+{
+    WDebugClient::g_log->Write( L"DebugControl::GetPossibleExecutingProcessorTypes" );
+    Types = nullptr;
+
+    ULONG num = 0;
+    int hr = m_pNative->GetNumberPossibleExecutingProcessorTypes( &num );
+    if( FAILED( hr ) )
+    {
+        return hr;
+    }
+
+    array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>( num );
+    pin_ptr<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE> ppTmp = &tmp[ 0 ];
+
+    hr = m_pNative->GetPossibleExecutingProcessorTypes( 0,   // start
+                                                        num, // count
+                                                        (PULONG) ppTmp );
+
+    if( SUCCEEDED( hr ) )
+    {
+        Types = tmp;
+    }
+    return hr;
+}
 
 int WDebugControl::GetNumberProcessors(
     [Out] ULONG% Number)
@@ -1607,14 +1639,47 @@ int WDebugControl::IsPointer64Bit()
 //        [Out] out UInt64 Arg3,
 //        [Out] out UInt64 Arg4);
 
-//    int GetNumberSupportedProcessorTypes(
-//        [Out] ULONG% Number);
+/* Not needed; just use GetSupportedProcessorTypes instead
+int WDebugControl::GetNumberSupportedProcessorTypes(
+    [Out] ULONG% Number)
+{
+    WDebugClient::g_log->Write( L"DebugControl::GetNumberSupportedProcessorTypes" );
+    pin_ptr<ULONG> pp = &Number;
+    return m_pNative->GetNumberSupportedProcessorTypes( pp );
+}
+*/
 
-//    int GetSupportedProcessorTypes(
-//        [In] ULONG Start,
-//        [In] ULONG Count,
-//        [Out, MarshalAs(UnmanagedType.LPArray)] IMAGE_FILE_MACHINE[] Types);
+int WDebugControl::GetSupportedProcessorTypes(
+    //[In] ULONG Start,
+    //[In] ULONG Count,
+    //[Out, MarshalAs(UnmanagedType.LPArray)] IMAGE_FILE_MACHINE[] Types)
+    [Out] array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>^% Types)
+{
+    WDebugClient::g_log->Write( L"DebugControl::GetSupportedProcessorTypes" );
+    Types = nullptr;
 
+    ULONG num = 0;
+    int hr = m_pNative->GetNumberSupportedProcessorTypes( &num );
+    if( FAILED( hr ) )
+    {
+        return hr;
+    }
+
+    array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>( num );
+    pin_ptr<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE> ppTmp = &tmp[ 0 ];
+
+    hr = m_pNative->GetSupportedProcessorTypes( 0,   // start
+                                                num, // count
+                                                (PULONG) ppTmp );
+
+    if( SUCCEEDED( hr ) )
+    {
+        Types = tmp;
+    }
+    return hr;
+}
+
+// Note: Use GetProcessorTypeNamesWide instead.
 //    int GetProcessorTypeNames(
 //        [In] IMAGE_FILE_MACHINE Type,
 //        [Out, MarshalAs(UnmanagedType.LPStr)] StringBuilder FullNameBuffer,
@@ -2245,7 +2310,7 @@ int WDebugControl::DisassembleWide(
     return hr;
 }
 
-//   int GetProcessorTypeNamesWide(
+int WDebugControl::GetProcessorTypeNamesWide(
 //       [In] IMAGE_FILE_MACHINE Type,
 //       [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder FullNameBuffer,
 //       [In] Int32 FullNameBufferSize,
@@ -2253,6 +2318,40 @@ int WDebugControl::DisassembleWide(
 //       [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder AbbrevNameBuffer,
 //       [In] Int32 AbbrevNameBufferSize,
 //       [Out] ULONG% AbbrevNameSize);
+    [In] IMAGE_FILE_MACHINE Type,
+    [Out] String^% FullName,
+    [Out] String^% AbbrevName)
+{
+    WDebugClient::g_log->Write( L"DebugControl::GetProcessorTypeNames" );
+    ULONG cchFullName = MAX_PATH;
+    ULONG cchAbbrevName = MAX_PATH;
+
+    FullName = nullptr;
+    AbbrevName = nullptr;
+
+    HRESULT hr = S_FALSE;
+    while( S_FALSE == hr )
+    {
+        std::unique_ptr<wchar_t[]> wszFullName( new wchar_t[ cchFullName ] );
+        std::unique_ptr<wchar_t[]> wszAbbrevName( new wchar_t[ cchAbbrevName ] );
+
+        hr = m_pNative->GetProcessorTypeNamesWide( (ULONG) Type,
+                                                   wszFullName.get(),
+                                                   cchFullName,
+                                                   &cchFullName,
+                                                   wszAbbrevName.get(),
+                                                   cchAbbrevName,
+                                                   &cchAbbrevName );
+
+        if( S_OK == hr )
+        {
+            FullName = gcnew String( wszFullName.get() );
+            AbbrevName = gcnew String( wszAbbrevName.get() );
+        }
+    }
+
+    return hr;
+}
 
 //   int GetTextMacroWide(
 //       [In] ULONG Slot,
