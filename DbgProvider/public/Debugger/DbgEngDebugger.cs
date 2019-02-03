@@ -6412,7 +6412,7 @@ namespace MS.Dbg
                 {
                     // TODO: write warning
                     // Trim off ".Flink".
-                    listEntryMemberPath.Substring( 0, listEntryMemberPath.Length - dotFlink.Length );
+                    listEntryMemberPath = listEntryMemberPath.Substring( 0, listEntryMemberPath.Length - dotFlink.Length );
                 }
                 listEntryOffset = (int) entryType.FindMemberOffset( listEntryMemberPath );
             }
