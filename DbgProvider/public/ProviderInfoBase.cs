@@ -98,7 +98,7 @@ namespace MS.Dbg
                 {
                     string guessedProviderName = Util.GetGenericTypeName( typeof( TProviderInfo ) );
                     if( guessedProviderName.EndsWith( "Info", StringComparison.OrdinalIgnoreCase ) )
-                        guessedProviderName.Substring( 0, guessedProviderName.Length - 4 );
+                        guessedProviderName = guessedProviderName.Substring( 0, guessedProviderName.Length - 4 );
 
                     throw new ProviderNotFoundException( "This runspace has no " + guessedProviderName + " provider loaded." );
                 }
