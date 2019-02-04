@@ -103,6 +103,15 @@ namespace MS.Dbg
         internal PSObject WrappingPSObject { get; private set; }
 
 
+        private readonly ulong m_execStatusCookie;
+
+        /// <summary>
+        ///     The value of the debugger's ExecStatusCookie at the time the DbgValue
+        ///     object was created.
+        /// </summary>
+        public ulong DbgGetExecStatusCookie() { return m_execStatusCookie; }
+
+
         protected DbgValue( DbgSymbol symbol )
             : this( new List< SymbolHistoryRecord >() { new SymbolHistoryRecord( symbol ) } )
         {
@@ -118,6 +127,8 @@ namespace MS.Dbg
 
             // Note that we copy the list!
             m_symbolHistory = new List< SymbolHistoryRecord >( symbolHistory );
+
+            m_execStatusCookie = Symbol.Debugger.ExecStatusCookie;
 
             WrappingPSObject = new PSObject( this );
 
@@ -1154,6 +1165,14 @@ namespace MS.Dbg
             del = () => { return symbolHistory[ 0 ].OriginalSymbol; };
             pmi = new PSDbgMethodInfo( "DbgGetOperativeSymbol",
                                        "MS.Dbg.DbgSymbol",
+                                       del );
+            pso.Methods.Add( pmi );
+
+
+            ulong cookie = symbol.Debugger.ExecStatusCookie;
+            del = () => { return cookie; };
+            pmi = new PSDbgMethodInfo( "DbgGetExecStatusCookie",
+                                       "System.UInt64",
                                        del );
             pso.Methods.Add( pmi );
         } // end _AddDbgGetSymbolMethods()
