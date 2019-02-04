@@ -15,6 +15,13 @@ namespace MS.Dbg
             private DbgEngDebugger m_debugger;
             private PipeCallbackSettings m_psPipeSettings;
 
+            private ulong m_executionStatusCookie;
+
+            /// <summary>
+            ///    A value that is updated whenever dbgeng's execution status changes.
+            /// </summary>
+            public ulong ExecStatusCookie => m_executionStatusCookie;
+
 
             private IPipelineCallback _PsPipe
             {
@@ -478,6 +485,11 @@ namespace MS.Dbg
                         //DbgProvider.ForceRebuildNamespace();
                         LogManager.Trace( "Effective processor changed; queueing request to rebuild namespace." );
                         DbgProvider.RequestExecuteBeforeNextPrompt( "[MS.Dbg.DbgProvider]::ForceRebuildNamespace()" );
+                    }
+
+                    if( eventArgs.Flags.HasFlag( DEBUG_CES.EXECUTION_STATUS ) )
+                    {
+                        m_executionStatusCookie++;
                     }
 
                     int retVal = _RaiseEvent( m_debugger.EngineStateChanged, eventArgs );

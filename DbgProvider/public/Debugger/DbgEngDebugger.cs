@@ -6680,5 +6680,12 @@ namespace MS.Dbg
             fullName = tmpFullName;
             abbrevName = tmpAbbrevName;
         }
+
+
+        /// <summary>
+        ///    A value that is updated whenever dbgeng's execution status changes.
+        /// </summary>
+        public ulong ExecStatusCookie => m_internalEventCallbacks.ExecStatusCookie;
+
     } // end class DbgEngDebugger
 }
