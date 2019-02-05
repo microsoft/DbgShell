@@ -26,6 +26,11 @@ namespace MS.Dbg
             Offset = rdi.Offset;
             BitfieldLength = rdi.BitfieldLength;
             BitfieldPosition = rdi.BitPosition;
+
+            // Don't know if this is possible, so I'll throw in an assert to help me find
+            // out:
+            Util.Assert( null == rdi.Value,
+                         "Oh hey, a non-static data member with a constant value!" );
         } // end constructor
 
         public DbgDataMemberTypeInfo( DbgEngDebugger debugger,

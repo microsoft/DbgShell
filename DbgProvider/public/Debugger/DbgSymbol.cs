@@ -273,14 +273,31 @@ namespace MS.Dbg
                                                              member ) );
                     }
 
-                    foreach( var staticMember in udt.StaticMembers )
-                    {
-                        m_children.Add( new DbgSimpleSymbol( Debugger,
-                                                             staticMember.Name,
-                                                             staticMember.DataType,
-                                                             staticMember.Address,
-                                                             this ) );
-                    }
+                    // Note that we do not add children for static members. I don't think
+                    // there is any need to have them in the m_children collection...
+                 // foreach( var staticMember in udt.StaticMembers )
+                 // {
+                 //     if( staticMember.ConstantValue != null )
+                 //     {
+                 //         // (it's constant)
+                 //         Util.Assert( staticMember.Address == 0 );
+                 //         Util.Assert( staticMember.AddressOffset == 0 );
+
+                 //         m_children.Add( new DbgSimpleSymbol( Debugger,
+                 //                                              staticMember.Name,
+                 //                                              staticMember.DataType,
+                 //                                              staticMember.ConstantValue,
+                 //                                              this ) );
+                 //     }
+                 //     else
+                 //     {
+                 //         m_children.Add( new DbgSimpleSymbol( Debugger,
+                 //                                              staticMember.Name,
+                 //                                              staticMember.DataType,
+                 //                                              staticMember.Address,
+                 //                                              this ) );
+                 //     }
+                 // }
 
                     // TODO: functions, nested types, etc.
                     break;
@@ -414,6 +431,12 @@ namespace MS.Dbg
         public void DumpCachedValue()
         {
             m_valueCache.Clear();
+            __memoryUnavailable = null;
+        }
+
+        internal void DumpCachedValueIfCookieIsStale()
+        {
+            m_valueCache.ClearIf( ( x ) => Debugger.ExecStatusCookie != ((dynamic) x).DbgGetExecStatusCookie() );
             __memoryUnavailable = null;
         }
 
@@ -749,6 +772,10 @@ namespace MS.Dbg
             if( IsValueInRegister )
             {
                 newSym = new DbgSimpleSymbol( Debugger, Name, newType, Register, Parent );
+            }
+            else if( IsConstant )
+            {
+                newSym = new DbgSimpleSymbol( Debugger, Name, newType, GetConstantValue(), Parent );
             }
             else
             {
