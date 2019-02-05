@@ -210,6 +210,8 @@ private:
     TypeTag m_typeTag;
     wstring m_name;
 
+    static const int s_constStaticInt = 0xccc;
+
 protected:
     Base( TypeTag typeTag, PCWSTR name )
         : m_typeTag( typeTag ),
@@ -227,7 +229,11 @@ public:
     {
         return m_name;
     }
+
+    static int s_staticInt;
 };
+
+int Base::s_staticInt = 0x999;
 
 class Type1 : public Base
 {
@@ -1309,6 +1315,8 @@ int wmain( int numArgs, wchar_t* args[] )
 
     if( numArgs < 2 ) // args[ 0 ] should be the name of the EXE
     {
+        Base::s_staticInt = -1; // will prevent it from being optimized or const-ized, I hope
+
         wprintf( L"What do you want to do?\n" );
         // TODO: print out choices, loop, handle "quit"
         return -1;

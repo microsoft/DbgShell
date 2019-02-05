@@ -21,6 +21,12 @@ Describe "DbgValueComparison" {
         $blahVal.DbgGetExecStatusCookie() -ne $blahVal2.DbgGetExecStatusCookie() | Should Be $true
     }
 
+    It "can inspect const static members" {
+
+        $s = Get-DbgSymbol TestNativeConsoleApp!g_polymorphicThings
+        $s.Value[2].s_constStaticInt | Should Be 0xccc
+    }
+
     .kill
     PostTestCheckAndResetCacheStats
     popd

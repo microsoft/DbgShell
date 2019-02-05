@@ -70,6 +70,17 @@ namespace MS.Dbg
             m_cache[ 2 ] = default( TValue );
             m_cache[ 3 ] = default( TValue );
         }
+
+        public void ClearIf( Predicate< TValue > condition )
+        {
+            for( int i = 0; i < m_cache.Length; i++ )
+            {
+                if( (m_cache[ i ] != null) && condition( m_cache[ i ] ) )
+                {
+                    m_cache[ i ] = default( TValue );
+                }
+            }
+        }
     } // end class DbgValueCache
 }
 

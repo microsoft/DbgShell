@@ -1355,15 +1355,9 @@ namespace MS.Dbg
                     key = Util.Sprintf( "{0}_{1}", staticMember.Name, i );
                 }
                 m_memberNames.Add( key );
-                // TODO: get rid of useless symbol.children? or somehow reconcile with the
-                // fact that we are creating new DbgSimpleSymbol objects here...
-                // maybe an indexer, from datamemberinfobase to symbol?
+
                 WrappingPSObject.Properties.Add( new PSSymFieldInfo( key,
-                                                                     new DbgSimpleSymbol( Symbol.Debugger,
-                                                                                          staticMember.Name,
-                                                                                          staticMember.DataType,
-                                                                                          staticMember.Address,
-                                                                                          OperativeSymbol ),
+                                                                     staticMember.GetSymbol(),
                                                                      staticMember ) );
             }
 
@@ -1988,6 +1982,9 @@ namespace MS.Dbg
             //
             //    (pThing + 1)  ????                 Thing*    0x18+sizeof(Thing) (DbgPointerValue)
             //
+            // If we really wanted to do this, a possible way to do it would be to say
+            // that the pointer's value is in a [fake] register. Or pretend it's const
+            // data.
 
             DbgNamedTypeInfo pointeeType = ((DbgPointerTypeInfo) basePointer.OperativeSymbol.Type).PointeeType;
             Util.Assert( 0 != pointeeType.Size );

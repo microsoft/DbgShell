@@ -6,16 +6,28 @@ namespace MS.Dbg
     [DebuggerDisplay( "SimpleSym: {Name}" )]
     public class DbgSimpleSymbol : DbgSymbol
     {
-        private ulong m_address;
-        private DbgRegisterInfoBase m_register;
-        private DbgNamedTypeInfo m_type;
+        private readonly ulong m_address;
+        private readonly DbgRegisterInfoBase m_register;
+        private readonly DbgNamedTypeInfo m_type;
         private DbgModuleInfo m_mod;
+        private readonly object m_constantValue;
 
         public override ulong Address { get { return m_address; } }
 
         public override bool IsValueInRegister { get { return null != m_register; } }
 
         public override DbgRegisterInfoBase Register { get { return m_register; } }
+
+        public override bool IsConstant => null != m_constantValue;
+
+        internal override object GetConstantValue()
+        {
+            if( null != m_constantValue )
+                return m_constantValue;
+
+            return base.GetConstantValue(); // will throw an exception for us
+        }
+
 
         public override DbgNamedTypeInfo Type { get { return m_type; } }
 
@@ -93,6 +105,19 @@ namespace MS.Dbg
         internal DbgSimpleSymbol( DbgEngDebugger debugger,
                                   string name,
                                   DbgNamedTypeInfo type,
+                                  object constantValue )
+            : this( debugger, name, type )
+        {
+            if( null == constantValue )
+                throw new ArgumentNullException( nameof( constantValue ) );
+
+            m_constantValue = constantValue;
+        } // end constructor
+
+
+        internal DbgSimpleSymbol( DbgEngDebugger debugger,
+                                  string name,
+                                  DbgNamedTypeInfo type,
                                   ulong address,
                                   DbgSymbol parent )
             : this( debugger, name, type, address )
@@ -110,7 +135,15 @@ namespace MS.Dbg
             Parent = parent;
         } // end constructor
 
-
+        internal DbgSimpleSymbol( DbgEngDebugger debugger,
+                                  string name,
+                                  DbgNamedTypeInfo type,
+                                  object constantValue,
+                                  DbgSymbol parent )
+            : this( debugger, name, type, constantValue )
+        {
+            Parent = parent;
+        } // end constructor
     } // end class DbgSimpleSymbol
 }
 

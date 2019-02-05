@@ -1111,13 +1111,19 @@ Register-AltTypeFormatEntries {
                     $cs = New-ColorString -Content '   ='
                     if( $static.get_Symbol().IsValueUnavailable )
                     {
-                        #TODO: Debug this
                         $cs = $cs.Append( 'BUG: How could a static not be available?  ' )
                         $cs = $cs.Append( $static.FieldInfo.Name )
                         $cs
                         continue
                     }
-                    $cs = $cs.Append( (Format-DbgAddress $static.Symbol.Address $static.Symbol.Debugger) ).Append( ' ' )
+                    if( $static.Symbol.IsConstant )
+                    {
+                        $cs = $cs.Append( (New-ColorString -Content 'const ' -Fore Blue) )
+                    }
+                    else
+                    {
+                        $cs = $cs.Append( (Format-DbgAddress $static.Symbol.Address $static.Symbol.Debugger) ).Append( ' ' )
+                    }
                     $cs = $cs.Append( (Pad $static.FieldInfo.Name 29) ).Append( ' : ' )
                     try
                     {
