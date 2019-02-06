@@ -7,8 +7,14 @@ namespace MS.Dbg.Commands
     [Cmdlet( VerbsData.Mount, "DbgDumpFile" )]
     public class MountDbgDumpFileCommand : ExecutionBaseCommand
     {
-        [Parameter( Mandatory = true, Position = 0 , ValueFromPipeline = true )]
-        [Alias( "z" )] // you know, like ntsd -z :D
+        // The z alias: you know, like ntsd -z
+        // The PSPath alias: along with ValueFromPipelineByPropertyName, this lets you get
+        // the expected results when you pipe in the output of Get-ChildItem
+        [Parameter( Mandatory = true,
+                    Position = 0,
+                    ValueFromPipeline = true,
+                    ValueFromPipelineByPropertyName = true )]
+        [Alias( "z", "PSPath" )]
         [ValidateNotNullOrEmpty]
         public string DumpFile { get; set; }
 
