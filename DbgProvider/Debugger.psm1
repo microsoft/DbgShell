@@ -4322,6 +4322,59 @@ function !teb
 
 <#
 .SYNOPSIS
+    For each dump file path, this command mounts the dump file, runs the supplied ScriptBlock, then detaches.
+
+    Example 1: dir C:\temp\dumps\ -File | ForEach-DbgDumpFile { lm ntdll }
+
+    Example 2: ForEach-DbgDumpFile -DumpFile C:\temp\dumps\*.dmp { lm ntdll }
+#>
+function ForEachDbgDumpFile # Named thusly to avoid a warning about a bad verb name
+{
+    [CmdletBinding()]
+    param( [Parameter( Mandatory = $false,
+                       ValueFromPipeline = $true,
+                       ValueFromPipelineByPropertyName = $true )]
+           [Alias( 'PSPath' )] # Allows piping in output of "dir"
+           [string] $DumpFilePath,
+
+           [Parameter( Mandatory = $true, Position = 0 )]
+           [ScriptBlock] $ScriptBlock
+         )
+
+    process
+    {
+        try
+        {
+            foreach( $path in (Resolve-Path $DumpFilePath) )
+            {
+                [bool] $mountSucceeded = $false
+                try
+                {
+                    # Note that we suppress/ignore all the output you normally get when you load a
+                    # dump file.
+                    Mount-DbgDumpFile $path.Path | Out-Null
+
+                    $mountSucceeded = $true
+
+                    & $ScriptBlock
+                }
+                finally
+                {
+                    if( $mountSucceeded )
+                    {
+                        .detach
+                    }
+                }
+            }
+        }
+        finally { }
+    }
+} # end ForEach-DbgDumpFile
+Set-Alias ForEach-DbgDumpFile ForEachDbgDumpFile
+
+
+<#
+.SYNOPSIS
     Opens the current dump in windbg. TBD: support for live targets, remotes
 #>
 function Open-InWindbg
