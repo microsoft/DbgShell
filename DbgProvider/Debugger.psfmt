@@ -1118,7 +1118,9 @@ Register-AltTypeFormatEntries {
                     }
                     if( $static.Symbol.IsConstant )
                     {
-                        $cs = $cs.Append( (New-ColorString -Content 'const ' -Fore Blue) )
+                        if( $Debugger.TargetIs32Bit ) { $addrWidth = 8 } else { $addrWidth = 17 }
+
+                        $cs = $cs.Append( (New-ColorString -Content ((Pad 'const' $addrWidth) + ' ') -Fore Blue) )
                     }
                     else
                     {
@@ -1145,14 +1147,18 @@ Register-AltTypeFormatEntries {
 
             if( $members.Count -gt 0 )
             {
-                if( $statics -and ($statics.Count -gt 0) )
-                {
-                    # We only need to have this label if there are statics preceding the members.
-                    New-ColorString -Content 'Members:' -Foreground Cyan
-                }
+                [string] $lastOwningType = ''
 
                 foreach( $mem in $members )
                 {
+                    $owningType = $mem.FieldInfo.OwningType.Name
+
+                    if( $owningType -ne $lastOwningType )
+                    {
+                        (Format-DbgTypeName $owningType) + ':'
+                        $lastOwningType = $owningType
+                    }
+
                     if( $mem.get_Symbol().IsValueUnavailable )
                     {
                         $cs = $cs.Append( $mem.FieldInfo.Name )
