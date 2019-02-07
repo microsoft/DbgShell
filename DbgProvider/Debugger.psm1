@@ -4366,7 +4366,7 @@ function Open-InWindbg
 } # end function Open-InWindbg
 
 
-function Resolve-Error
+function Show-Error
 {
     [CmdletBinding()]
     param( [Parameter( Mandatory = $false, Position = 0, ValueFromPipeline = $true )]
@@ -4413,12 +4413,12 @@ function Resolve-Error
             $e_var = Get-Variable 'e' -ErrorAction Ignore
             if( ($null -eq $e_var) -or
                 (($e_var.Value -ne $null) -and
-                 (0 -ne $e_var.Value.PSObject.Properties.Match( 'AddedByResolveError').Count)))
+                 (0 -ne $e_var.Value.PSObject.Properties.Match( 'AddedByShowError').Count)))
             {
                 $global:e = $ErrorRecord
                 Add-Member -InputObject $global:e `
                            -MemberType 'NoteProperty' `
-                           -Name 'AddedByResolveError' `
+                           -Name 'AddedByShowError' `
                            -Value $true `
                            -Force # overwrite if we're re-doing one
             }
@@ -4435,7 +4435,7 @@ function Resolve-Error
         finally { }
     }
 }
-Set-Alias rver Resolve-Error
+Set-Alias ser Show-Error
 
 
 <#
