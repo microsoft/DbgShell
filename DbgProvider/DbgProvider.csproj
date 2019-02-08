@@ -450,7 +450,7 @@
     <TransformOnBuild>true</TransformOnBuild>
     <!-- Other properties can be inserted here -->
   </PropertyGroup>
-  <Import Project="..\packages\Unofficial.Microsoft.DebuggerBinaries.10.0.16232.1000\build\Unofficial.Microsoft.DebuggerBinaries.targets" Condition="Exists('..\packages\Unofficial.Microsoft.DebuggerBinaries.10.0.16232.1000\build\Unofficial.Microsoft.DebuggerBinaries.targets')" />
+  <Import Project="..\packages\Unofficial.Microsoft.DebuggerBinaries.10.0.17763.132\build\Unofficial.Microsoft.DebuggerBinaries.targets" Condition="Exists('..\packages\Unofficial.Microsoft.DebuggerBinaries.10.0.17763.132\build\Unofficial.Microsoft.DebuggerBinaries.targets')" />
   <Import Project="..\VersionInfo.csproj" />
   <PropertyGroup>
     <FileDescription>Core DbgShell binary: implements the PowerShell provider and C# object model.</FileDescription>
