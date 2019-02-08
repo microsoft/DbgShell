@@ -4327,6 +4327,28 @@ function !teb
     Example 1: dir C:\temp\dumps\ -File | ForEach-DbgDumpFile { lm ntdll }
 
     Example 2: ForEach-DbgDumpFile -DumpFile C:\temp\dumps\*.dmp { lm ntdll }
+
+    Note that many properties on DbgShell objects are fetched lazily, so if you capture the output of ForEach-DbgDumpFile, and then try to access such properties afterward, it will blow up, because the dumps backing the objects have already been unloaded. One way to deal with this is to cause the properties to be fetched while the dump is still loaded, e.g.
+
+       $stuff = dir C:\temp\dumps\ -File | ForEach-DbgDumpFile {
+           $thing = lm ntdll
+           $thing | Format-List | Out-Null
+           Write-Output $thing
+       }
+
+    A more explicit way of doing the same thing would be to explicitly fetch the properties you are interested in for exfiltration:
+
+       $stuff = dir C:\temp\dumps\ -File | ForEach-DbgDumpFile {
+           lm ntdll | Select-Object Name, VersionInfo
+       }
+
+    Two special NoteProperties are automatically attached to every object emitted from the ScriptBlock: TargetFriendlyName and DumpPath. This allows you to determine where a given output object came from.
+
+       $stuff = dir C:\temp\dumps\ -File | ForEach-DbgDumpFile {
+           lm ntdll | Select-Object Name, VersionInfo
+       }
+
+       $stuff | Format-Table VersionInfo, TargetFriendlyName, DumpPath
 #>
 function ForEachDbgDumpFile # Named thusly to avoid a warning about a bad verb name
 {
@@ -4352,11 +4374,15 @@ function ForEachDbgDumpFile # Named thusly to avoid a warning about a bad verb n
                 {
                     # Note that we suppress/ignore all the output you normally get when you load a
                     # dump file.
-                    Mount-DbgDumpFile $path.Path | Out-Null
+                    Mount-DbgDumpFile $path.ProviderPath | Out-Null
 
                     $mountSucceeded = $true
 
-                    & $ScriptBlock
+                    $tfn = $debugger.GetCurrentTarget().TargetFriendlyName
+
+                    & $ScriptBlock | `
+                        Add-Member -NotePropertyName 'TargetFriendlyName' -NotePropertyValue $tfn -PassThru | `
+                        Add-Member -NotePropertyName 'DumpPath' -NotePropertyValue $path.ProviderPath -PassThru
                 }
                 finally
                 {
@@ -4369,7 +4395,7 @@ function ForEachDbgDumpFile # Named thusly to avoid a warning about a bad verb n
         }
         finally { }
     }
-} # end ForEach-DbgDumpFile
+} # end ForEachDbgDumpFile
 Set-Alias ForEach-DbgDumpFile ForEachDbgDumpFile
 
 
