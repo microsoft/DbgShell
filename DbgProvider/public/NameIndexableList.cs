@@ -49,6 +49,10 @@ namespace MS.Dbg
             m_readOnly = true;
         }
 
+        /// <summary>
+        ///    Note that if there are duplicate names, this only returns the first item
+        ///    with the specified name. If there is no item with that name, it will throw.
+        /// </summary>
         public T this[ string name ]
         {
             get

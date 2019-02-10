@@ -19,6 +19,9 @@ namespace MS.Dbg.Formatting.Commands
         // TODO: Other parameters mirroring standard Format-Table
 
 
+        protected override string ViewFromPropertyCommandName => "New-AltTableViewDefinition";
+
+
         // TODO: make this configurable, part of the table view definition or something?
         private static ColorString sm_tableHeaderColors = new ColorString()
             .AppendPushFgBg( ConsoleColor.Black, ConsoleColor.Cyan ).MakeReadOnly();
@@ -240,14 +243,16 @@ namespace MS.Dbg.Formatting.Commands
             var columns = new List< Column >();
             if( (null != Property) && (0 != Property.Length) )
             {
-                IList< string > propNames = ResolvePropertyParameter();
-                if( 0 == propNames.Count )
-                {
-                    // TODO: proper error
-                    throw new ArgumentException( "The specified value for the -Property parameter results in no properties to display.",
-                                                 "Property" );
-                }
-                columns.AddRange( propNames.Select( (pn) => new PropertyColumn( pn, ColumnAlignment.Default, 0 ) ) );
+
+
+             // IList< string > propNames = ResolvePropertyParameter();
+             // if( 0 == propNames.Count )
+             // {
+             //     // TODO: proper error
+             //     throw new ArgumentException( "The specified value for the -Property parameter results in no properties to display.",
+             //                                  "Property" );
+             // }
+             // columns.AddRange( propNames.Select( (pn) => new PropertyColumn( pn, ColumnAlignment.Default, 0 ) ) );
             } // end if( Property )
             else
             {

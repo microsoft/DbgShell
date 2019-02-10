@@ -22,6 +22,9 @@ namespace MS.Dbg.Commands
         [Parameter( Mandatory = false, Position = 1  )]
         public string TargetName { get; set; }
 
+        [Parameter( Mandatory = false )]
+        public SwitchParameter AllowClobber { get; set; }
+
 
         protected override void ProcessRecord()
         {
@@ -68,12 +71,19 @@ namespace MS.Dbg.Commands
 
             if( DbgProvider.IsTargetNameInUse( TargetName ) )
             {
-                ThrowTerminatingError( new ArgumentException( Util.Sprintf( "The target name '{0}' is already in use. Please use -TargetName to specify a different target name.",
-                                                                            TargetName ),
-                                                              "TargetName" ),
-                                       "TargetNameInUse",
-                                       ErrorCategory.ResourceExists,
-                                       TargetName );
+                if( AllowClobber )
+                {
+                    throw new NotImplementedException();
+                }
+                else
+                {
+                    ThrowTerminatingError( new ArgumentException( Util.Sprintf( "The target name '{0}' is already in use. Please use -TargetName to specify a different target name.",
+                                                                                TargetName ),
+                                                                  "TargetName" ),
+                                           "TargetNameInUse",
+                                           ErrorCategory.ResourceExists,
+                                           TargetName );
+                }
             }
 
             Debugger = DbgEngDebugger.NewDebugger();

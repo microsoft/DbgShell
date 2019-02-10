@@ -97,6 +97,7 @@ namespace MS.Dbg.Commands
                 modules = Debugger.Modules;
             }
 
+            if( null == modules ) { return; }
             foreach( var mod in modules )
             {
                 if( _Matches( mod ) )

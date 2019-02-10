@@ -4349,6 +4349,10 @@ function !teb
        }
 
        $stuff | Format-Table VersionInfo, TargetFriendlyName, DumpPath
+
+    These properties can also be used with, for example, -GroupBy:
+
+        dir C:\temp\dumps\ -File | ForEach-DbgDumpFile { lm ntdll } | Format-Table -GroupBy DumpPath
 #>
 function ForEachDbgDumpFile # Named thusly to avoid a warning about a bad verb name
 {

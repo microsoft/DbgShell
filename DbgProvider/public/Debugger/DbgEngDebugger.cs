@@ -4929,7 +4929,7 @@ namespace MS.Dbg
                 target.DiscardCachedModuleInfo();
             }
 
-            m_usedTargetNames.Clear();
+            m_usedTargetNames.Clear(); // oh wait... now that we're keeping the targets...
             UpdateNamespace();
         }
 
@@ -5049,7 +5049,14 @@ namespace MS.Dbg
                         m_targets[ ctx ] = p;
                     } // end using( context saver )
                 } // end foreach( procToAdd )
-                _RaiseEvent( UmProcessAdded, new UmProcessAddedEventArgs( this, procsAdded ) );
+                if( procsAdded.Count > 0 ) // could be zero if dbgeng added a new system with no procs
+                {
+                    _RaiseEvent( UmProcessAdded, new UmProcessAddedEventArgs( this, procsAdded ) );
+                }
+                else
+                {
+                    System.Diagnostics.Debugger.Break();
+                }
 
                 _EnsureWeHaveFrameScopeContext();
             } // end if( umProcessesAdded.Count )

@@ -229,6 +229,7 @@ function New-AltPropertyColumn
     [CmdletBinding()]
     param( [Parameter( Mandatory = $true, Position = 0 )]
            [ValidateNotNullOrEmpty()]
+           [Alias( 'Name' )] # for compatibility with -Property stuff
            [string] $PropertyName,
 
            [Parameter( Mandatory = $false, Position = 1 )]
@@ -298,6 +299,7 @@ function New-AltScriptColumn
 
            [Parameter( Mandatory = $true, Position = 1 )]
            [ValidateNotNull()]
+           [Alias( 'Expression' )] # For compatibility with -Property stuff
            [ScriptBlock] $Script,
 
            [Parameter( Mandatory = $false )]
@@ -425,8 +427,8 @@ function New-AltColumns
 #>
 function New-AltTableViewDefinition
 {
-    [CmdletBinding()]
-    param( [Parameter( Mandatory = $true, Position = 0 )]
+    [CmdletBinding( DefaultParameterSetName = 'DefaultParamSet' )]
+    param( [Parameter( Mandatory = $true, Position = 0, ParameterSetName = 'DefaultParamSet' )]
            [ValidateNotNull()]
            [ScriptBlock] $Columns,
 
@@ -445,7 +447,10 @@ function New-AltTableViewDefinition
            [switch] $CaptureContext,
 
            [Parameter( Mandatory = $false )]
-           [switch] $PreserveHeaderContext
+           [switch] $PreserveHeaderContext,
+
+           [Parameter( Mandatory = $true, Position = 0, ParameterSetName = 'FromPropertyParamSet' )]
+           [object[]] $FromProperty
          )
     begin { }
     end { }
@@ -453,27 +458,57 @@ function New-AltTableViewDefinition
     {
         $private:columnList = New-Object System.Collections.Generic.List[MS.Dbg.Formatting.Column]
         [MS.Dbg.Formatting.Footer] $private:footer = $null
-        & $Columns | % {
-            if( $_ -is [MS.Dbg.Formatting.Column] )
+
+        if( $FromProperty )
+        {
+            foreach( $propThing in $FromProperty )
             {
-                $columnList.Add( $_ )
-            }
-            elseif( $_ -is [MS.Dbg.Formatting.Footer] )
-            {
-                if( $null -ne $footer )
+                if( $propThing -is [string] )
                 {
-                    $private:SourceLineNumber = (Get-PSCallStack)[2].ScriptLineNumber
-                    Write-Error -Message ([string]::Format( '{0}:{1} While registering a table view definition for type ''{2}'': The -Columns script block yielded more than one Footer.', $SourceScript, $SourceLineNumber, $TypeName )) -Category InvalidOperation -ErrorId 'ExtraFooters' -TargetObject $_
+                    # TODO: oh crud, need to support wildcards
+                    $columnList.Add( (New-AltPropertyColumn -PropertyName $propThing) )
+                }
+                elseif( $propThing -is [hashtable] )
+                {
+                    if( $propThing[ 'Expression' ] -or $propThing[ 'Script' ] )
+                    {
+                        $columnList.Add( (New-AltScriptColumn @propThing) )
+                    }
+                    else
+                    {
+                        $columnList.Add( (New-AltPropertyColumn @propThing) )
+                    }
                 }
                 else
                 {
-                    $footer = $_
+                    throw "Unexpected property thing: $($propThing.GetType().FullName)"
                 }
             }
-            else
-            {
-                $private:SourceLineNumber = (Get-PSCallStack)[2].ScriptLineNumber
-                Write-Warning ([string]::Format( '{0}:{1} While registering a table view definition for type ''{2}'': The -Columns script block yielded an item that was not a column definition: {3}', $SourceScript, $SourceLineNumber, $TypeName, $_ ))
+        }
+        else
+        {
+            & $Columns | % {
+                if( $_ -is [MS.Dbg.Formatting.Column] )
+                {
+                    $columnList.Add( $_ )
+                }
+                elseif( $_ -is [MS.Dbg.Formatting.Footer] )
+                {
+                    if( $null -ne $footer )
+                    {
+                        $private:SourceLineNumber = (Get-PSCallStack)[2].ScriptLineNumber
+                        Write-Error -Message ([string]::Format( '{0}:{1} While registering a table view definition for type ''{2}'': The -Columns script block yielded more than one Footer.', $SourceScript, $SourceLineNumber, $TypeName )) -Category InvalidOperation -ErrorId 'ExtraFooters' -TargetObject $_
+                    }
+                    else
+                    {
+                        $footer = $_
+                    }
+                }
+                else
+                {
+                    $private:SourceLineNumber = (Get-PSCallStack)[2].ScriptLineNumber
+                    Write-Warning ([string]::Format( '{0}:{1} While registering a table view definition for type ''{2}'': The -Columns script block yielded an item that was not a column definition: {3}', $SourceScript, $SourceLineNumber, $TypeName, $_ ))
+                }
             }
         }
 
@@ -1834,6 +1869,11 @@ function Format-Table
 
             if( $null -ne $FormatInfo )
             {
+                $useSuppliedView = $true
+            }
+            elseif( $Property )
+            {
+                $FormatInfo = New-AltTableViewDefinition -FromProperty $Property
                 $useSuppliedView = $true
             }
         }
