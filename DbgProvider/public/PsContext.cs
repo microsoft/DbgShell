@@ -33,6 +33,8 @@ namespace MS.Dbg
 
         public PsContext()
         {
+            // TODO: come up with a way to do a read-only, empty context
+            // OR just get rid of context capture altogether?
             Funcs = new Dictionary< string, ScriptBlock >( 100 );
             Vars = new Dictionary< string, PSVariable >( 100 );
         }
