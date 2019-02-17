@@ -58,30 +58,22 @@ namespace MS.Dbg.Formatting.Commands
         private static char[] sm_newlineDelim = new char[] { '\n' };
 
 
+        protected override string ViewFromPropertyCommandName => "New-AltListViewDefinition";
+
+
         protected override AltListViewDefinition GenerateView()
         {
             Util.Assert( null != InputObject );
+            Util.Assert( (null == Property) || (0 == Property.Length)); // -Property should be handled by different code path
 
             var items = new List< ListItem >();
-            if( (null != Property) && (0 != Property.Length) )
+
+            foreach( var pi in InputObject.Properties )
             {
-                IList< string > propNames = ResolvePropertyParameter();
-                if( 0 == propNames.Count )
-                {
-                    // TODO: proper error
-                    throw new ArgumentException( "The specified value for the -Property parameter results in no properties to display.",
-                                                 "Property" );
-                }
-                items.AddRange( propNames.Select( (pn) => new PropertyListItem( pn ) ) );
-            } // end if( Property )
-            else
-            {
-                foreach( var pi in InputObject.Properties )
-                {
-                    if( pi.IsGettable )
-                        items.Add( new PropertyListItem( pi.Name ) );
-                }
+                if( pi.IsGettable )
+                    items.Add( new PropertyListItem( pi.Name ) );
             }
+
             return new AltListViewDefinition( items.AsReadOnly() );
         } // end GenerateView()
 
@@ -108,7 +100,9 @@ namespace MS.Dbg.Formatting.Commands
                     var pli = (PropertyListItem) li;
                     val = RenderPropertyValue( InputObject,
                                                pli.PropertyName,
-                                               pli.FormatString );
+                                               pli.FormatString,
+                                               dontGroupMultipleResults: false,
+                                               allowMultipleLines: true ); // <-- N.B. special for Format-List compat
                 }
                 else
                 {
@@ -144,7 +138,7 @@ namespace MS.Dbg.Formatting.Commands
         } // end ApplyViewToInputObject()
 
 
-        protected override void ResetState()
+        protected override void ResetState( bool newViewChosen )
         {
             // nothing to do
         } // end ResetState()

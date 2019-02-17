@@ -15,6 +15,13 @@ namespace MS.Dbg.Formatting
         {
             Script = script ?? throw new ArgumentNullException( nameof(script) );
         } // end constructor
+
+
+        bool IFormatInfo.LooksLikeExistingFromPropertyDefinition( IFormatInfo other )
+        {
+            Util.Fail( "nobody should be calling this..." );
+            return false;
+        }
     } // end class AltSingleLineViewDefinition
 }
 

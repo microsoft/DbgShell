@@ -1007,5 +1007,39 @@ namespace MS.Dbg.Commands
                                          originalInputData );
         } // end Transform()
     } // end class ThreadTransformationAttribute
+
+
+    [AttributeUsage( AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false )]
+    public class ScriptBlockTransformationAttribute : ArgumentTransformationAttribute
+    {
+        public override object Transform( EngineIntrinsics engineIntrinsics, object inputData )
+        {
+            object originalInputData = inputData;
+
+            var pso = inputData as PSObject;
+            if( null != pso )
+            {
+                inputData = pso.BaseObject;
+            }
+
+            if( inputData is ScriptBlock )
+            {
+                return inputData;
+            }
+
+            if( inputData is String inputDataStr )
+            {
+                return ScriptBlock.Create( inputDataStr );
+            }
+
+            if( null == inputData )
+            {
+                return null;
+            }
+
+            throw CreateRecoverableAtme( "Could not convert '{0}' to a ScriptBlock.",
+                                         originalInputData );
+        } // end Transform()
+    } // end class ScriptBlockTransformationAttribute
 }
 

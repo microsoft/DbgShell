@@ -65,6 +65,7 @@ function PROXY_NAME
             {
                 $useSuppliedView = $true
             }
+VIEW_FROM_PROPERTY_STUFF_BEGIN
         }
         catch
         {
@@ -160,6 +161,7 @@ function PROXY_NAME
                 {
                     ${_formatInfo} = $FormatInfo
                 }
+VIEW_FROM_PROPERTY_STUFF_PROCESS
                 else
                 {
                     ${_formatInfo} = Get-AltFormatViewDef -ForObject $objToDealWith `
