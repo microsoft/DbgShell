@@ -62,13 +62,19 @@ namespace MS.Dbg.Formatting.Commands
         } // end ApplyViewToInputObject()
 
 
-        protected override void ResetState()
+        protected override void ResetState( bool newViewChosen )
         {
             // nothing to do
         } // end ResetState()
 
 
         internal static string FormatSingleLineDirect( object obj )
+        {
+            return FormatSingleLineDirect( obj, allowMultipleLines: false );
+        }
+
+        internal static string FormatSingleLineDirect( object obj,
+                                                       bool allowMultipleLines )
         {
             if( null == obj )
                 return String.Empty;
@@ -89,11 +95,12 @@ namespace MS.Dbg.Formatting.Commands
                 script = sm_DefaultScript;
             }
 
-            return FormatSingleLineDirect( pso, script );
+            return FormatSingleLineDirect( pso, script, allowMultipleLines );
         }
 
         internal static string FormatSingleLineDirect( PSObject obj,
-                                                       ScriptBlock script)
+                                                       ScriptBlock script,
+                                                       bool allowMultipleLines )
         {
 #if DEBUG
             sm_renderScriptCallDepth++;
@@ -125,18 +132,32 @@ namespace MS.Dbg.Formatting.Commands
             {
                 return String.Empty;
             }
-            else
+
+            // Q. Why might an alleged single-line view generate multiple lines?
+            //
+            // A. Could be buggy. Could be a generated view, and somebody's ToString()
+            //    generates multiple lines. In short: it's not necessarily "weird", or
+            //    unusual.
+            //
+            // Q. Why would we want to allow multiple lines? Doesn't the name of this
+            //    class / method say "format SINGLE LINE"?
+            //
+            // A. Sometimes multi-line views can not only be accommodated, they are
+            //    desirable, such as for compatibility with the built-in Format-List
+            //    command.
+
+            if( allowMultipleLines )
             {
-                int idx = CaStringUtil.ApparentIndexOf( val, '\n' );
-                if( idx < 0 )
-                {
-                    return val;
-                }
-                else
-                {
-                    return CaStringUtil.Truncate( val, idx );
-                }
+                return val;
             }
+
+            int idx = CaStringUtil.ApparentIndexOf( val, '\n' );
+            if( idx < 0 )
+            {
+                return val;
+            }
+
+            return CaStringUtil.Truncate( val, idx );
         } // end FormatSingleLineDirect
     } // end class FormatAltSingleLineCommand
 }

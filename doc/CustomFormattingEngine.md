@@ -120,12 +120,18 @@ the output stream are not all the same type... terribleness.
 **Q:** How do you invoke the alternate formatting engine?
 <br/>
 **A:** You can invoke the alternate formatting cmdlets directly (`Format-AltTable`,
-`Format-AltList`, `Format-AltCustom`, `Format-AltSingleLine`), but you can also just use
-the regular formatting cmdlets (`Format-Table`, etc.) because we have defined "proxy"
-functions for them. The proxy functions will check to see if you have an alternate format
-view definition for the type of object you are trying to format, and if so, it forwards
-the call on to the alternate formatting cmdlet; if not, it sends it on to the built-in
+`Format-AltList`, `Format-AltCustom`, `Format-AltSingleLine`; or by their aliases `fat`, `fal`,
+`fac`, `fas`), but you can also just use the regular formatting cmdlets (`Format-Table`, etc.)
+because we have defined "proxy" functions for them. The proxy functions will check to see if you
+have an alternate format view definition for the type of object you are trying to format, and if so,
+it forwards the call on to the alternate formatting cmdlet; if not, it sends it on to the built-in
 formatting cmdlet.
+
+**Q:** How do you invoke the original, built-in formatting engine?
+<br/>
+**A:** In case of problems with the alternate formatting engine, you can invoke the built-in
+formatting cmdlets directly by using their module-qualified names, e.g.
+`Microsoft.PowerShell.Utility\Format-Table`, OR use some handy aliases: `bft`, `bfl`, `bfc`.
 
 **Q:** How do those proxy functions know if a particular object has a view definition for the alternate F+O engine?
 <br/>

@@ -76,6 +76,13 @@ namespace MS.Dbg.Formatting
             PreserveHeaderContext = preserveHeaderContext;
             PreserveScriptContext = preserveScriptContext;
         } // end constructor
+
+
+        bool IFormatInfo.LooksLikeExistingFromPropertyDefinition( IFormatInfo other )
+        {
+            Util.Fail( "nobody should be calling this..." );
+            return false;
+        }
     } // end class AltCustomViewDefinition
 }
 

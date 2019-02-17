@@ -19,6 +19,9 @@ namespace MS.Dbg.Formatting.Commands
         // TODO: Other parameters mirroring standard Format-Table
 
 
+        protected override string ViewFromPropertyCommandName => "New-AltTableViewDefinition";
+
+
         // TODO: make this configurable, part of the table view definition or something?
         private static ColorString sm_tableHeaderColors = new ColorString()
             .AppendPushFgBg( ConsoleColor.Black, ConsoleColor.Cyan ).MakeReadOnly();
@@ -161,10 +164,14 @@ namespace MS.Dbg.Formatting.Commands
         } // end ApplyViewToInputObject()
 
 
-        protected override void ResetState()
+        protected override void ResetState( bool newViewChosen )
         {
             _WriteFooterIfNecessary();
             m_headerShown = false;
+            if( newViewChosen )
+            {
+                m_calculatedWidths = false;
+            }
         } // end ResetState()
 
 
@@ -233,37 +240,59 @@ namespace MS.Dbg.Formatting.Commands
         protected override AltTableViewDefinition GenerateView()
         {
             Util.Assert( null != InputObject );
+            Util.Assert( (null == Property) || (0 == Property.Length)); // -Property should be handled by different code path
 
             var columns = new List< Column >();
-            if( (null != Property) && (0 != Property.Length) )
+
+            // Table view is constricted... there is only so much horizontal space, so
+            // we'll have to limit how many properties we take. We'll try to prioritize
+            // some common ones.
+            var alreadyConsidered = new HashSet< string >();
+            int consumedWidth = 0;
+            int numUnspecifiedWidth = 0;
+            int estimatedWidth;
+            foreach( var propName in ResolvePropertyNames( sm_preferredPropNames, warn: false ) )
             {
-                IList< string > propNames = ResolvePropertyParameter();
-                if( 0 == propNames.Count )
+                alreadyConsidered.Add( propName );
+                try
                 {
-                    // TODO: proper error
-                    throw new ArgumentException( "The specified value for the -Property parameter results in no properties to display.",
-                                                 "Property" );
+                    var proposedColumn = new PropertyColumn( propName,
+                                                             ColumnAlignment.Default,
+                                                             AltTableViewDefinition.GetWidthForProperty( InputObject,
+                                                                                                         propName ) );
+                    if( _CanAddColumn( consumedWidth, numUnspecifiedWidth, proposedColumn, out estimatedWidth ) )
+                    {
+                        columns.Add( proposedColumn );
+                        consumedWidth += estimatedWidth;
+                        if( 0 == proposedColumn.Width )
+                            numUnspecifiedWidth++;
+                    }
                 }
-                columns.AddRange( propNames.Select( (pn) => new PropertyColumn( pn, ColumnAlignment.Default, 0 ) ) );
-            } // end if( Property )
-            else
-            {
-                // Table view is constricted... there is only so much horizontal space, so
-                // we'll have to limit how many properties we take. We'll try to prioritize
-                // some common ones.
-                var alreadyConsidered = new HashSet< string >();
-                int consumedWidth = 0;
-                int numUnspecifiedWidth = 0;
-                int estimatedWidth;
-                foreach( var propName in ResolvePropertyNames( sm_preferredPropNames, warn: false ) )
+                catch( RuntimeException rte ) // from GetWidthForProperty, which attempt to access the property
                 {
-                    alreadyConsidered.Add( propName );
+                    SafeWriteWarning( Util.Sprintf( "Not considering property {0} for generated view, because it threw: {1}",
+                                                    propName,
+                                                    Util.GetExceptionMessages( rte ) ) );
+                  //LogManager.Trace( "Not considering property {0} for generated view, because it threw: {1}",
+                  //                  propName,
+                  //                  Util.GetExceptionMessages( rte ) );
+                }
+            } // end foreach( preferred property )
+
+            foreach( var pi in InputObject.Properties )
+            {
+                if( alreadyConsidered.Contains( pi.Name ) )
+                    continue;
+
+                if( pi.IsGettable )
+                {
                     try
                     {
-                        var proposedColumn = new PropertyColumn( propName,
+                        var proposedColumn = new PropertyColumn( pi.Name,
                                                                  ColumnAlignment.Default,
                                                                  AltTableViewDefinition.GetWidthForProperty( InputObject,
-                                                                                                             propName ) );
+                                                                                                             pi.Name ) );
+
                         if( _CanAddColumn( consumedWidth, numUnspecifiedWidth, proposedColumn, out estimatedWidth ) )
                         {
                             columns.Add( proposedColumn );
@@ -275,48 +304,15 @@ namespace MS.Dbg.Formatting.Commands
                     catch( RuntimeException rte ) // from GetWidthForProperty, which attempt to access the property
                     {
                         SafeWriteWarning( Util.Sprintf( "Not considering property {0} for generated view, because it threw: {1}",
-                                                        propName,
+                                                        pi.Name,
                                                         Util.GetExceptionMessages( rte ) ) );
-                      //LogManager.Trace( "Not considering property {0} for generated view, because it threw: {1}",
-                      //                  propName,
-                      //                  Util.GetExceptionMessages( rte ) );
+                     // LogManager.Trace( "Not considering property {0} for generated view, because it threw: {1}",
+                     //                   pi.Name,
+                     //                   Util.GetExceptionMessages( rte ) );
                     }
-                } // end foreach( preferred property )
+                }
+            } // end foreach( all properties )
 
-                foreach( var pi in InputObject.Properties )
-                {
-                    if( alreadyConsidered.Contains( pi.Name ) )
-                        continue;
-
-                    if( pi.IsGettable )
-                    {
-                        try
-                        {
-                            var proposedColumn = new PropertyColumn( pi.Name,
-                                                                     ColumnAlignment.Default,
-                                                                     AltTableViewDefinition.GetWidthForProperty( InputObject,
-                                                                                                                 pi.Name ) );
-
-                            if( _CanAddColumn( consumedWidth, numUnspecifiedWidth, proposedColumn, out estimatedWidth ) )
-                            {
-                                columns.Add( proposedColumn );
-                                consumedWidth += estimatedWidth;
-                                if( 0 == proposedColumn.Width )
-                                    numUnspecifiedWidth++;
-                            }
-                        }
-                        catch( RuntimeException rte ) // from GetWidthForProperty, which attempt to access the property
-                        {
-                            SafeWriteWarning( Util.Sprintf( "Not considering property {0} for generated view, because it threw: {1}",
-                                                            pi.Name,
-                                                            Util.GetExceptionMessages( rte ) ) );
-                         // LogManager.Trace( "Not considering property {0} for generated view, because it threw: {1}",
-                         //                   pi.Name,
-                         //                   Util.GetExceptionMessages( rte ) );
-                        }
-                    }
-                } // end foreach( all properties )
-            }
             return new AltTableViewDefinition( false, columns );
         } // end GenerateView()
     } // end class FormatAltTableCommand

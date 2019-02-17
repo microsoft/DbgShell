@@ -128,6 +128,21 @@ namespace MS.Dbg.Formatting
             FormatString = formatString;
             m_label = label;
         } // end constructor
+
+
+        /// <summary>
+        ///    For use by -Property machinery; just compares PropertyName, Label, and
+        ///    FormatString.
+        /// </summary>
+        public bool LooksSimilar( PropertyColumn other )
+        {
+            if( other == null )
+                return false;
+
+            return (PropertyName == other.PropertyName) &&
+                   (FormatString?.ToString( true ) == other.FormatString?.ToString( true )) &&
+                   (m_label == other.m_label);
+        } // end LooksSimilar()
     } // end class PropertyColumn
 
 
@@ -167,6 +182,18 @@ namespace MS.Dbg.Formatting
             Label = label;
             Script = script ?? throw new ArgumentNullException( nameof(script) );
         } // end constructor
+
+        /// <summary>
+        ///    For use by -Property machinery; just compares the Label and Script.
+        /// </summary>
+        public bool LooksSimilar( ScriptColumn other )
+        {
+            if( other == null )
+                return false;
+
+            return (Script.ToString() == other.Script.ToString()) &&
+                   (Label == other.Label);
+        } // end LooksSimilar()
     } // end class ScriptColumn
 
 
@@ -502,6 +529,60 @@ namespace MS.Dbg.Formatting
             GroupBy = groupBy;
             PreserveHeaderContext = preserveHeaderContext;
         } // end constructor
+
+
+        /// <summary>
+        ///    Not a true, complete comparison; just enough to handle the needs of dealing
+        ///    with calculated properties.
+        /// </summary>
+        public bool LooksLikeExistingFromPropertyDefinition( IFormatInfo otherBase )
+        {
+            if( !(otherBase is AltTableViewDefinition other) )
+                return false;
+
+            if( m_columns.Length != other.m_columns.Length )
+                return false;
+
+            for( int i = 0; i < m_columns.Length; i++ )
+            {
+                if( m_columns[ i ] is PropertyColumn pc1 )
+                {
+                    if( other.m_columns[ i ] is PropertyColumn pc2 )
+                    {
+                        if( !pc1.LooksSimilar( pc2 ) )
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                else if( m_columns[ i ] is ScriptColumn sc1 )
+                {
+                    if( other.m_columns[ i ] is ScriptColumn sc2 )
+                    {
+                        if( !sc1.LooksSimilar( sc2 ) )
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            // For the purposes of -Property stuff, we shouldn't need to care about other
+            // stuff. If any of these fire... somebody is using this method that probably
+            // shouldn't.
+            Util.Assert( null == GroupBy );
+            Util.Assert( null == ProduceGroupByHeader );
+
+            return true;
+        } // end LooksLikeExistingFromPropertyDefinition()
     } // end class AltTableViewDefinition
 }
 

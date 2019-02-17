@@ -12,6 +12,9 @@ namespace MS.Dbg.Formatting
     {
         string FormatCommand { get; }
         string Module { get; }
+
+        // This is ugly...
+        bool LooksLikeExistingFromPropertyDefinition( IFormatInfo other );
     }
 
 
