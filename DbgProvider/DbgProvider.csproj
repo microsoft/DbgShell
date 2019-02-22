@@ -101,6 +101,7 @@
     <Compile Include="internal\IActionQueue.cs" />
     <Compile Include="internal\Native\DbgHelp.cs" />
     <Compile Include="internal\Native\CV_HREG_e.cs" />
+    <Compile Include="internal\Native\WdbgExts.cs" />
     <Compile Include="internal\ObjectPool.cs" />
     <Compile Include="internal\PipelineCallback.cs" />
     <Compile Include="internal\PluginManager.cs" />

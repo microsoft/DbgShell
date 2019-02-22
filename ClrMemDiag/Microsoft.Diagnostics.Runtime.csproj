@@ -125,7 +125,6 @@
     <Compile Include="Debugger\IDebugSystemObjects2.cs" />
     <Compile Include="Debugger\IDebugSystemObjects3.cs" />
     <Compile Include="Debugger\Structs.cs" />
-    <Compile Include="Debugger\WdbgExts.cs" />
     <Compile Include="Desktop\com.cs" />
     <Compile Include="DacInterfaces.cs" />
     <Compile Include="Desktop\lockinspection.cs" />

@@ -4,13 +4,14 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Microsoft.Diagnostics.Runtime.Interop;
 
 #pragma warning disable 1591
 
-namespace Microsoft.Diagnostics.Runtime.Interop
+namespace Ms.Dbg
 {
 
-    public enum IoctlCode : ushort
+    internal enum IoctlCode : ushort
     {
         DumpSymbolInfo = 22,          // IG_DUMP_SYMBOL_INFO
     }
@@ -18,7 +19,7 @@ namespace Microsoft.Diagnostics.Runtime.Interop
 
     // Corresponds to DEBUG_DUMP_XXX defines.
     [Flags]
-    public enum DbgDump : uint
+    internal enum DbgDump : uint
     {
         NO_INDENT              = 0x00000001, // Fields are not indented if this is set
         NO_OFFSET              = 0x00000002, // Offsets are not printed if this is set
@@ -40,7 +41,7 @@ namespace Microsoft.Diagnostics.Runtime.Interop
 
 
 
-    public class WdbgExts
+    internal class WdbgExts
     {
         private IDebugControl6 m_debugControl;
 
@@ -184,7 +185,7 @@ namespace Microsoft.Diagnostics.Runtime.Interop
 
 
     [StructLayout( LayoutKind.Sequential )]
-    public class FIELD_INFO
+    internal class FIELD_INFO
     {
         [MarshalAs( UnmanagedType.LPStr )]
         public string       fName;          // Name of the field
@@ -216,11 +217,11 @@ namespace Microsoft.Diagnostics.Runtime.Interop
       //uint         Reserved:26;    // unused
     } // end class FIELD_INFO
 
-    public delegate int SYM_DUMP_FIELD_CALLBACK( FIELD_INFO pField, IntPtr userContext );
-    public delegate int IoctlDelegate( ushort IoctlType, IntPtr lpvData, uint cbSizeOfContext );
+    internal delegate int SYM_DUMP_FIELD_CALLBACK( FIELD_INFO pField, IntPtr userContext );
+    internal delegate int IoctlDelegate( ushort IoctlType, IntPtr lpvData, uint cbSizeOfContext );
 
     [StructLayout( LayoutKind.Sequential )]
-    public struct SYM_DUMP_PARAM
+    internal struct SYM_DUMP_PARAM
     {
         public uint                size;          // size of this struct
       // Need to declare as IntPtr so that we can pin this structure.
@@ -257,14 +258,14 @@ namespace Microsoft.Diagnostics.Runtime.Interop
     } // end struct SYM_DUMP_PARAM
 
 
-    public enum PointerFlag
+    internal enum PointerFlag
     {
         None = 0,
         Pointer = 1,
         Pointer64 = 3
     }
 
-    public class FieldInfo : IEquatable< FieldInfo >
+    internal class FieldInfo : IEquatable< FieldInfo >
     {
         public int Index { get; private set; }
         public string Name { get; private set; }
@@ -352,7 +353,7 @@ namespace Microsoft.Diagnostics.Runtime.Interop
     } // end class FieldInfo
 
 
-    public class SymDumpParam
+    internal class SymDumpParam
     {
         public string Name { get; private set; }
         public ulong Address { get; private set; }
