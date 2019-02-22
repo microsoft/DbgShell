@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Ms.Dbg;
 
 namespace MS.Dbg
 {
@@ -77,7 +78,7 @@ namespace MS.Dbg
             Size = size;
         } // end constructor
 
-        private static string _ValidateFieldInfoAndGetName( Microsoft.Diagnostics.Runtime.Interop.FieldInfo fieldInfo )
+        private static string _ValidateFieldInfoAndGetName( FieldInfo fieldInfo )
         {
             if( null == fieldInfo )
                 throw new ArgumentNullException( "fieldInfo" );
@@ -87,16 +88,16 @@ namespace MS.Dbg
 
         internal DbgFieldInfo( DbgEngDebugger debugger,
                                DbgTypeInfo owningType,
-                               Microsoft.Diagnostics.Runtime.Interop.FieldInfo fieldInfo,
+                               FieldInfo fieldInfo,
                                ulong modBase,
                                DbgUModeProcess process ) // TODO BUGBUG? There is no module base field in 'f'... is it not possible for a field to be of a type from some other module?
             : this( debugger,
                     owningType,
                     _ValidateFieldInfoAndGetName( fieldInfo ),
                     fieldInfo.FieldOffset,
-                    (fieldInfo.PointerFlag != Microsoft.Diagnostics.Runtime.Interop.PointerFlag.None) &&
-                        (fieldInfo.PointerFlag != Microsoft.Diagnostics.Runtime.Interop.PointerFlag.Pointer64),
-                    fieldInfo.PointerFlag.HasFlag( Microsoft.Diagnostics.Runtime.Interop.PointerFlag.Pointer64 ),
+                    (fieldInfo.PointerFlag != PointerFlag.None) &&
+                        (fieldInfo.PointerFlag != PointerFlag.Pointer64),
+                    fieldInfo.PointerFlag.HasFlag( PointerFlag.Pointer64 ),
                     fieldInfo.IsArray,
                     //fieldInfo.IsStruct,
                     fieldInfo.IsConstant,

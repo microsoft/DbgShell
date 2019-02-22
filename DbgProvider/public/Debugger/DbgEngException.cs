@@ -18,7 +18,7 @@ namespace MS.Dbg
 
         public DbgEngException( int hresult )
             : this( hresult,
-                    Util.Sprintf( "DbgEng API returned {0}.", Util.FormatErrorCode( hresult ) ) )
+                    Util.Sprintf( "DbgEng API returned {0}", Util.FormatErrorCode( hresult ) ) )
         {
         }
 

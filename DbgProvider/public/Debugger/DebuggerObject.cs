@@ -38,6 +38,7 @@ namespace MS.Dbg
         internal const int HR_STATUS_PORT_NOT_SET     = unchecked( (int) 0xd0000353 );
         internal const int HR_STATUS_NOT_SUPPORTED    = unchecked( (int) 0xd00000bb );
         internal const int HR_STATUS_NO_PAGEFILE      = unchecked( (int) 0xd0000147 );
+        internal const int HR_STATUS_NO_MORE_ENTRIES  = unchecked( (int) 0x9000001a );
 
         internal const ulong InvalidAddress = unchecked( (ulong) 0xffffffffffffffff ); // like DEBUG_INVALID_OFFSET
 

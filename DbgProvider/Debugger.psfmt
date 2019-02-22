@@ -18,7 +18,7 @@ Register-AltTypeFormatEntries {
     New-AltTypeFormatEntry -TypeName 'MS.Dbg.DbgSymbol' {
         New-AltTableViewDefinition -ShowIndex {
             New-AltColumns {
-                New-AltScriptColumn -Label 'Name' -Width 25 -Alignment Left -Script {
+                New-AltScriptColumn -Label 'Name' -Alignment Left -Script {
                     if( $_.get_IsValueUnavailable() )
                     {
                         # This 'dims' symbol names whose values aren't available.
@@ -1952,12 +1952,7 @@ Register-AltTypeFormatEntries {
             {
                 (New-ColorString -Content '   ' ).Append( $_.ToColorString() )
             }
-        } -GroupBy 'BlockId' -ProduceGroupByHeader {
-            # The input object is the output of the GroupBy evaluation that is
-            # new since the last one. In our case, it should be a ColorString
-            # (the BlockId), which we want to just use directly.
-            $_
-        } # end AltCustomViewDefinition
+        } -GroupBy 'BlockId' # end AltCustomViewDefinition
 
         New-AltListViewDefinition -ListItems {
             New-AltScriptListItem -Label 'Address' -Script {
@@ -1969,12 +1964,7 @@ Register-AltTypeFormatEntries {
             }
             New-AltPropertyListItem -PropertyName 'Arguments'
             New-AltPropertyListItem -PropertyName 'CodeBytes'
-        } -GroupBy 'BlockId' -ProduceGroupByHeader {
-            # The input object is the output of the GroupBy evaluation that is
-            # new since the last one. In our case, it should be a ColorString
-            # (the BlockId), which we want to just use directly.
-            $_
-        } # end List view
+        } -GroupBy 'BlockId' # end List view
 
         New-AltTableViewDefinition {
             # TODO: Add group-by capabilities to table views so that we can group by BlockId.
@@ -1987,12 +1977,7 @@ Register-AltTypeFormatEntries {
                 }
                 New-AltPropertyColumn -PropertyName 'Arguments' -Alignment Left
             } # End Columns
-        }  -GroupBy 'BlockId' -ProduceGroupByHeader {
-            # The input object is the output of the GroupBy evaluation that is
-            # new since the last one. In our case, it should be a ColorString
-            # (the BlockId), which we want to just use directly.
-            $_
-        } # end Table view
+        }  -GroupBy 'BlockId' # end Table view
     } # end Type MS.Dbg.DbgDisassembly
 
 

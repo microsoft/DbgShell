@@ -363,7 +363,7 @@ namespace MS.Dbg
                 switch( format )
                 {
                     case DbgMemoryDisplayFormat.AsciiOnly:
-                        return _FormatCharsOnly( numColumns, ( c ) =>
+                        return _FormatCharsOnly( numColumns, 1, ( c ) =>
                         {
                             if( (c >= 32) && (c < 127) )
                                 return c;
@@ -373,7 +373,7 @@ namespace MS.Dbg
                     case DbgMemoryDisplayFormat.Bytes:
                         return _FormatBlocks( 1, 3, numColumns, AddtlInfo.Ascii );
                     case DbgMemoryDisplayFormat.UnicodeOnly:
-                        return _FormatCharsOnly( numColumns, ( c ) =>
+                        return _FormatCharsOnly( numColumns, 2, ( c ) =>
                         {
                             // This seems somewhat arbitrary... what about surrogate
                             // pairs, for instance? Will the console ever be able to
@@ -612,7 +612,7 @@ namespace MS.Dbg
         } // end _FormatBlocks()
 
 
-        private ColorString _FormatCharsOnly( uint numColumns, Func< char, char > toDisplay )
+        private ColorString _FormatCharsOnly( uint numColumns, uint bytesPerChar, Func< char, char > toDisplay )
         {
             if( 0 == numColumns )
                 numColumns = 32; // documentation says it should be 48, but windbg seems to do 32 instead.
@@ -643,7 +643,7 @@ namespace MS.Dbg
                     }
 
                     cs.Append( DbgProvider.FormatAddress( addr, m_is32Bit, true, true ) ).Append( "  " );
-                    addr += (ulong) numColumns;
+                    addr += (ulong) numColumns * bytesPerChar;
                 } // end start of new line
 
                 // Widen to ulong to accommodate largest possible item.
