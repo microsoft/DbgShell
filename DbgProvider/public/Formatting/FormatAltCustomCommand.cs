@@ -11,19 +11,21 @@ namespace MS.Dbg.Formatting.Commands
         // context stored by m_view.Context, because we only want this context preserved
         // across a single invocation of Format-AltCustom, not every subsequent
         // invocation.
-        private PsContext m_preservedScriptContext;
+        private PSModuleInfo m_preservedScriptContext;
 
         protected override void ApplyViewToInputObject()
         {
-            string val;
-            using( var pch = new PsContextHelper( m_view.Script,
-                                                  m_view.Context + m_preservedScriptContext,
-                                                  m_view.PreserveScriptContext ) )
+            var script = m_view.Script;
+            if( m_view.PreserveScriptContext )
             {
-                val = RenderScriptValue( InputObject, pch.AdjustedScriptBlock, true, pch.WithContext );
-                if( m_view.PreserveScriptContext )
-                    m_preservedScriptContext += pch.SavedContext;
+                if( m_preservedScriptContext == null )
+                {
+                    m_preservedScriptContext = new PSModuleInfo( false );
+                }
+                script = m_preservedScriptContext.NewBoundScriptBlock( script );
             }
+
+            string val = RenderScriptValue( InputObject, script, true );
 
             if( null != val )
                 WriteObject( val );
@@ -36,12 +38,9 @@ namespace MS.Dbg.Formatting.Commands
         } // end ResetState()
 
 
-        protected override ScriptBlock GetCustomWriteGroupByGroupHeaderScript(
-            out PsContext context,
-            out bool preserveHeaderContext )
+        protected override ScriptBlock GetCustomWriteGroupByGroupHeaderScript( out bool preserveHeaderContext )
         {
             Util.Assert( null != m_view );
-            context = m_view.Context;
             preserveHeaderContext = m_view.PreserveHeaderContext;
             return m_view.ProduceGroupByHeader;
         }
@@ -60,8 +59,7 @@ namespace MS.Dbg.Formatting.Commands
             {
                 string val = RenderScriptValue( null,
                                                 m_view.End,
-                                                false,
-                                                m_view.Context + m_preservedScriptContext );
+                                                false );
 
                 if( null != val )
                     WriteObject( val );

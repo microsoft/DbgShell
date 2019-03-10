@@ -2004,7 +2004,7 @@ Register-AltTypeFormatEntries {
             else
             {
                 $null = $sb.Append( '              ' )
-                $null = $sb.Append( (Truncate $childItem.Name $nameColumnWidth $true) )
+                $null = $sb.Append( [MS.Dbg.ColorString]::Truncate($childItem.Name, $nameColumnWidth, $true) )
                 $summary = $null
                 try
                 {

@@ -47,11 +47,8 @@ namespace MS.Dbg.Formatting.Commands
         protected abstract void ResetState();
 
         // Allows customization of the GroupBy header used between different groups.
-        protected virtual ScriptBlock GetCustomWriteGroupByGroupHeaderScript(
-            out PsContext context,
-            out bool preserveHeaderContext )
+        protected virtual ScriptBlock GetCustomWriteGroupByGroupHeaderScript( out bool preserveHeaderContext )
         {
-            context = null;
             preserveHeaderContext = false;
             return null;
         }
@@ -98,6 +95,8 @@ namespace MS.Dbg.Formatting.Commands
                     throw new PSInvalidOperationException( "You cannot modify this value." );
                 }
             }
+
+            public override string ToString() => Value.ToString();
         } // end class PipeIndexPSVariable
 
 
@@ -112,14 +111,11 @@ namespace MS.Dbg.Formatting.Commands
         private bool m_warnedAboutNoSuchGroupByProperty;
 
 
-        protected PsContext m_groupByHeaderCtx;
+        protected PSModuleInfo m_groupByHeaderContext;
 
         private void _WriteGroupByGroupHeader( object newResult, bool isDefaultGroupBy )
         {
-            PsContext headerCtx;
-            bool preserveHeaderContext;
-            ScriptBlock customHeaderScript = GetCustomWriteGroupByGroupHeaderScript( out headerCtx,
-                                                                                     out preserveHeaderContext );
+            ScriptBlock customHeaderScript = GetCustomWriteGroupByGroupHeaderScript( out bool preserveHeaderContext );
             if( null != customHeaderScript )
             {
                 // ISSUE: Or maybe the group-by evaluation functions should return a
@@ -128,17 +124,16 @@ namespace MS.Dbg.Formatting.Commands
                 if( (null == pso) && (null != newResult) )
                     pso = new PSObject( newResult ); // you can't pass null to the PSObject constructor.
 
-                using( var pch = new PsContextHelper( customHeaderScript,
-                                                      headerCtx,
-                                                      preserveHeaderContext ) )
+
+                if( preserveHeaderContext )
                 {
-                    string val = RenderScriptValue( pso, pch.AdjustedScriptBlock, true, pch.WithContext );
-
-                    m_groupByHeaderCtx = pch.SavedContext;
-
-                    if( null != val )
-                        WriteObject( val );
+                    m_groupByHeaderContext = new PSModuleInfo( false );
                 }
+
+                string val = RenderScriptValue( pso, customHeaderScript, true );
+
+                if( null != val )
+                    WriteObject( val );
             }
             else if( isDefaultGroupBy )
             {   
@@ -205,50 +200,21 @@ namespace MS.Dbg.Formatting.Commands
         {
             var script = (ScriptBlock) GroupBy;
             Collection< PSObject > results = null;
-
-            // TODO: this is pretty awkward. These things should probably be split out
-            // into individual properties.
-            PsContext context;
-            bool dontCare;
-            var alsoDontCare = GetCustomWriteGroupByGroupHeaderScript( out context,
-                                                                       out dontCare );
-            if( null == context )
-                context = new PsContext();
-
-            context.Vars[ "_" ]      = new PSVariable( "_",      InputObject );
-            context.Vars[ "PSItem" ] = new PSVariable( "PSItem", InputObject );
-
+            
             try
             {
                 // Note that StrictMode will be enforced for value converters, because
                 // they execute in the scope of Debugger.Formatting.psm1, which sets
                 // StrictMode.
-                results = script.InvokeWithContext( context.Funcs, context.VarList );
+                var ctxVars = new List<PSVariable> { new PSVariable( "_", InputObject ), new PSVariable( "PSItem", InputObject ) };
+                results = script.InvokeWithContext( null, ctxVars );
             }
             catch( RuntimeException re )
             {
                 LogManager.Trace( "Ignoring error in _EvaluateScriptGroupBy: {0}",
                                   Util.GetExceptionMessages( re ) );
             }
-
-            // Let's not keep the input object rooted.
-            context.Vars.Remove( "_" );
-            context.Vars.Remove( "PSItem" );
-
-         // PowerShell shell;
-         // using( DbgProvider.LeaseShell( out shell ) )
-         // {
-         //     // Note that StrictMode will be enforced for value converters, because
-         //     // they execute in the scope of Debugger.Formatting.psm1, which sets
-         //     // StrictMode.
-         //     shell.AddScript( @"args[ 0 ].InvokeWithContext( $args[ 1 ].Funcs, $args[ 1 ].VarList )",
-         //                      true )
-         //          .AddArgument( script )
-         //          .AddArgument( context );
-
-         //     results = shell.Invoke();
-         // }
-
+            
             // I guess we don't care if errors were encountered, as long as it produced output?
 
             if( Stopping || (null == results) || (0 == results.Count) )
@@ -381,18 +347,10 @@ namespace MS.Dbg.Formatting.Commands
             {
                 if( -1 == __formatEnumerationLimit )
                 {
-                    var ss = this.SessionState;
-                    if( null == ss )
+                    object tmp = SessionState.PSVariable.GetValue( "FormatEnumerationLimit", 4 );
+                    if( tmp is int limit )
                     {
-                        // This can happen because of our FormatAltSingleLineDirect hack,
-                        // wherein we just construct a FormatAltSingleLineCommand object
-                        // on our own.
-                        ss = new SessionState();
-                    }
-                    object tmp = ss.PSVariable.GetValue( "FormatEnumerationLimit", 4 );
-                    if( tmp is int )
-                    {
-                        __formatEnumerationLimit = (int) tmp;
+                        __formatEnumerationLimit = limit;
                     }
                     else
                     {
@@ -421,7 +379,7 @@ namespace MS.Dbg.Formatting.Commands
             return ObjectToMarkedUpString( obj, formatString, null );
         }
 
-        protected StringBuilder ObjectToMarkedUpString( object obj, ColorString formatString, StringBuilder sb )
+        protected static StringBuilder ObjectToMarkedUpString( object obj, ColorString formatString, StringBuilder sb )
         {
             if( null == sb )
                 sb = new StringBuilder();
@@ -523,6 +481,16 @@ namespace MS.Dbg.Formatting.Commands
                                                          StringBuilder sb,
                                                          bool dontGroupMultipleResults )
         {
+            return ObjectsToMarkedUpString( objects, formatString, sb, dontGroupMultipleResults, _FormatEnumerationLimit );
+            
+        } // end ObjectsToMarkedUpString
+
+        protected static StringBuilder ObjectsToMarkedUpString( IEnumerable objects,
+                                                 ColorString formatString,
+                                                 StringBuilder sb,
+                                                 bool dontGroupMultipleResults,
+                                                 int enumerationLimit)
+        {
             if( null == sb )
                 sb = new StringBuilder();
 
@@ -543,7 +511,7 @@ namespace MS.Dbg.Formatting.Commands
                         if( 1 == count )
                             sb.Append( "{" );
 
-                        if( (count > 0) && (count > _FormatEnumerationLimit) )
+                        if( (count > 0) && (count > enumerationLimit) )
                         {
                             truncate = true;
                             break;
@@ -562,7 +530,7 @@ namespace MS.Dbg.Formatting.Commands
 
             if( count > 0 )
             {
-                if( truncate || (!dontGroupMultipleResults && (count > _FormatEnumerationLimit)) )
+                if( truncate || (!dontGroupMultipleResults && (count > enumerationLimit)) )
                     sb.Append( "..." );
                 else
                     ObjectToMarkedUpString( last, formatString, sb );
@@ -573,7 +541,6 @@ namespace MS.Dbg.Formatting.Commands
 
             return sb;
         } // end ObjectsToMarkedUpString
-
 
         protected static string PadAndAlign( string s,
                                              int width,
@@ -724,74 +691,50 @@ namespace MS.Dbg.Formatting.Commands
         /// </summary>
         protected string RenderScriptValue( PSObject inputObject, ScriptBlock script )
         {
-            return RenderScriptValue( inputObject, script, null );
+            return RenderScriptValue( inputObject, script, false );
         }
-
-        /// <summary>
-        ///    Returns null if the script returned no results.
-        /// </summary>
-        protected string RenderScriptValue( PSObject inputObject,
-                                            ScriptBlock script,
-                                            PsContext context )
-        {
-            return RenderScriptValue( inputObject, script, false, context );
-        }
-
+        
 
 #if DEBUG
         [ThreadStatic]
-        private static int sm_renderScriptCallDepth;
+        protected static int sm_renderScriptCallDepth;
 #endif
+
+        private static readonly ScriptBlock sm_pipeIndexScript = ScriptBlock.Create( "$PipeOutputIndex = $args[0]" );
 
         protected string RenderScriptValue( PSObject inputObject,
                                             ScriptBlock script,
                                             bool dontGroupMultipleResults )
         {
-            return RenderScriptValue( inputObject, script, dontGroupMultipleResults, null );
-        }
-
-
-        protected string RenderScriptValue( PSObject inputObject,
-                                            ScriptBlock script,
-                                            bool dontGroupMultipleResults,
-                                            PsContext context )
-        {
             // Let the script also use context created by the custom header script (if any).
-            context = context + m_groupByHeaderCtx;
-            Collection< PSObject > results = null;
-
-            if( null == context )
-                context = new PsContext();
+            if( m_groupByHeaderContext != null )
+            {
+                script = m_groupByHeaderContext.NewBoundScriptBlock( script );
+            }
 
             if( null == m_pipeIndexPSVar )
                 m_pipeIndexPSVar = new PipeIndexPSVariable( this );
 
-            context.Vars[ "_" ]      = new PSVariable( "_",      inputObject );
-            context.Vars[ "PSItem" ] = new PSVariable( "PSItem", inputObject );
-            context.Vars[ "PipeOutputIndex" ] = m_pipeIndexPSVar;
-
-            PowerShell shell;
-            using( DbgProvider.LeaseShell( out shell ) )
-            {
 #if DEBUG
-                sm_renderScriptCallDepth++;
-                if( sm_renderScriptCallDepth > 10 )
-                {
-                    // Helps to catch runaway rendering /before/ gobbling tons of memory
-                    System.Diagnostics.Debugger.Break();
-                    // Maybe I should just throw?
-                }
+            sm_renderScriptCallDepth++;
+            if( sm_renderScriptCallDepth > 10 )
+            {
+                // Helps to catch runaway rendering /before/ gobbling tons of memory
+                System.Diagnostics.Debugger.Break();
+                // Maybe I should just throw?
+            }
 #endif
 
+
+            using( DbgProvider.LeaseShell( out PowerShell shell ) )
+            {
                 //
-                // This code is a lot nicer-looking. But the problem with it is that non-
-                // terminating errors get squelched (there's no way for us to get them),
-                // and I'd prefer that no errors get hidden. Strangely, non-terminating
-                // errors do NOT get squelched when calling script.InvokeWithContext
-                // directly in InvokeScriptCommand.InvokeWithContext. I don't know what is
-                // making the difference. I thought it might have something to do with the
-                // SessionState attached to the ScriptBlock, but I couldn't demonstrate
-                // that.
+                // script.InvokeWithContext is a lot nicer-looking. But the problem with
+                // it is that non-terminating errors don't go to the output or an easily
+                // checked buffer, and I'd prefer that no errors get hidden. Strangely,
+                // calling script.InvokeWithContext directly in
+                // InvokeScriptCommand.InvokeWithContext does send the errors down the
+                // pipeline to be displayed. I don't know what is making the difference. 
                 //
                 // Things to try with both methods:
                 //
@@ -808,30 +751,25 @@ namespace MS.Dbg.Formatting.Commands
                 //      Register-AltTypeFormatEntries { New-AltTypeFormatEntry -TypeName 'System.Int32' { New-AltCustomViewDefinition { "It's an int: $_" ; Write-Error "this is non-terminating" ; "done" } } }
                 //      42
                 //
-            //  try
-            //  {
-            //      // Note that StrictMode will be enforced for value converters, because
-            //      // they execute in the scope of Debugger.Formatting.psm1, which sets
-            //      // StrictMode.
-            //      results = script.InvokeWithContext( context.Funcs, context.VarList );
-            //  }
-            //  catch( RuntimeException e )
-            //  {
-            //      return new ColorString( ConsoleColor.Red,
-            //                              Util.Sprintf( "<Error: {0}>", e ) )
-            //                  .ToString( DbgProvider.HostSupportsColor );
-            //  }
+                Collection< PSObject > results;
+                
+                try
+                {
+                    // Note that StrictMode will be enforced for value converters, because
+                    // they execute in the scope of Debugger.Formatting.psm1, which sets
+                    // StrictMode.
+                    InvokeCommand.InvokeScript(false, sm_pipeIndexScript, null, m_pipeIndexPSVar);
+                    var info = InvokeCommand.GetCmdlet( "ForEach-Object" );
+                    shell.AddCommand( info ).AddParameter( "Process", script );
+                    results = shell.Invoke( new[] { inputObject } );
+                }
+                catch( RuntimeException e )
+                {
+                    return new ColorString( ConsoleColor.Red,
+                                            Util.Sprintf( "<Error: {0}>", e ) )
+                        .ToString( DbgProvider.HostSupportsColor );
+                }
 
-                shell.AddScript( @"$args[ 0 ].InvokeWithContext( $args[ 1 ].Funcs, $args[ 1 ].VarList )",
-                                 true )
-                     .AddArgument( script )
-                     .AddArgument( context );
-
-                results = shell.Invoke();
-
-                // Let's not keep the input object rooted.
-                context.Vars.Remove( "_" );
-                context.Vars.Remove( "PSItem" );
 #if DEBUG
                 sm_renderScriptCallDepth--;
 #endif
@@ -874,7 +812,7 @@ namespace MS.Dbg.Formatting.Commands
         } // end RenderScriptValue()
 
 
-        protected object FormatSingleLine( object obj )
+        protected static object FormatSingleLine( object obj )
         {
             return FormatAltSingleLineCommand.FormatSingleLineDirect( obj );
 

@@ -133,10 +133,8 @@ namespace MS.Dbg.Formatting
 
     public class ScriptColumn : Column
     {
-        private string m_label;
-        public override string Label { get { return m_label; } }
-        public ScriptBlock Script { get; private set; }
-        internal readonly PsContext Context;
+        public override string Label { get; }
+        public ScriptBlock Script { get; }
 
         public ScriptColumn( string label,
                              ScriptBlock script,
@@ -161,29 +159,13 @@ namespace MS.Dbg.Formatting
                              int width,
                              string tag,
                              TrimLocation trimLocation )
-            : this( label, script, alignment, width, tag, trimLocation, false )
-        {
-        }
-
-        public ScriptColumn( string label,
-                             ScriptBlock script,
-                             ColumnAlignment alignment,
-                             int width,
-                             string tag,
-                             TrimLocation trimLocation,
-                             bool captureContext )
             : base( alignment, width, tag, trimLocation )
         {
             if( String.IsNullOrEmpty( label ) )
-                throw new ArgumentException( "You must supply a column label.", "label" );
+                throw new ArgumentException( "You must supply a column label.", nameof(label) );
 
-            if( null == script )
-                throw new ArgumentNullException( "script" );
-
-            m_label = label;
-            Script = script;
-            if( captureContext )
-                Context = DbgProvider.CapturePsContext();
+            Label = label;
+            Script = script ?? throw new ArgumentNullException( nameof(script) );
         } // end constructor
     } // end class ScriptColumn
 
@@ -192,17 +174,11 @@ namespace MS.Dbg.Formatting
     {
         public readonly ColumnAlignment Alignment;
         public readonly ScriptBlock Script;
-        internal readonly PsContext Context;
 
-        public Footer( ColumnAlignment alignment, ScriptBlock script, bool captureContext )
+        public Footer( ColumnAlignment alignment, ScriptBlock script )
         {
-            if( null == script )
-                throw new ArgumentNullException( "script" );
-
             Alignment = alignment;
-            Script = script;
-            if( captureContext )
-                Context = DbgProvider.CapturePsContext();
+            Script = script ?? throw new ArgumentNullException( nameof(script) );
         }
     } // end class Footer
 
@@ -225,8 +201,6 @@ namespace MS.Dbg.Formatting
         private IReadOnlyList< Column > m_roColumns;
         private List< Column > m_autoSizeColumns;
         private int m_lastUsedBufferWidth;
-
-        internal readonly PsContext Context;
 
         private void _ResetWidthCalculations()
         {
@@ -433,7 +407,6 @@ namespace MS.Dbg.Formatting
                                                Footer,
                                                produceGroupByHeader,
                                                groupBy,
-                                               Context,
                                                PreserveHeaderContext );
         }
 
@@ -456,22 +429,6 @@ namespace MS.Dbg.Formatting
                                        ScriptBlock produceGroupByHeader,
                                        object groupBy )
             : this( showIndex, columns, footer, produceGroupByHeader, groupBy, false )
-        {
-        }
-
-        public AltTableViewDefinition( bool showIndex,
-                                       IReadOnlyList< Column > columns,
-                                       Footer footer,
-                                       ScriptBlock produceGroupByHeader,
-                                       object groupBy,
-                                       bool captureContext )
-            : this( showIndex,
-                    columns,
-                    footer,
-                    produceGroupByHeader,
-                    groupBy,
-                    captureContext,
-                    false )
         {
         }
 
@@ -519,13 +476,11 @@ namespace MS.Dbg.Formatting
                                        Footer footer,
                                        ScriptBlock produceGroupByHeader,
                                        object groupBy,
-                                       bool captureContext,
                                        bool preserveHeaderContext )
             : this( _ProduceColumns( showIndex, columns ),
                     footer,
                     produceGroupByHeader,
                     groupBy,
-                    captureContext ? DbgProvider.CapturePsContext() : null,
                     preserveHeaderContext )
         {
         } // end constructor
@@ -538,7 +493,6 @@ namespace MS.Dbg.Formatting
                                          Footer footer,
                                          ScriptBlock produceGroupByHeader,
                                          object groupBy,
-                                         PsContext context,
                                          bool preserveHeaderContext )
         {
             m_columns = columns;
@@ -546,7 +500,6 @@ namespace MS.Dbg.Formatting
             Footer = footer;
             ProduceGroupByHeader = produceGroupByHeader;
             GroupBy = groupBy;
-            Context = context;
             PreserveHeaderContext = preserveHeaderContext;
         } // end constructor
     } // end class AltTableViewDefinition
