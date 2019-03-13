@@ -21,6 +21,7 @@ namespace MS.Dbg.Formatting.Commands
                 if( m_preservedScriptContext == null )
                 {
                     m_preservedScriptContext = new PSModuleInfo( false );
+                    m_preservedScriptContext.Invoke( sm_importModuleScript, script.Module );
                 }
                 script = m_preservedScriptContext.NewBoundScriptBlock( script );
             }

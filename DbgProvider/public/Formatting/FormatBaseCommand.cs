@@ -110,6 +110,7 @@ namespace MS.Dbg.Formatting.Commands
 
 
         protected PSModuleInfo m_groupByHeaderContext;
+        protected static readonly ScriptBlock sm_importModuleScript = ScriptBlock.Create( "Import-Module $args[0] -DisableNameChecking" );
 
         private void _WriteGroupByGroupHeader( object newResult, bool isDefaultGroupBy )
         {
@@ -126,6 +127,7 @@ namespace MS.Dbg.Formatting.Commands
                 if( preserveHeaderContext )
                 {
                     m_groupByHeaderContext = new PSModuleInfo( false );
+                    m_groupByHeaderContext.Invoke( sm_importModuleScript, customHeaderScript.Module );
                 }
 
                 string val = RenderScriptValue( pso, customHeaderScript, true );

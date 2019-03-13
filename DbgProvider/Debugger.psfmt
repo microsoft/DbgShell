@@ -2004,7 +2004,7 @@ Register-AltTypeFormatEntries {
             else
             {
                 $null = $sb.Append( '              ' )
-                $null = $sb.Append( [MS.Dbg.ColorString]::Truncate($childItem.Name, $nameColumnWidth, $true) )
+                $null = $sb.Append( (Truncate $childItem.Name $nameColumnWidth $true) )
                 $summary = $null
                 try
                 {
@@ -2033,7 +2033,7 @@ Register-AltTypeFormatEntries {
                 }
             } # end else( it's not a container )
             $sb.ToString()
-        } -GroupBy 'PSParentPath' -ProduceGroupByHeader {
+        } -GroupBy 'PSParentPath' -ProduceGroupByHeader $fmtFunctions.NewBoundScriptBlock({
             # The input object is the output of the GroupBy evaluation that is
             # new since the last one. In our case, it's the PSParentPath.
 
@@ -2076,7 +2076,7 @@ Register-AltTypeFormatEntries {
             #[console]::WriteLine( "nameColumnWidth: $nameColumnWidth" )
             [int] $summaryColumnWidth = $Host.UI.RawUI.BufferSize.Width - $nameColumnWidth - 17 - 1
             #[console]::WriteLine( "summaryColumnWidth: $summaryColumnWidth" )
-        } -PreserveHeaderContext # end AltCustomViewDefinition
+        }) -PreserveHeaderContext # end AltCustomViewDefinition
     } # end Type MS.Dbg.Dbg[Container|Item]
 
 
