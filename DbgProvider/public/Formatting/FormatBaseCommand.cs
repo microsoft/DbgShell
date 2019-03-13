@@ -95,8 +95,6 @@ namespace MS.Dbg.Formatting.Commands
                     throw new PSInvalidOperationException( "You cannot modify this value." );
                 }
             }
-
-            public override string ToString() => Value.ToString();
         } // end class PipeIndexPSVariable
 
 
@@ -758,13 +756,17 @@ namespace MS.Dbg.Formatting.Commands
                     // Note that StrictMode will be enforced for value converters, because
                     // they execute in the scope of Debugger.Formatting.psm1, which sets
                     // StrictMode.
-                    InvokeCommand.InvokeScript(false, sm_pipeIndexScript, null, m_pipeIndexPSVar);
+                    // TODO: if we go this route, we don't need the PipeIndexPSVariable
+                    // type at all.
+                    InvokeCommand.InvokeScript(false, sm_pipeIndexScript, null, m_pipeIndexPSVar.Value);
                     var info = InvokeCommand.GetCmdlet( "ForEach-Object" );
                     shell.AddCommand( info ).AddParameter( "Process", script );
                     results = shell.Invoke( new[] { inputObject } );
                 }
                 catch( RuntimeException e )
                 {
+                    AddToError( Util.FixErrorRecord( e.ErrorRecord, e ) );
+
                     return new ColorString( ConsoleColor.Red,
                                             Util.Sprintf( "<Error: {0}>", e ) )
                         .ToString( DbgProvider.HostSupportsColor );
@@ -783,6 +785,11 @@ namespace MS.Dbg.Formatting.Commands
                 //if( shell.HadErrors )
                 if( shell.Streams.Error.Count > 0 )
                 {
+                    // Make the errors available for inspection:
+                    foreach( var er in shell.Streams.Error )
+                    {
+                        AddToError( er );
+                    }
                     if( 1 == shell.Streams.Error.Count )
                     {
                         return new ColorString( ConsoleColor.Red,
