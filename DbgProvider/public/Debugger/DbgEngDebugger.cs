@@ -30,17 +30,26 @@ namespace MS.Dbg
             {
                 if( null == g_Debugger )
                 {
-                    g_Debugger = DbgEngThread.Singleton.Execute( () =>
+                    DbgEngThread.Singleton.Execute( () =>
                         {
-                            WDebugClient dc;
-                            StaticCheckHr( WDebugClient.DebugCreate( out dc ) );
-                            return new DbgEngDebugger( dc, DbgEngThread.Singleton );
+                            if( null == g_Debugger )
+                            {
+                                StaticCheckHr( WDebugClient.DebugCreate( out WDebugClient dc ) );
+                                g_Debugger = new DbgEngDebugger( dc, DbgEngThread.Singleton );
+                            }
                         } );
                 }
                 return g_Debugger;
             }
         } // end property _GlobalDebugger
 
+        public static void StartPreloadDbgEng()
+        {
+            DbgEngThread.Singleton.QueueAction( () =>
+                {
+                    var _ = _GlobalDebugger;
+                } );
+        }
 
         /// <summary>
         ///    Gets a DbgEngDebugger object.
