@@ -1179,9 +1179,11 @@ namespace MS.DbgShell
                         }
                         else
                         {
-                            // The CLR seems to be overly reluctant to save our startup profile to disk... so it never does.
-                            // Starting a new profile, however, implicitly causes the existing profile to be written out.
-                            System.Runtime.ProfileOptimization.StartProfile( "PromptProfileData" );
+                            // We've had reports that sometimes the CLR does not save our
+                            // startup profile to disk. Starting another profile now,
+                            // however, implicitly causes the existing one to be written
+                            // out, so we can use that to hedge.
+                            System.Runtime.ProfileOptimization.StartProfile( "FromFirstPromptProfileData" );
                             ExitCode = 0;
                             inputLoop.Run();
                         }
