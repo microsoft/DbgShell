@@ -77,6 +77,9 @@ namespace MS.Dbg.Commands
             }
 
             Debugger = DbgEngDebugger.NewDebugger();
+
+            CheckCanAddNewTargetType( DbgEngDebugger.TargetType.UmDump );
+
             using( Debugger.SetCurrentCmdlet( this ) )
             {
                 Debugger.LoadCrashDump( dumpFileResolved, TargetName );
