@@ -77,6 +77,8 @@ namespace MS.Dbg.Commands
 
             Debugger = DbgEngDebugger.NewDebugger();
 
+            CheckCanAddNewTargetType( DbgEngDebugger.TargetType.UmLive );
+
             using( Debugger.SetCurrentCmdlet( this ) )
             {
                 Debugger.AttachToProcess( Id,

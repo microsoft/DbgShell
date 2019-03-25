@@ -292,6 +292,28 @@ namespace MS.Dbg.Commands
                 return 0;
             }
         } // end class DebugInputCallbacks
+
+
+        /*protected*/ internal void CheckCanAddNewTargetType( DbgEngDebugger.TargetType newTargetType )
+        {
+            bool? canAddTargetType = Debugger.CanAddTargetType( newTargetType );
+
+            if( canAddTargetType == false )
+            {
+                throw new DbgProviderException(
+                    Util.Sprintf( "DbgEng does not support adding this type of target ({0}) to the set of existing targets ({1}).",
+                                  newTargetType,
+                                  Debugger.GetCurrentTargetTypes() ),
+                    "TargetTypeCombinationNotSupported",
+                    ErrorCategory.InvalidOperation );
+            }
+            else if( canAddTargetType == null )
+            {
+                SafeWriteWarning( "This combination of targets ({0} + {1}) has not been tested. Does it work?",
+                                  Debugger.GetCurrentTargetTypes(),
+                                  newTargetType );
+            }
+        }
     } // end class ExecutionBaseCommand
 
 }
