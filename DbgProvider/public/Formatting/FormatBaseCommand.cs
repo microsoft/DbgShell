@@ -61,47 +61,9 @@ namespace MS.Dbg.Formatting.Commands
         }
 
 
-        private class PipeIndexPSVariable : PSVariable
-        {
-            internal const string c_PipeOutputIndexName = "PipeOutputIndex";
-
-            private FormatBaseCommand m_fbc;
-            public PipeIndexPSVariable( FormatBaseCommand fbc )
-                : base( c_PipeOutputIndexName )
-            {
-                m_fbc = fbc;
-            }
-
-            public override object Value
-            {
-                get
-                {
-                    return m_fbc.m_pipeIndex;
-                }
-                set
-                {
-                    throw new PSInvalidOperationException( "You cannot modify this value." );
-                }
-            }
-
-            public override ScopedItemOptions Options
-            {
-                get
-                {
-                    return ScopedItemOptions.ReadOnly;
-                }
-                set
-                {
-                    throw new PSInvalidOperationException( "You cannot modify this value." );
-                }
-            }
-        } // end class PipeIndexPSVariable
-
-
         private static readonly ColorString sm_PropNotFoundFmt =
             new ColorString( ConsoleColor.Red, "<property not found: {0}>" ).MakeReadOnly();
 
-        private PipeIndexPSVariable m_pipeIndexPSVar;
         private int m_pipeIndex = -1;
         private object m_lastGroupResult;
         private string m_groupByLabel;
@@ -712,9 +674,6 @@ namespace MS.Dbg.Formatting.Commands
                 script = m_preservedScriptContext.NewBoundScriptBlock( script );
             }
 
-            if( null == m_pipeIndexPSVar )
-                m_pipeIndexPSVar = new PipeIndexPSVariable( this );
-
 #if DEBUG
             sm_renderScriptCallDepth++;
             if( sm_renderScriptCallDepth > 10 )
@@ -758,15 +717,14 @@ namespace MS.Dbg.Formatting.Commands
                     // Note that StrictMode will be enforced for value converters, because
                     // they execute in the scope of Debugger.Formatting.psm1, which sets
                     // StrictMode.
-                    // TODO: if we go this route, we don't need the PipeIndexPSVariable
-                    // type at all.
-                    InvokeCommand.InvokeScript(false, sm_pipeIndexScript, null, m_pipeIndexPSVar.Value);
+                    InvokeCommand.InvokeScript(false, sm_pipeIndexScript, null, m_pipeIndex);
                     var info = InvokeCommand.GetCmdlet( "ForEach-Object" );
                     shell.AddCommand( info ).AddParameter( "Process", script );
                     results = shell.Invoke( new[] { inputObject } );
                 }
                 catch( RuntimeException e )
                 {
+                    // Make the error available for inspection:
                     AddToError( Util.FixErrorRecord( e.ErrorRecord, e ) );
 
                     return new ColorString( ConsoleColor.Red,
@@ -787,11 +745,9 @@ namespace MS.Dbg.Formatting.Commands
                 //if( shell.HadErrors )
                 if( shell.Streams.Error.Count > 0 )
                 {
-                    // Make the errors available for inspection:
-                    foreach( var er in shell.Streams.Error )
-                    {
-                        AddToError( er );
-                    }
+                    // (don't need to call AddToError explicitly; they will already be
+                    // available in $error)
+
                     if( 1 == shell.Streams.Error.Count )
                     {
                         return new ColorString( ConsoleColor.Red,
