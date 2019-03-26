@@ -5104,15 +5104,15 @@ namespace MS.Dbg
 
         public void DiscardCachedModuleInfo()
         {
-            _DiscardCachedModuleInfo( alsoDiscardBlogalUserCache: false );
+            _DiscardCachedModuleInfo( alsoDiscardLocalUserCache: false );
         }
 
-        private void _DiscardCachedModuleInfo( bool alsoDiscardBlogalUserCache )
+        private void _DiscardCachedModuleInfo( bool alsoDiscardLocalUserCache )
         {
             foreach( var target in m_targets.Values )
             {
                 target.DiscardCachedModuleInfo();
-                if( alsoDiscardBlogalUserCache )
+                if( alsoDiscardLocalUserCache )
                 {
                     target.DiscardUserCacheForModule( 0 );
                 }
@@ -5123,7 +5123,7 @@ namespace MS.Dbg
         {
             if( modBase == 0 )
             {
-                _DiscardCachedModuleInfo( alsoDiscardBlogalUserCache: true );
+                _DiscardCachedModuleInfo( alsoDiscardLocalUserCache: true );
                 return;
             }
             foreach( var target in m_targets.Values )
