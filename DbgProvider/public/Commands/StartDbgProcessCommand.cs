@@ -74,8 +74,6 @@ namespace MS.Dbg.Commands
 
         protected override void ProcessRecord()
         {
-            //LogManager.Trace( "Connecting to process 0x{0:x} ({1}).", Id, TargetName );
-
             if( String.IsNullOrEmpty( TargetName ) )
             {
                 TargetName = Util.Sprintf("{0} ({1})",
@@ -93,6 +91,8 @@ namespace MS.Dbg.Commands
             }
 
             Debugger = DbgEngDebugger.NewDebugger();
+
+            CheckCanAddNewTargetType( DbgEngDebugger.TargetType.UmLive );
 
             using( Debugger.SetCurrentCmdlet( this ) )
             {

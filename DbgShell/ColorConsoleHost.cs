@@ -1179,6 +1179,11 @@ namespace MS.DbgShell
                         }
                         else
                         {
+                            // We've had reports that sometimes the CLR does not save our
+                            // startup profile to disk. Starting another profile now,
+                            // however, implicitly causes the existing one to be written
+                            // out, so we can use that to hedge.
+                            System.Runtime.ProfileOptimization.StartProfile( "FromFirstPromptProfileData" );
                             ExitCode = 0;
                             inputLoop.Run();
                         }
@@ -1265,6 +1270,7 @@ namespace MS.DbgShell
                                                 bool oneShot,
                                                 PowerShell shell )
         {
+            DbgEngDebugger.StartPreloadDbgEng();
             DbgProvider.HostSupportsColor = true;
             m_runspace.SessionStateProxy.PSVariable.Set( DbgProvider.GetHostSupportsColorPSVar() );
 

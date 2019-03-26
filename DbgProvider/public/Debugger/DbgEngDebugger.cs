@@ -30,17 +30,26 @@ namespace MS.Dbg
             {
                 if( null == g_Debugger )
                 {
-                    g_Debugger = DbgEngThread.Singleton.Execute( () =>
+                    DbgEngThread.Singleton.Execute( () =>
                         {
-                            WDebugClient dc;
-                            StaticCheckHr( WDebugClient.DebugCreate( out dc ) );
-                            return new DbgEngDebugger( dc, DbgEngThread.Singleton );
+                            if( null == g_Debugger )
+                            {
+                                StaticCheckHr( WDebugClient.DebugCreate( out WDebugClient dc ) );
+                                g_Debugger = new DbgEngDebugger( dc, DbgEngThread.Singleton );
+                            }
                         } );
                 }
                 return g_Debugger;
             }
         } // end property _GlobalDebugger
 
+        public static void StartPreloadDbgEng()
+        {
+            DbgEngThread.Singleton.QueueAction( () =>
+                {
+                    var _ = _GlobalDebugger;
+                } );
+        }
 
         /// <summary>
         ///    Gets a DbgEngDebugger object.
@@ -4903,6 +4912,57 @@ namespace MS.Dbg
                 return m_targets.Values.ToList().AsReadOnly();
             }
         } // end property Processes
+
+
+        [Flags]
+        internal enum TargetType
+        {
+            None    =    0,
+            UmLive  = 0x01,
+            UmDump  = 0x02,
+            KmLive  = 0x04,
+            KmDump  = 0x08,
+            Any     = 0x0f,
+        }
+
+        internal TargetType GetCurrentTargetTypes()
+        {
+            TargetType result = TargetType.None;
+
+            foreach( var target in m_targets.Values )
+            {
+                if( !target.IsKernel &&  target.IsLive ) result |= TargetType.UmLive;
+                if( !target.IsKernel && !target.IsLive ) result |= TargetType.UmDump;
+                if(  target.IsKernel &&  target.IsLive ) result |= TargetType.KmLive;
+                if(  target.IsKernel && !target.IsLive ) result |= TargetType.KmDump;
+            }
+            return result;
+        }
+
+        private static readonly bool? Yes   = true;
+        private static readonly bool? No    = false;
+        private static readonly bool? Maybe = null;
+
+        static readonly bool?[] s_validTargetCombinations = new bool?[]
+        // 00   01   02   03    04   05     06     07       08   09     0a     0b       0c     0d       0e       0f
+        // --   UL   UD   UL+UD KL   KL+UL  KL+UD  KL+UD+UL KD   KD+UL  KD+UD  KD+UD+UL KD+KL  KD+KL+UL KD+KL+UD KD+KL+UD+UL
+        {  Yes, Yes, Yes, No,   Yes, Maybe, Maybe, No,      Yes, Maybe, Maybe, No,      Maybe, Maybe,   No,      No, };
+        // All the "Maybes" are probably "Nos", but we can at least try them out.
+
+        /// <summary>
+        /// Returns true to mean "yes"; false for "no", and null for "maybe" ("don't know; haven't tried it").
+        /// </summary>
+        internal bool? CanAddTargetType( TargetType newTargetType )
+        {
+            TargetType targets = GetCurrentTargetTypes();
+
+            Util.Assert( s_validTargetCombinations[ (int) targets ] != false );
+
+            targets |= newTargetType;
+
+            return s_validTargetCombinations[ (int) targets ];
+        }
+
 
         public void ForceRebuildProcessTree()
         {
