@@ -29,6 +29,7 @@ namespace MS.Dbg
         public const int WAIT_TIMEOUT = 258;
 
         public const int ERROR_INVALID_DATA = 13;
+        public const int ERROR_INVALID_PARAMETER = 87;
         public const int ERROR_INSUFFICIENT_BUFFER = 122;
         public const int ERROR_ALREADY_EXISTS = 183;
         public const int ERROR_MORE_DATA = 234;
