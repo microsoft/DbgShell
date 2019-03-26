@@ -151,6 +151,16 @@ namespace MS.Dbg
         [DefaultDllImportSearchPaths( DllImportSearchPath.LegacyBehavior )]
         [DllImport( "dbghelp.dll",
                     SetLastError = true,
+                    CharSet = CharSet.Unicode,
+                    EntryPoint = "SymGetModuleInfoW64" )]
+        [return: MarshalAs( UnmanagedType.Bool )]
+        internal static unsafe extern bool SymGetModuleInfo64( IntPtr hProcess,
+                                                               ulong address,
+                                                               IMAGEHLP_MODULEW64* pModInfo );
+
+        [DefaultDllImportSearchPaths( DllImportSearchPath.LegacyBehavior )]
+        [DllImport( "dbghelp.dll",
+                    SetLastError = true,
                     CharSet = CharSet.Unicode )]
         [return: MarshalAs( UnmanagedType.Bool )]
         internal static extern bool SymGetTypeInfoEx( IntPtr hProcess,
@@ -3305,6 +3315,14 @@ namespace MS.Dbg
                 }
                 else
                 {
+                    if( err == NativeMethods.ERROR_INVALID_PARAMETER )
+                    {
+                        // A common reason for this is that we don't have symbols loaded.
+                        // Unfortunately I don't have a good general way to check for
+                        // that right here; we'd need to plumb through more data (namely
+                        // what module we are operating against).
+                    }
+
                     var e = new DbgEngException( err );
                     try { throw e; }
                     catch( Exception ) { }  // give it a stack
@@ -3747,6 +3765,53 @@ namespace MS.Dbg
             return 0;
         }
     } // end class DbgHelp
+
+
+    // TODO: Rationalize with DEBUG_SYMTYPE in ClrMd?
+    internal enum SYM_TYPE : uint
+    {
+        None     = 0,
+        Coff     = 1,
+        Cv       = 2,
+        Pdb      = 3,
+        Export   = 4,
+        Deferred = 5,
+        Sym      = 6,
+        Dia      = 7,
+        Virtual  = 8,
+    }
+
+    // TODO: Rationalize with IMAGEHLP_MODULE64 in ClrMd
+    [StructLayout( LayoutKind.Sequential )]
+    internal unsafe struct IMAGEHLP_MODULEW64
+    {
+        public         uint SizeOfStruct;           // set to sizeof(IMAGEHLP_MODULE64)
+        public        ulong BaseOfImage;            // base load address of module
+        public         uint ImageSize;              // virtual size of the loaded module
+        public         uint TimeDateStamp;          // date/time stamp from pe header
+        public         uint CheckSum;               // checksum from the pe header
+        public         uint NumSyms;                // number of symbols in the symbol table
+        public     SYM_TYPE SymType;                // type of symbols loaded
+        public fixed ushort ModuleName[ 32 ];       // module name
+        public fixed ushort ImageName[ 256 ];       // image name
+        public fixed ushort LoadedImageName[ 256 ]; // symbol file name
+        public fixed ushort LoadedPdbName[ 256 ];   // pdb file name
+        public         uint CVSig;                  // Signature of the CV record in the debug directories
+        public fixed ushort CVData[ /*MAX_PATH*/ 260 * 3 ]; // Contents of the CV record
+        public         uint PdbSig;                 // Signature of PDB
+        //public        Guid PdbSig70;               // Signature of PDB (VC 7 and up)
+        public   fixed byte PdbSig70[ 16 ];         // Signature of PDB (VC 7 and up)
+        public         uint PdbAge;                 // DBI age of pdb
+        public /*BOOL*/ int PdbUnmatched;           // loaded an unmatched pdb
+        public /*BOOL*/ int DbgUnmatched;           // loaded an unmatched dbg
+        public /*BOOL*/ int LineNumbers;            // we have line number information
+        public /*BOOL*/ int GlobalSymbols;          // we have internal symbol information
+        public /*BOOL*/ int TypeInfo;               // we have type information
+        public /*BOOL*/ int SourceIndexed;          // pdb supports source server
+        public /*BOOL*/ int Publics;                // contains public symbols
+        public         uint MachineType;            // IMAGE_FILE_MACHINE_XXX from ntimage.h and winnt.h
+        public         uint Reserved;               // Padding - don't remove.
+    } // end struct IMAGEHLP_MODULEW64
 
 
     //internal enum IMAGEHLP_SYMBOL_TYPE_INFO : uint
