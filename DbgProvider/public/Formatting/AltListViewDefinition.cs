@@ -55,22 +55,13 @@ namespace MS.Dbg.Formatting
         public override string Label { get { return m_label; } }
         public ScriptBlock Script { get; private set; }
 
-        internal readonly PsContext Context;
-
-        public ScriptListItem( string label, ScriptBlock script, bool captureContext )
+        public ScriptListItem( string label, ScriptBlock script )
         {
             if( String.IsNullOrEmpty( label ) )
-                throw new ArgumentException( "You must supply a label.", "label" );
-
-            if( null == script )
-                throw new ArgumentNullException( "script" );
+                throw new ArgumentException( "You must supply a label.", nameof(label) );
 
             m_label = label;
-            Script = script;
-            if( captureContext )
-                Context = DbgProvider.CapturePsContext();
-            else
-                Context = new PsContext();
+            Script = script ?? throw new ArgumentNullException( nameof(script) );
         } // end constructor
     } // end class ScriptListItem
 
@@ -84,8 +75,7 @@ namespace MS.Dbg.Formatting
         public object GroupBy { get; private set; }
 
         public IReadOnlyList< ListItem > ListItems { get; private set; }
-
-        internal readonly PsContext Context;
+        
         internal readonly bool PreserveHeaderContext;
 
         public AltListViewDefinition( IReadOnlyList< ListItem > listItems )
@@ -96,25 +86,19 @@ namespace MS.Dbg.Formatting
         public AltListViewDefinition( IReadOnlyList< ListItem > listItems,
                                       ScriptBlock produceGroupByHeader,
                                       object groupBy )
-            : this( listItems, produceGroupByHeader, groupBy, false, false )
+            : this( listItems, produceGroupByHeader, groupBy, false )
         {
         }
 
         public AltListViewDefinition( IReadOnlyList< ListItem > listItems,
                                       ScriptBlock produceGroupByHeader,
                                       object groupBy,
-                                      bool captureContext,
                                       bool preserveHeaderContext )
         {
-            if( null == listItems )
-                throw new ArgumentNullException( "listItems" );
-
-            ListItems = listItems;
+            ListItems = listItems ?? throw new ArgumentNullException( nameof(listItems) );
             ProduceGroupByHeader = produceGroupByHeader;
             GroupBy = groupBy;
             PreserveHeaderContext = preserveHeaderContext;
-            if( captureContext )
-                Context = DbgProvider.CapturePsContext();
         } // end constructor
 
 

@@ -10,21 +10,10 @@ namespace MS.Dbg.Formatting
 
         public ScriptBlock Script { get; private set; }
 
-        internal readonly PsContext Context;
 
         public AltSingleLineViewDefinition( ScriptBlock script )
-            : this( script, false )
         {
-        }
-
-        public AltSingleLineViewDefinition( ScriptBlock script, bool captureContext )
-        {
-            if( null == script )
-                throw new ArgumentNullException( "script" );
-
-            Script = script;
-            if( captureContext )
-                Context = DbgProvider.CapturePsContext();
+            Script = script ?? throw new ArgumentNullException( nameof(script) );
         } // end constructor
     } // end class AltSingleLineViewDefinition
 }

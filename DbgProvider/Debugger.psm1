@@ -1311,10 +1311,8 @@ function New-DbgValueConverterInfo
 
            [Parameter( Mandatory = $false, Position = 2 )]
            [ValidateNotNull()]
-           [string] $SourceScript,
+           [string] $SourceScript
 
-           [Parameter( Mandatory = $false )]
-           [switch] $CaptureContext
            # If we want to support C# converters, we could have another parameter set for
            # that.
          )
@@ -1330,7 +1328,7 @@ function New-DbgValueConverterInfo
             }
             foreach( $private:tn in $TypeName )
             {
-                $private:sc = New-Object "MS.Dbg.DbgValueScriptConverter" -ArgumentList @( $tn, $Converter, $CaptureContext )
+                $private:sc = New-Object "MS.Dbg.DbgValueScriptConverter" -ArgumentList @( $tn, $Converter )
                 $private:cdi = New-Object "MS.Dbg.DbgValueConverterInfo" -ArgumentList @( $tn, $sc, $SourceScript )
                 $cdi
             }
@@ -1357,39 +1355,27 @@ function Register-DbgValueConverterInfo
     end { }
     process
     {
-        $private:disposable = $null
-        try
-        {
-            # If any entries need to capture context (variables and functions), we'll only
-            # let them capture stuff defined in the $ConvertersProducer script block and
-            # below.
-            $disposable = [MS.Dbg.DbgProvider]::SetContextStartMarker()
-            [int] $private:numConverters = 0
-            # Q. Why do we need to execute the $ConvertersProducer in the context of the
-            #    Debugger.psm1 module?
-            #
-            # A: If we don't, then any converter that wants to -CaptureContext won't work.
-            #    This is because Get-PsContext is going to end up executing in the
-            #    Debugger.psm1 context, and it won't be able to "see out of" that context.
-            & ($ExecutionContext.SessionState.Module) $ConvertersProducer | %{
-                if( $_ -is [MS.Dbg.DbgValueConverterInfo] )
-                {
-                    $numConverters++
-                    [MS.Dbg.DbgValueConversionManager]::RegisterConverter( $_ )
-                }
-                else
-                {
-                    Write-Warning "The `$ConvertersProducer ScriptBlock produced some output that was not DbgValueConverterInfo ($($_))."
-                }
-            }
-            if( 0 -eq $numConverters )
+        [int] $private:numConverters = 0
+        # Q. Why do we need to execute the $ConvertersProducer in the context of the
+        #    Debugger.psm1 module?
+        #
+        # A: If we don't, then any converter that wants to -CaptureContext won't work.
+        #    This is because Get-PsContext is going to end up executing in the
+        #    Debugger.psm1 context, and it won't be able to "see out of" that context.
+        & ($ExecutionContext.SessionState.Module) $ConvertersProducer | %{
+            if( $_ -is [MS.Dbg.DbgValueConverterInfo] )
             {
-                Write-Warning "No converters produced."
+                $numConverters++
+                [MS.Dbg.DbgValueConversionManager]::RegisterConverter( $_ )
+            }
+            else
+            {
+                Write-Warning "The `$ConvertersProducer ScriptBlock produced some output that was not DbgValueConverterInfo ($($_))."
             }
         }
-        finally
+        if( 0 -eq $numConverters )
         {
-            if( $disposable ) { $disposable.Dispose() }
+            Write-Warning "No converters produced."
         }
     }
 } # end Register-DbgValueConverterInfo

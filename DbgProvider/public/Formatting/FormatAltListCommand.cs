@@ -113,7 +113,7 @@ namespace MS.Dbg.Formatting.Commands
                 else
                 {
                     var sli = (ScriptListItem) li;
-                    val = RenderScriptValue( InputObject, sli.Script, sli.Context );
+                    val = RenderScriptValue( InputObject, sli.Script );
                     if( null == val )
                         val = String.Empty;
                 }
@@ -150,12 +150,9 @@ namespace MS.Dbg.Formatting.Commands
         } // end ResetState()
 
 
-        protected override ScriptBlock GetCustomWriteGroupByGroupHeaderScript(
-            out PsContext context,
-            out bool preserveHeaderContext )
+        protected override ScriptBlock GetCustomWriteGroupByGroupHeaderScript( out bool preserveHeaderContext )
         {
             Util.Assert( null != m_view );
-            context = m_view.Context;
             preserveHeaderContext = m_view.PreserveHeaderContext;
             return m_view.ProduceGroupByHeader;
         }

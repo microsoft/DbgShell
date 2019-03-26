@@ -42,7 +42,7 @@ namespace MS.Dbg.Formatting.Commands
         {
             if( m_headerShown && (null != m_view.Footer) && !Stopping )
             {
-                string footer = RenderScriptValue( new PSObject( m_view ), m_view.Footer.Script, m_view.Footer.Context );
+                string footer = RenderScriptValue( new PSObject( m_view ), m_view.Footer.Script );
                 if( null != footer )
                 {
                     footer = PadAndAlign( footer,
@@ -55,12 +55,9 @@ namespace MS.Dbg.Formatting.Commands
         } // end _WriteFooterIfNecessary()
 
 
-        protected override ScriptBlock GetCustomWriteGroupByGroupHeaderScript(
-            out PsContext context,
-            out bool preserveHeaderContext )
+        protected override ScriptBlock GetCustomWriteGroupByGroupHeaderScript( out bool preserveHeaderContext )
         {
             Util.Assert( null != m_view );
-            context = m_view.Context;
             preserveHeaderContext = m_view.PreserveHeaderContext;
             return m_view.ProduceGroupByHeader;
         }
@@ -110,7 +107,7 @@ namespace MS.Dbg.Formatting.Commands
                 else
                 {
                     ScriptColumn sc = (ScriptColumn) c;
-                    val = RenderScriptValue( InputObject, sc.Script, sc.Context );
+                    val = RenderScriptValue( InputObject, sc.Script );
                     if( null == val )
                         val = String.Empty;
                 }

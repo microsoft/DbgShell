@@ -10,24 +10,15 @@ namespace MS.Dbg
     {
         public readonly string TypeName;
 
-        public ScriptBlock Script { get; private set; }
+        public ScriptBlock Script { get; }
 
-        internal PsContext Context { get; private set; }
-
-        public DbgValueScriptConverter( string typeName, ScriptBlock script, bool captureContext )
+        public DbgValueScriptConverter( string typeName, ScriptBlock script )
         {
             if( String.IsNullOrEmpty( typeName ) )
-                throw new ArgumentException( "You must supply a type name.", "typeName" );
-
-            if( null == script )
-                throw new ArgumentNullException( "script" );
+                throw new ArgumentException( "You must supply a type name.", nameof(typeName) );
 
             TypeName = typeName;
-            Script = script;
-            if( captureContext )
-                Context = DbgProvider.CapturePsContext();
-            else
-                Context = new PsContext();
+            Script = script ?? throw new ArgumentNullException( nameof(script) );
         } // end constructor
 
 
@@ -47,24 +38,21 @@ namespace MS.Dbg
                 return null;
             }
 
-            PowerShell shell;
-            var lease = DbgProvider.LeaseShell( out shell );
+            var lease = DbgProvider.LeaseShell( out PowerShell shell );
             try
             {
-                Util.Assert( null != Context );
-
-                Context.Vars[ "_" ] =      new PSVariable( "_",      symbol );
-                Context.Vars[ "PSItem" ] = new PSVariable( "PSItem", symbol );
-
                 // Note that StrictMode will be enforced for value converters, because
                 // they execute in the scope of Debugger.psm1, which sets StrictMode.
                 //
                 // The problem with just calling Script.InvokeWithContext directly is that
                 // non-terminating errors are hidden from us.
-                shell.AddScript( @"$args[ 0 ].InvokeWithContext( $args[ 1 ].Funcs, $args[ 1 ].VarList )",
+
+                var ctxVars = new List<PSVariable> { new PSVariable( "_", symbol ), new PSVariable( "PSItem", symbol ) };
+
+                shell.AddScript( @"$args[ 0 ].InvokeWithContext( $null, $args[ 1 ] )",
                                  true )
                      .AddArgument( Script )
-                     .AddArgument( Context );
+                     .AddArgument( ctxVars );
 
                 Collection< PSObject > results = shell.Invoke();
 
@@ -114,10 +102,7 @@ namespace MS.Dbg
 
                 if( null != lease )
                     lease.Dispose();
-
-                // Let's not keep the input object rooted.
-                Context.Vars.Remove( "_" );
-                Context.Vars.Remove( "PSItem" );
+               
             }
         } // end Convert()
     } // end class DbgValueScriptConverter

@@ -310,10 +310,7 @@ function New-AltScriptColumn
            [string] $Tag,
 
            [Parameter( Mandatory = $false )]
-           [MS.Dbg.TrimLocation] $TrimLocation = [MS.Dbg.TrimLocation]::Right,
-
-           [Parameter( Mandatory = $false )]
-           [switch] $CaptureContext
+           [MS.Dbg.TrimLocation] $TrimLocation = [MS.Dbg.TrimLocation]::Right
          )
     begin { }
     end { }
@@ -338,8 +335,7 @@ function New-AltScriptColumn
                 $Alignment,
                 $Width,
                 (Protect-NullString $Tag),
-                $TrimLocation,
-                $CaptureContext )
+                $TrimLocation )
     }
 } # end New-AltScriptColumn
 
@@ -362,10 +358,7 @@ function New-AltTableFooter
 
            [Parameter( Mandatory = $true, Position = 1 )]
            [ValidateNotNull()]
-           [ScriptBlock] $Script,
-
-           [Parameter( Mandatory = $false )]
-           [switch] $CaptureContext
+           [ScriptBlock] $Script
          )
     begin { }
     end { }
@@ -377,7 +370,7 @@ function New-AltTableFooter
       #     [Console]::WriteLine( "Debugger.Formatting.psm1, New-AltTableFooter: The 'enabled' variable does NOT exist." )
       # }
 
-        New-Object 'MS.Dbg.Formatting.Footer' -ArgumentList( $Alignment, $Script, $CaptureContext )
+        New-Object 'MS.Dbg.Formatting.Footer' -ArgumentList( $Alignment, $Script )
     }
 } # end New-AltTableFooter
 
@@ -442,9 +435,6 @@ function New-AltTableViewDefinition
            [object] $GroupBy,
 
            [Parameter( Mandatory = $false )]
-           [switch] $CaptureContext,
-
-           [Parameter( Mandatory = $false )]
            [switch] $PreserveHeaderContext
          )
     begin { }
@@ -477,19 +467,13 @@ function New-AltTableViewDefinition
             }
         }
 
-        if( $CaptureContext -and (!$ProduceGroupByHeader -or !$footer) )
-        {
-            Write-Error "New-AltTableViewDefinition: it does not make sense to use -CaptureContext if there is no -ProduceGroupByHeader or footer to use that context."
-            $CaptureContext = $false
-        }
-
         if( $PreserveHeaderContext -and !$ProduceGroupByHeader )
         {
             Write-Error "New-AltTableViewDefinition: it does not make sense to use -PreserveHeaderContext if there is no -ProduceGroupByHeader from which to preserve context."
             $PreserveHeaderContext = $false
         }
 
-        New-Object "MS.Dbg.Formatting.AltTableViewDefinition" -ArgumentList @( $ShowIndex, $columnList, $footer, $ProduceGroupByHeader, $GroupBy, $CaptureContext, $PreserveHeaderContext )
+        New-Object "MS.Dbg.Formatting.AltTableViewDefinition" -ArgumentList @( $ShowIndex, $columnList, $footer, $ProduceGroupByHeader, $GroupBy, $PreserveHeaderContext )
     }
 } # end New-AltTableViewDefinition
 
@@ -528,9 +512,6 @@ function New-AltCustomViewDefinition
            [ScriptBlock] $End,
 
            [Parameter( Mandatory = $false )]
-           [switch] $CaptureContext,
-
-           [Parameter( Mandatory = $false )]
            [switch] $PreserveHeaderContext,
 
            [Parameter( Mandatory = $false )]
@@ -549,7 +530,7 @@ function New-AltCustomViewDefinition
             $PreserveHeaderContext = $false
         }
 
-        New-Object "MS.Dbg.Formatting.AltCustomViewDefinition" -ArgumentList @( $Script, $ProduceGroupByHeader, $GroupBy, $End, $CaptureContext, $PreserveHeaderContext, $PreserveScriptContext )
+        New-Object "MS.Dbg.Formatting.AltCustomViewDefinition" -ArgumentList @( $Script, $ProduceGroupByHeader, $GroupBy, $End, $PreserveHeaderContext, $PreserveScriptContext )
     }
 } # end New-AltCustomViewDefinition
 
@@ -616,16 +597,13 @@ function New-AltScriptListItem
 
            [Parameter( Mandatory = $true, Position = 1 )]
            [ValidateNotNull()]
-           [ScriptBlock] $Script,
-
-           [Parameter( Mandatory = $false )]
-           [switch] $CaptureContext
+           [ScriptBlock] $Script
          )
     begin { }
     end { }
     process
     {
-        New-Object "MS.Dbg.Formatting.ScriptListItem" -ArgumentList @( $Label, $Script, $CaptureContext )
+        New-Object "MS.Dbg.Formatting.ScriptListItem" -ArgumentList @( $Label, $Script )
     }
 } # end New-AltScriptListItem
 
@@ -656,9 +634,6 @@ function New-AltListViewDefinition
            [object] $GroupBy,
 
            [Parameter( Mandatory = $false )]
-           [switch] $CaptureContext,
-
-           [Parameter( Mandatory = $false )]
            [switch] $PreserveHeaderContext
          )
     begin { }
@@ -685,19 +660,13 @@ function New-AltListViewDefinition
             }
         }
 
-        if( $CaptureContext -and !$ProduceGroupByHeader )
-        {
-            Write-Error "New-AltListViewDefinition: it does not make sense to use -CaptureContext if there is no -ProduceGroupByHeader to use that context."
-            $CaptureContext = $false
-        }
-
         if( $PreserveHeaderContext -and !$ProduceGroupByHeader )
         {
             Write-Error "New-AltListViewDefinition: it does not make sense to use -PreserveHeaderContext if there is no -ProduceGroupByHeader from which to preserve context."
             $PreserveHeaderContext = $false
         }
 
-        New-Object "MS.Dbg.Formatting.AltListViewDefinition" -ArgumentList @( $listItemList, $ProduceGroupByHeader, $GroupBy, $CaptureContext, $PreserveHeaderContext )
+        New-Object "MS.Dbg.Formatting.AltListViewDefinition" -ArgumentList @( $listItemList, $ProduceGroupByHeader, $GroupBy, $PreserveHeaderContext )
     }
 } # end New-AltListViewDefinition
 
@@ -724,16 +693,13 @@ function New-AltSingleLineViewDefinition
     [CmdletBinding()]
     param( [Parameter( Mandatory = $true, Position = 0 )]
            [ValidateNotNull()]
-           [ScriptBlock] $Script,
-
-           [Parameter( Mandatory = $false )]
-           [switch] $CaptureContext
-         )
+           [ScriptBlock] $Script
+           )
     begin { }
     end { }
     process
     {
-        New-Object "MS.Dbg.Formatting.AltSingleLineViewDefinition" -ArgumentList @( $Script, $CaptureContext )
+        New-Object "MS.Dbg.Formatting.AltSingleLineViewDefinition" -ArgumentList @( $Script )
     }
 } # end New-AltSingleLineViewDefinition
 
@@ -806,19 +772,7 @@ function Register-AltTypeFormatEntries
     end { }
     process
     {
-        $private:disposable = $null
-        try
-        {
-            # If any entries need to capture context (variables and functions), we'll only
-            # let them capture stuff defined in the $EntriesProducer script block and
-            # below.
-            $disposable = [MS.Dbg.DbgProvider]::SetContextStartMarker()
-            & $EntriesProducer | Register-AltTypeFormatEntry
-        }
-        finally
-        {
-            if( $disposable ) { $disposable.Dispose() }
-        }
+        & $EntriesProducer | Register-AltTypeFormatEntry
     }
 }
 

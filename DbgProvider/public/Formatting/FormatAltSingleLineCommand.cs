@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Management.Automation;
 
 namespace MS.Dbg.Formatting.Commands
@@ -34,7 +35,7 @@ namespace MS.Dbg.Formatting.Commands
 
         protected override void ApplyViewToInputObject()
         {
-            string val = RenderScriptValue( InputObject, m_view.Script, false, m_view.Context );
+            string val = RenderScriptValue( InputObject, m_view.Script, false );
             // TODO: What to do if it spans more than a line? Just truncate? Issue a
             // warning? Add "..."? Also, consider that the view definition might have been
             // generated.
@@ -79,30 +80,44 @@ namespace MS.Dbg.Formatting.Commands
             var view = AltFormattingManager.ChooseFormatInfoForPSObject< AltSingleLineViewDefinition >( pso );
 
             ScriptBlock script;
-            PsContext ctx;
             if( null != view )
             {
                 script = view.Script;
-                ctx = view.Context;
             }
             else
             {
                 script = sm_DefaultScript;
-                ctx = null;
             }
 
-            return FormatSingleLineDirect( pso, script, ctx );
+            return FormatSingleLineDirect( pso, script );
         }
 
         internal static string FormatSingleLineDirect( PSObject obj,
-                                                       ScriptBlock script,
-                                                       PsContext ctx )
+                                                       ScriptBlock script)
         {
-            string val;
-            using( FormatAltSingleLineCommand cmd = new FormatAltSingleLineCommand() )
+#if DEBUG
+            sm_renderScriptCallDepth++;
+            if( sm_renderScriptCallDepth > 10 )
             {
-                val = cmd.RenderScriptValue( obj, script, false, ctx );
+                // Helps to catch runaway rendering /before/ gobbling tons of memory
+                System.Diagnostics.Debugger.Break();
+                // Maybe I should just throw?
             }
+#endif
+
+            var ctxVars = new List<PSVariable> { new PSVariable( "_", obj ), new PSVariable( "PSItem", obj ) };
+            var results = script.InvokeWithContext( null, ctxVars );
+
+#if DEBUG
+            sm_renderScriptCallDepth--;
+#endif
+            string val = null;
+            if( results?.Count > 0)
+                val = ObjectsToMarkedUpString( results,
+                                            "{0}", // <-- IMPORTANT: this prevents infinite recursion via Format-AltSingleLine
+                                            null,
+                                            false, 4 ).ToString();
+
             // TODO: What to do if it spans more than a line? Just truncate? Issue a
             // warning? Add "..."? Also, consider that the view definition might have been
             // generated.

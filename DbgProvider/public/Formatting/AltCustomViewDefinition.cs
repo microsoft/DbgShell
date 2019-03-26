@@ -15,8 +15,7 @@ namespace MS.Dbg.Formatting
         public ScriptBlock ProduceGroupByHeader { get; private set; }
 
         public object GroupBy { get; private set; }
-
-        internal readonly PsContext Context;
+        
         // If true, preserve context created by the ProduceGroupByHeader script, to be
         // used with Script (when processing each item).
         internal readonly bool PreserveHeaderContext;
@@ -53,24 +52,13 @@ namespace MS.Dbg.Formatting
                                         ScriptBlock produceGroupByHeader,
                                         object groupBy,
                                         ScriptBlock end,
-                                        bool captureContext )
-            : this( script, produceGroupByHeader, groupBy, end, captureContext, false )
-        {
-        }
-
-        public AltCustomViewDefinition( ScriptBlock script,
-                                        ScriptBlock produceGroupByHeader,
-                                        object groupBy,
-                                        ScriptBlock end,
-                                        bool captureContext,
                                         bool preserveHeaderContext )
             : this( script,
                     produceGroupByHeader,
                     groupBy,
                     end,
-                    captureContext,
                     preserveHeaderContext,
-                    false )
+                    (bool) false )
         {
         }
 
@@ -78,21 +66,15 @@ namespace MS.Dbg.Formatting
                                         ScriptBlock produceGroupByHeader,
                                         object groupBy,
                                         ScriptBlock end,
-                                        bool captureContext,
                                         bool preserveHeaderContext,
                                         bool preserveScriptContext )
         {
-            if( null == script )
-                throw new ArgumentNullException( "script" );
-
-            Script = script;
+            Script = script ?? throw new ArgumentNullException( nameof(script) );
             ProduceGroupByHeader = produceGroupByHeader;
             GroupBy = groupBy;
             End = end;
             PreserveHeaderContext = preserveHeaderContext;
             PreserveScriptContext = preserveScriptContext;
-            if( captureContext )
-                Context = DbgProvider.CapturePsContext();
         } // end constructor
     } // end class AltCustomViewDefinition
 }
