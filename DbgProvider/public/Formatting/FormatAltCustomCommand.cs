@@ -7,12 +7,6 @@ namespace MS.Dbg.Formatting.Commands
     [Cmdlet( VerbsCommon.Format, "AltCustom" )]
     public class FormatAltCustomCommand : FormatBaseCommand< AltCustomViewDefinition >
     {
-        // We need to store this separately--we don't want it to get mixed in with the
-        // context stored by m_view.Context, because we only want this context preserved
-        // across a single invocation of Format-AltCustom, not every subsequent
-        // invocation.
-        private PSModuleInfo m_preservedScriptContext;
-
         protected override void ApplyViewToInputObject()
         {
             var script = m_view.Script;
@@ -23,7 +17,6 @@ namespace MS.Dbg.Formatting.Commands
                     m_preservedScriptContext = new PSModuleInfo( false );
                     m_preservedScriptContext.Invoke( sm_importModuleScript, script.Module );
                 }
-                script = m_preservedScriptContext.NewBoundScriptBlock( script );
             }
 
             string val = RenderScriptValue( InputObject, script, true );

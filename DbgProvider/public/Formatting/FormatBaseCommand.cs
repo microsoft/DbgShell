@@ -109,7 +109,7 @@ namespace MS.Dbg.Formatting.Commands
         private bool m_warnedAboutNoSuchGroupByProperty;
 
 
-        protected PSModuleInfo m_groupByHeaderContext;
+        protected PSModuleInfo m_preservedScriptContext;
         protected static readonly ScriptBlock sm_importModuleScript = ScriptBlock.Create( "Import-Module $args[0] -DisableNameChecking" );
 
         private void _WriteGroupByGroupHeader( object newResult, bool isDefaultGroupBy )
@@ -126,8 +126,8 @@ namespace MS.Dbg.Formatting.Commands
 
                 if( preserveHeaderContext )
                 {
-                    m_groupByHeaderContext = new PSModuleInfo( false );
-                    m_groupByHeaderContext.Invoke( sm_importModuleScript, customHeaderScript.Module );
+                    m_preservedScriptContext = new PSModuleInfo( false );
+                    m_preservedScriptContext.Invoke( sm_importModuleScript, customHeaderScript.Module );
                 }
 
                 string val = RenderScriptValue( pso, customHeaderScript, true );
@@ -707,9 +707,9 @@ namespace MS.Dbg.Formatting.Commands
                                             bool dontGroupMultipleResults )
         {
             // Let the script also use context created by the custom header script (if any).
-            if( m_groupByHeaderContext != null )
+            if( m_preservedScriptContext != null )
             {
-                script = m_groupByHeaderContext.NewBoundScriptBlock( script );
+                script = m_preservedScriptContext.NewBoundScriptBlock( script );
             }
 
             if( null == m_pipeIndexPSVar )
