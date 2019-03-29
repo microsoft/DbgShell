@@ -37,7 +37,9 @@ namespace MS.Dbg
         Pointers,
         PointersWithSymbols,
         PointersWithAscii,
-        PointersWithSymbolsAndAscii
+        PointersWithSymbolsAndAscii,
+        RGB,
+        RGBA
     }
 
     public class DbgMemory : ISupportColor, ICloneable
@@ -275,9 +277,13 @@ namespace MS.Dbg
                     case DbgMemoryDisplayFormat.Words:
                     case DbgMemoryDisplayFormat.WordsWithAscii:
                         return Words[ index ];
+                    case DbgMemoryDisplayFormat.RGB:
+                        var rgbIdx = index * 3;
+                        return (uint)(Bytes[ rgbIdx ] + (Bytes[ rgbIdx + 1 ] << 8) + (Bytes[ rgbIdx + 2 ] << 16));
                     case DbgMemoryDisplayFormat.DWords:
                     case DbgMemoryDisplayFormat.DWordsWithAscii:
                     case DbgMemoryDisplayFormat.DWordsWithBits:
+                    case DbgMemoryDisplayFormat.RGBA:
                         return DWords[index];
                     case DbgMemoryDisplayFormat.QWords:
                     case DbgMemoryDisplayFormat.QWordsWithAscii:
@@ -310,9 +316,12 @@ namespace MS.Dbg
                     case DbgMemoryDisplayFormat.Words:
                     case DbgMemoryDisplayFormat.WordsWithAscii:
                         return Words.Count;
+                    case DbgMemoryDisplayFormat.RGB:
+                        return Bytes.Count / 3;
                     case DbgMemoryDisplayFormat.DWords:
                     case DbgMemoryDisplayFormat.DWordsWithAscii:
                     case DbgMemoryDisplayFormat.DWordsWithBits:
+                    case DbgMemoryDisplayFormat.RGBA:
                         return DWords.Count;
                     case DbgMemoryDisplayFormat.QWords:
                     case DbgMemoryDisplayFormat.QWordsWithAscii:
@@ -433,6 +442,10 @@ namespace MS.Dbg
                             return _FormatBlocks( 4, 9, 1, AddtlInfo.Symbols | AddtlInfo.Ascii );
                         else
                             return _FormatBlocks( 8, 18, 1, AddtlInfo.Symbols | AddtlInfo.Ascii );
+                    case DbgMemoryDisplayFormat.RGB:
+                        return _FormatRGB( numColumns, false );
+                    case DbgMemoryDisplayFormat.RGBA:
+                        return _FormatRGB( numColumns, true );
                     default:
                         throw new NotImplementedException();
                 }
@@ -611,6 +624,45 @@ namespace MS.Dbg
             return cs.MakeReadOnly();
         } // end _FormatBlocks()
 
+        private static readonly string[] AlphaChars = { "░", "▒", "▓", "█" };
+
+        private ColorString _FormatRGB( uint numColumns, bool withAlpha )
+        {
+            if( 0 == numColumns )
+                numColumns = 64;
+
+            ColorString cs = new ColorString();
+
+            var bytesPerCharacter = withAlpha ? 4 : 3;
+            int bytesPerRow = (int)numColumns * bytesPerCharacter + 3 & ~(3); //round up 
+
+            for( int rowStart = 0; rowStart + bytesPerCharacter < Bytes.Count; rowStart += bytesPerRow )
+            {
+                if(rowStart != 0)
+                {
+                    cs.AppendLine();
+                }
+                cs.Append( DbgProvider.FormatAddress( StartAddress + (uint) rowStart, m_is32Bit, true, true ) ).Append( "  " );
+
+                var rowLen = Math.Min( Bytes.Count - rowStart, bytesPerRow );
+
+                for( int colOffset = 0; colOffset + bytesPerCharacter < rowLen; colOffset+= bytesPerCharacter )
+                {
+                    byte b = Bytes[ rowStart + colOffset + 0 ];
+                    byte g = Bytes[ rowStart + colOffset + 1 ];
+                    byte r = Bytes[ rowStart + colOffset + 2 ];
+                    string ch = "█";
+                    if( withAlpha )
+                    {
+                        ch = AlphaChars[ Bytes[ rowStart + colOffset + 3 ] >> 6 ];
+                    }
+                    cs.AppendFgRgb( r, g, b, ch );
+                }
+            }
+
+            return cs.MakeReadOnly();
+
+        }
 
         private ColorString _FormatCharsOnly( uint numColumns, uint bytesPerChar, Func< char, char > toDisplay )
         {

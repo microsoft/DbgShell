@@ -314,6 +314,15 @@ namespace MS.Dbg
             return this;
         }
 
+        public ColorString AppendFgRgb( byte r, byte g, byte b,  ColorString other )
+        {
+            if( null == other )
+                return this;
+            _CheckReadOnly( true );
+            m_elements.Add( new ContentElement( $"\x01b[38;2;{r};{g};{b}m" ));
+            return Append( other );
+        }
+
         public ColorString AppendLine( ColorString other )
         {
             Append( other );
