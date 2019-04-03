@@ -40,8 +40,6 @@ the debugger. There *are* facilities today to assist in automating the debugger,
 course. But in my opinion they are not meeting people's needs.
 * Using the built-in scripting language is arcane, limited, difficult to get right, and
   difficult to get help with.
-* DScript is kind of neat, but virtually unknown, and it lacks a REPL, and it's too
-  low-level.
 * Writing a full-blown debugger extension DLL is very powerful, but it's a significant
   investment—way too expensive for solving quick, "one-off" problems as you debug random,
   real-world problems. Despite the cost, there are a large number of debugger extensions
