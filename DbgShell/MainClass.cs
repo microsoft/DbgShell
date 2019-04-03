@@ -54,6 +54,8 @@ namespace MS.DbgShell
 
         static int Main( string[] args )
         {
+            Console.OutputEncoding = Encoding.Unicode;
+
             //
             // We've got four possibilities:
             //
