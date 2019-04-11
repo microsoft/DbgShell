@@ -45,6 +45,7 @@ namespace MS.Dbg
     {
         private const char CSI = '\x9b';  // "Control Sequence Initiator"
         private const string c_ResetColor = "\u009b0m"; // Resets background and foreground color to default.
+        private const char c_ellipsis = (char) 0x2026;
 
 
         /// <summary>
@@ -119,8 +120,8 @@ namespace MS.Dbg
 
 
         /// <summary>
-        ///    Returns the index of the character after the control sequence
-        ///    (which could be past the end of the string).
+        ///    Returns the index of the character after the control sequence (which could
+        ///    be past the end of the string, or could be another control sequence).
         /// </summary>
         private static int _SkipControlSequence( string s, int startIdx )
         {
@@ -209,12 +210,37 @@ namespace MS.Dbg
 
         /// <summary>
         ///    Returns the actual length of the substring starting at actual index
-        ///    actualStartIdx and extending for apparentLength characters (where control
-        ///    sequences are counted as zero-width).
+        ///    actualStartIdx and extending for apparentLength characters,(where control
+        ///    sequences are counted as zero-width. Consumption of control characters can
+        ///    be specified as "greedy" at the end of the string; that is, if we want to
+        ///    get two apparent characters from a string that consists of two content
+        ///    characters followed by 100 characters of control codes, this will return a
+        ///    string of length 102. That way, if that's the entire input string, we take
+        ///    it all without losing anything.
+        ///
+        ///    Suppose you are trying to grab some substring out of a larger string. When
+        ///    should you use greedy, and when not?
+        ///
+        ///    Well now, that's a bit of a puzzle. If there is a control sequence
+        ///    immediately after where the content of your substring would end, you might
+        ///    think it would be better to leave it off, because what if it is some
+        ///    formatting stuff that is intended for the /following/ bit of content (the
+        ///    content following the control sequence, which is past your substring).
+        ///    True... but what if the control sequence is a POP sequence, that turns off
+        ///    some formatting introduced in or before your substring? In that case, it
+        ///    might be nice to have it...
+        ///
+        ///    So in general, my advice is to use the default of greedy = true, except
+        ///    perhaps in the case where you are splitting a string, and not just carving
+        ///    a substring out, because then you know that the following control
+        ///    sequence(s) will be taken care of. One nice thing about greedy = true is
+        ///    that if the substring happens to be the entire string, then you will pick
+        ///    up all formatting.
         /// </summary>
         private static int _TranslateApparentSubstringLengthToActual( string s,
                                                                       int actualStartIdx,
-                                                                      int apparentLength )
+                                                                      int apparentLength,
+                                                                      bool greedy = true )
         {
             if( null == s )
                 throw new ArgumentNullException( "s" );
@@ -236,7 +262,9 @@ namespace MS.Dbg
 
                 Util.Assert( actualEndIdx < s.Length );
 
-                if( CSI == s[ actualEndIdx ] )
+                while( (actualEndIdx < s.Length) &&
+                       (CSI == s[ actualEndIdx ]) &&
+                       (greedy || (apparentSlotsLeftToConsume > 0)) )
                 {
                     actualEndIdx = _SkipControlSequence( s, actualEndIdx );
                 }
@@ -250,16 +278,22 @@ namespace MS.Dbg
 
 
 
-        public static string Substring( string s, int startIdx )
-        {
-            return s.Substring( startIdx );
-        } // end Substring()
+        // Nobody seems to be using these...
+        // Would it be more useful to have a version that took an apparentStartIdx?
+     // public static string Substring( string s, int actualStartIdx )
+     // {
+     //     return s.Substring( actualStartIdx );
+     // } // end Substring()
 
-
-        public static string Substring( string s, int startIdx, int apparentLength )
+        // Leaving this one uncommented but private because it functions as a test case
+        // for _TranslateApparentSubstringLengthToActual.
+        private static string Substring( string s, int actualStartIdx, int apparentLength )
         {
-            int actualLength = _TranslateApparentSubstringLengthToActual( s, startIdx, apparentLength );
-            return s.Substring( startIdx, actualLength );
+            int actualLength = _TranslateApparentSubstringLengthToActual( s,
+                                                                          actualStartIdx,
+                                                                          apparentLength,
+                                                                          greedy: true );
+            return s.Substring( actualStartIdx, actualLength );
         } // end Substring()
 
 
@@ -323,9 +357,9 @@ namespace MS.Dbg
             if( useEllipsis )
             {
                 if( TrimLocation.Center == trimLocation )
-                    minimumRequiredMaxLen = 5;
+                    minimumRequiredMaxLen = 3; // a char of content on each side, plus the ellipsis
                 else
-                    minimumRequiredMaxLen = 4;
+                    minimumRequiredMaxLen = 2; // a char of content plus the ellipsis
             }
 
             if( maxLen < minimumRequiredMaxLen )
@@ -365,40 +399,62 @@ namespace MS.Dbg
         {
             if( TrimLocation.Center == trimLocation )
             {
+                if( !useEllipsis )
+                {
+                    throw new ArgumentException( "Doesn't seem like a good idea to trim from the center without using an ellipsis." );
+                }
+
                 // Trimming from the center looks just like trimming from the right
                 // concatenated with trimming from the left.
-                int rightLen = (maxApparentLength / 2) - 1; // because we'll do the ellipsis with the left side
+                //
+                // We only need one character for the ellipsis, so if we have an odd
+                // maxApparentLength, the number of content chars shown for each side will
+                // be equal. If the maxApparentLength is even, I'm going to bias toward
+                // showing a little more content on the left.
+                int rightLen = maxApparentLength / 2;
                 int leftLen = maxApparentLength - rightLen;
+
+                if( leftLen == rightLen )
+                {
+                    // Even maxApparentLength.
+                    rightLen -= 1; // We'll carve room for the ellipsis from the right side
+                    leftLen += 1;  // (because we pass useEllipsis: true for the right side).
+                }
+                else
+                {
+                    // Odd maxApparentLength.
+                    Util.Assert( leftLen > rightLen );
+                }
 
                 _TruncateWorker( s,
                                  originalApparentLength,
                                  leftLen,
-                                 true,
+                                 true,               // useEllipsis
                                  TrimLocation.Right,
-                                 0,
+                                 0,                  // stripContentBoundary
                                  dest );
                 _TruncateWorker( s,
                                  originalApparentLength,
                                  rightLen,
-                                 false,
+                                 false,              // useEllipsis
                                  TrimLocation.Left,
-                                 dest.Length - 3,
+                                 dest.Length - 1,    // stripContentBoundary
                                  dest );
                 return;
             }
 
             bool trimLeft = trimLocation == TrimLocation.Left;
             bool trimRight = !trimLeft;
-            int desiredApparentLength = useEllipsis ? maxApparentLength - 3 : maxApparentLength;
+            int desiredApparentLength = useEllipsis ? maxApparentLength - 1 : maxApparentLength;
             int realStartIdx = 0; // start of content
 
             if( trimLeft )
             {
                 int apparentDiff = originalApparentLength - desiredApparentLength;
                 Util.Assert( apparentDiff > 0 );
-                realStartIdx = _TranslateApparentSubstringLengthToActual( s, 0, apparentDiff );
+                realStartIdx = _TranslateApparentSubstringLengthToActual( s, 0, apparentDiff, greedy: true );
             }
-            int realLength = _TranslateApparentSubstringLengthToActual( s, realStartIdx, desiredApparentLength );
+            int realLength = _TranslateApparentSubstringLengthToActual( s, realStartIdx, desiredApparentLength, greedy: true );
 
             // We can't just chop it at realLength--we need to also get any remaining (or
             // preceding) control sequences (in case there are pops, etc.).
@@ -406,7 +462,7 @@ namespace MS.Dbg
             if( trimLeft )
             {
                 if( useEllipsis )
-                    dest.Append( "..." );
+                    dest.Append( c_ellipsis );
 
                 if( -1 == stripContentBoundary )
                     stripContentBoundary = 0;
@@ -425,7 +481,7 @@ namespace MS.Dbg
                     _StripContent( dest, s, realStartIdx + realLength, s.Length - 1 );
 
                 if( useEllipsis )
-                    dest.Append( "..." );
+                    dest.Append( c_ellipsis );
             }
         } // end Truncate()
 
@@ -906,7 +962,7 @@ namespace MS.Dbg
 
                         _saveAndResetSgrState();
 
-                        sb.Append( (char) 0x2026 ); // ellipsis
+                        sb.Append( c_ellipsis );
                     }
                     else
                     {
@@ -1261,7 +1317,11 @@ namespace MS.Dbg
                                                1,
                                                2,
                                                "23\u009bm" ),
- /* 11 */   new CaStringUtilSubstringTestCase( "123\u009b",
+ /* 11 */   new CaStringUtilSubstringTestCase( "123\u009bm\u009bm4",
+                                               startIdx:       1,
+                                               apparentLength: 2,
+                                               expectedOutput: "23\u009bm\u009bm" ), // we should pick up both control sequences (greedy)
+ /* 12 */   new CaStringUtilSubstringTestCase( "123\u009b",
                                                1,
                                                2,
                                                _CreateBrokenSequenceException().GetType() ),
@@ -1302,22 +1362,22 @@ namespace MS.Dbg
                                                _CreateBrokenSequenceException().GetType() ),
  /* 10 */   new CaStringUtilTruncateTestCase( "12345",
                                               4,
-                                              "1..." ),
+                                              "123…" ),
  /* 11 */   new CaStringUtilTruncateTestCase( "12\u009b101;32m345",
                                               4,
-                                              "1\u009b101;32m..." ),
+                                              "12\u009b101;32m3…" ),
  /* 12 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm345",
                                               4,
-                                              "\u009bm1\u009bm..." ),
+                                              "\u009bm12\u009bm3…" ),
  /* 13 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm345",
                                               5,
                                               "\u009bm12\u009bm345" ),
  /* 14 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm34567",
                                               6,
-                                              "\u009bm12\u009bm3..." ),
+                                              "\u009bm12\u009bm345…" ),
  /* 15 */   new CaStringUtilTruncateTestCase( "\u009bm1234567\u009bm",
                                               6,
-                                              "\u009bm123\u009bm..." ),
+                                              "\u009bm12345\u009bm…" ),
  /* 16 */   new CaStringUtilTruncateTestCase( "",
                                               1,
                                               false,
@@ -1393,22 +1453,22 @@ namespace MS.Dbg
                                               4,
                                               useEllipsis: true,
                                               trimLeft: true,
-                                              expectedOutput: "...5" ),
+                                              expectedOutput: "…345" ),
  /* 32 */   new CaStringUtilTruncateTestCase( "12\u009b101;32m345",
                                               4,
                                               useEllipsis: true,
                                               trimLeft: true,
-                                              expectedOutput: "...\u009b101;32m5" ),
+                                              expectedOutput: "…\u009b101;32m345" ),
  /* 33 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm345",
                                               4,
                                               useEllipsis: true,
                                               trimLeft: true,
-                                              expectedOutput: "...\u009bm\u009bm5" ),
+                                              expectedOutput: "…\u009bm\u009bm345" ),
  /* 34 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm345\u009bm",
                                               4,
                                               useEllipsis: true,
                                               trimLeft: true,
-                                              expectedOutput: "...\u009bm\u009bm5\u009bm" ),
+                                              expectedOutput: "…\u009bm\u009bm345\u009bm" ),
  /* 35 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm345",
                                               5,
                                               useEllipsis: true,
@@ -1418,12 +1478,12 @@ namespace MS.Dbg
                                               6,
                                               useEllipsis: true,
                                               trimLeft: true,
-                                              expectedOutput: "...\u009bm\u009bm567" ),
+                                              expectedOutput: "…\u009bm\u009bm34567" ),
  /* 37 */   new CaStringUtilTruncateTestCase( "\u009bm1234567\u009bm",
                                               6,
                                               useEllipsis: true,
                                               trimLeft: true,
-                                              expectedOutput: "...\u009bm567\u009bm" ),
+                                              expectedOutput: "…\u009bm34567\u009bm" ),
  /* 38 */   new CaStringUtilTruncateTestCase( "",
                                               1,
                                               useEllipsis: false,
@@ -1529,22 +1589,22 @@ namespace MS.Dbg
                                               5,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "1...6" ),
+                                              expectedOutput: "12…56" ),
  /* 58 */   new CaStringUtilTruncateTestCase( "12\u009b101;32m3456",
                                               5,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "1...\u009b101;32m6" ),
+                                              expectedOutput: "12\u009b101;32m…56" ),
  /* 59 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm3456",
                                               5,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "\u009bm1...\u009bm6" ),
+                                              expectedOutput: "\u009bm12\u009bm…56" ),
  /* 60 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm3456\u009bm",
                                               5,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "\u009bm1...\u009bm6\u009bm" ),
+                                              expectedOutput: "\u009bm12\u009bm…56\u009bm" ),
 
  /* 61 */   new CaStringUtilTruncateTestCase( "\u009bm12\u009bm345",
                                               5,
@@ -1555,54 +1615,54 @@ namespace MS.Dbg
                                               6,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "\u009bm1...\u009bm67" ),
+                                              expectedOutput: "\u009bm12\u009bm3…67" ),
  /* 63 */   new CaStringUtilTruncateTestCase( "\u009bm1234567\u009bm",
                                               6,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "\u009bm1...67\u009bm" ),
+                                              expectedOutput: "\u009bm123…67\u009bm" ),
 
  /* 64 */   new CaStringUtilTruncateTestCase( "\u009bm123456789abcdefghijk\u009bm",
                                               6,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "\u009bm1...jk\u009bm" ),
+                                              expectedOutput: "\u009bm123…jk\u009bm" ),
  /* 65 */   new CaStringUtilTruncateTestCase( "\u009bm12345678\u009bm9ab\u009bmcdefghijk\u009bm",
                                               6,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "\u009bm1...\u009bm\u009bmjk\u009bm" ),
+                                              expectedOutput: "\u009bm123…\u009bm\u009bmjk\u009bm" ),
  /* 66 */   new CaStringUtilTruncateTestCase( "123456789abcdefghijk",
                                               6,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "1...jk" ),
+                                              expectedOutput: "123…jk" ),
  /* 67 */   new CaStringUtilTruncateTestCase( "123456789abcdefghijk",
                                               7,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "12...jk" ),
+                                              expectedOutput: "123…ijk" ),
 
                                               // The control sequence shows up with the first half here because
                                               // of how _TranslateApparentSubstringLengthToActual works: if it
                                               // ends up on a CSI character, it has to consume the rest of the
-                                              // control sequence.
- /* 68 */   new CaStringUtilTruncateTestCase( "12\u009bm3456789abcdefghijk",
+                                              // control sequence ("greedy").
+ /* 68 */   new CaStringUtilTruncateTestCase( "123\u009bm56789abcdefghijk",
                                               7,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "12\u009bm...jk" ),
+                                              expectedOutput: "123\u009bm…ijk" ),
                                               // ... but it only has to consume one:
  /* 69 */   new CaStringUtilTruncateTestCase( "12\u009bm\u009bm3456789abcdefghijk",
                                               7,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "12\u009bm...\u009bmjk" ),
+                                              expectedOutput: "12\u009bm\u009bm3…ijk" ),
  /* 70 */   new CaStringUtilTruncateTestCase( "123\u009bm\u009bm456789abcdefghijk",
                                               7,
                                               useEllipsis: true,
                                               trimLocation: TrimLocation.Center,
-                                              expectedOutput: "12...\u009bm\u009bmjk" ),
+                                              expectedOutput: "123\u009bm\u009bm…ijk" ),
         };
 
 
@@ -1875,10 +1935,10 @@ namespace MS.Dbg
                     if( 0 != String.CompareOrdinal( output, testCase.ExpectedOutput ) )
                     {
                         truncateFailures++;
-                        Console.WriteLine( "Truncate test case {0} failed. Expected: {1}, Actual: {2}.",
+                        Console.WriteLine( "Truncate test case {0} failed.\n   Expected: {1}\n     Actual: {2}.",
                                            i,
-                                           testCase.ExpectedOutput,
-                                           output );
+                                           _EscapeStringForDisplay( testCase.ExpectedOutput ),
+                                           _EscapeStringForDisplay( output ) );
                     }
                 }
                 catch( Exception e )
