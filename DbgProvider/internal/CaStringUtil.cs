@@ -626,6 +626,334 @@ namespace MS.Dbg
             return sb.ToString();
         }
 
+        [Flags]
+        public enum IndentAndWrapOptions
+        {
+            Default                                      = 0,
+            NoWordBreaking                               = 0x01, // No characters (incl. spaces) are replaced with newlines
+            TruncateInsteadOfWrap                        = 0x02,
+            FirstLineAlreadyIndented                     = 0x04,
+            DoNotIndentContinuationLines                 = 0x08, // Could also be named DoNotIndentWrapLines. Takes
+                                                                 // precedence over AddLineLeadingSpaceToAddtlContinuationIndent.
+            AddLineLeadingSpaceToAddtlContinuationIndent = 0x10, // TODO: could this result in a pathological situation if
+                                                                 // leading space is longer than the entire outputWidth
+        }
+
+        private const string c_PushAndReset  = "\u009b56;0m";
+        private const string c_StandalonePop = "\u009b57m";
+
+        public static string IndentAndWrap( string str,
+                                            int outputWidth,
+                                            IndentAndWrapOptions options,
+                                            int indent,
+                                            int addtlContinuationIndent )
+        {
+            bool truncate = 0 != (options & IndentAndWrapOptions.TruncateInsteadOfWrap);
+
+            int minContent = 2; // 1 char of content, and a newline char
+
+            if( truncate )
+            {
+                minContent = 3; // 1 char of content, 1 ellipsis char, and a newline char
+
+                if( addtlContinuationIndent != 0 )
+                {
+                    throw new ArgumentException( "The combination of TruncateInsteadOfWrap and non-zero addtlContinuationIndent makes no sense." );
+                }
+            }
+
+            if( (indent + addtlContinuationIndent) > (outputWidth - minContent) )
+            {
+                throw new ArgumentOutOfRangeException(
+                    Util.Sprintf( "The outputWidth ({0}) should be somewhat larger than " +
+                                      "the max possible indent ({1} + {2}).",
+                                  outputWidth,
+                                  indent,
+                                  addtlContinuationIndent ),
+                    innerException: null );
+            }
+
+            if( null == str )
+                throw new ArgumentNullException( nameof( str ) );
+
+            StringBuilder sb = new StringBuilder( str.Length * 2 ); // just an estimate
+
+            int spaceToUse = outputWidth - indent - 1; // "- 1" because the newline actually uses a spot.
+
+            int srcIdx = 0;
+
+            int lastSpaceOrTabSrcIdx = -1;
+            int lastSpaceOrTabDstIdx = -1;
+
+            // We may need to replace the last char of content (space or not) when
+            // truncating (to put an ellipsis in its place).
+            int lastContentDstIdx = -1;
+
+            bool inLeadingSpace = true;
+            int leadingSpaceLen = 0;
+
+            // So that we don't need to inserts push/pops for plain text.
+            bool haveSeenControlSequence = false;
+
+            bool pushInserted = false;
+
+            void _insertIndent( int numSpaces )
+            {
+                sb.Append( ' ', numSpaces );
+            }
+
+            void _rememberLastSpaceOrTabIndexes()
+            {
+                lastSpaceOrTabSrcIdx = srcIdx;
+                lastSpaceOrTabDstIdx = sb.Length;
+            }
+
+            void _rememberLastContentIndex()
+            {
+                lastContentDstIdx = sb.Length;
+            }
+
+            bool _weHaveConsumedAllAvailableOutputWidth()
+            {
+                return spaceToUse == 0;
+            }
+
+            bool _backtrackToLastSpaceOrTab()
+            {
+                bool backtrackingAllowed = 0 == (options & IndentAndWrapOptions.NoWordBreaking);
+
+                if( backtrackingAllowed &&
+                    (lastSpaceOrTabSrcIdx > 0) ) // can't be 0, because we don't count leading space
+                {
+                    Util.Assert( lastSpaceOrTabDstIdx >= 0 );
+                    srcIdx = lastSpaceOrTabSrcIdx;
+                    sb.Length = lastSpaceOrTabDstIdx;
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            bool _stillInBounds()
+            {
+                return srcIdx < str.Length;
+            }
+
+            // Returns true if srcIdx is still within the bounds of str.
+            bool _consumeControlSequences()
+            {
+                while( _stillInBounds() && (str[ srcIdx ] == CSI) )
+                {
+                    haveSeenControlSequence = true;
+                    int pastSeq = _SkipControlSequence( str, srcIdx ); // TODO: make _SkipControlSequence not assert if first char isn't CSI?
+                    sb.Append( str, srcIdx, pastSeq - srcIdx );
+                    srcIdx = pastSeq;
+                }
+                return _stillInBounds();
+            }
+
+            void _saveAndResetSgrState()
+            {
+                if( haveSeenControlSequence && !pushInserted )
+                {
+                    sb.Append( c_PushAndReset );
+                    pushInserted = true;
+                }
+            }
+
+            void _restoreSgrState()
+            {
+                if( haveSeenControlSequence )
+                {
+                    Util.Assert( pushInserted );
+
+                    sb.Append( c_StandalonePop );
+                    pushInserted = false;
+                }
+            }
+
+            void _completeLineAndIndent( int numSpaces, bool isWrap )
+            {
+                // Save the current SGR (color) state and (temporarily) reset to default,
+                // if necessary.
+                _saveAndResetSgrState();
+
+                sb.Append( '\n' );
+                _insertIndent( numSpaces );
+
+                // Restore the SGR state.
+                _restoreSgrState();
+
+                // Need to reset various counters/state:
+
+                spaceToUse = outputWidth - numSpaces - 1; // "- 1" because the newline actually uses a spot.
+
+                Util.Assert( !pushInserted );
+
+                lastSpaceOrTabSrcIdx = -1;
+                lastSpaceOrTabDstIdx = -1;
+
+                // This should not be needed... but I'm doing it defensively.
+                lastContentDstIdx = -1;
+
+                if( !isWrap )
+                {
+                    // We're actually on the next line of input.
+                    inLeadingSpace = true;
+                    leadingSpaceLen = 0;
+                }
+            }
+
+            void _appendContentChar( char c )
+            {
+                _rememberLastContentIndex();
+
+                if( Char.IsWhiteSpace( c ) )
+                {
+                    if( !inLeadingSpace )
+                    {
+                        _rememberLastSpaceOrTabIndexes();
+                    }
+                    else
+                    {
+                        leadingSpaceLen++;
+                    }
+                }
+                else
+                {
+                    inLeadingSpace = false;
+                }
+
+                sb.Append( c );
+                spaceToUse--;
+            }
+
+            // Returns 'true' if we actually found a newline; false if we hit the end of
+            // the string first. Will preserve control sequences.
+            bool _seekToNextLine()
+            {
+                while( _consumeControlSequences() )
+                {
+                    char c = str[ srcIdx ];
+
+                    if( c == '\r' )
+                    {
+                        // ignore it
+                    }
+                    else if( c == '\n' )
+                    {
+                        return true;
+                    }
+
+                    srcIdx++;
+                }
+                return false;
+            }
+
+            if( (options & IndentAndWrapOptions.FirstLineAlreadyIndented) == 0 )
+            {
+                _insertIndent( indent );
+            }
+
+            while( _consumeControlSequences() )
+            {
+                // We consume control sequences in the "while" condition, so the
+                // characters we consider here are purely content.
+
+                char c = str[ srcIdx ];
+
+                if( c == '\r' )
+                {
+                    // ignore it
+                }
+                else if( c == '\n' )
+                {
+                    // We consider the case of a newline char before the
+                    // _weHaveConsumedAllAvailableOutputWidth case, because the newline
+                    // does not consume available space (but rather resets it).
+
+                    _completeLineAndIndent( indent, isWrap: false );
+                }
+                else if( _weHaveConsumedAllAvailableOutputWidth() )
+                {
+                    // Need to decide where to put a newline... was there a space where we
+                    // could break up the line, or do we have to just chop right where we
+                    // are?
+
+                    int totalIndent = indent;
+                    bool backtracked = false;
+
+                    if( Char.IsWhiteSpace( c ) )
+                    {
+                        // So we can "backtrack" to it.
+                        _rememberLastSpaceOrTabIndexes();
+                    }
+
+                    bool moreContentAfterTruncation = false;
+
+                    if( truncate )
+                    {
+                        if( lastContentDstIdx == -1 )
+                            throw new Exception( "unexpected" );
+
+                        // Note that we put the ellipsis /after/ resetting SGR (color)
+                        // state. This is a stylistic choice.
+
+                        sb.Remove( lastContentDstIdx, 1 ); // make way for the ellipsis.
+
+                        moreContentAfterTruncation = _seekToNextLine();
+
+                        _saveAndResetSgrState();
+
+                        sb.Append( (char) 0x2026 ); // ellipsis
+                    }
+                    else
+                    {
+                        bool doNotIndentContinuation = 0 != (options & IndentAndWrapOptions.DoNotIndentContinuationLines);
+
+                        if( doNotIndentContinuation )
+                            totalIndent = 0;
+                        else
+                            totalIndent += addtlContinuationIndent;
+
+                        // Could be a backtrack of 0 chars if the current char is a space.
+                        backtracked = _backtrackToLastSpaceOrTab();
+
+                        if( !doNotIndentContinuation &&
+                            (options & IndentAndWrapOptions.AddLineLeadingSpaceToAddtlContinuationIndent) != 0 )
+                        {
+                            totalIndent += leadingSpaceLen;
+                        }
+                    }
+
+                    if( !truncate || moreContentAfterTruncation )
+                    {
+                        _completeLineAndIndent( totalIndent, isWrap: !truncate );
+                    }
+                    else
+                    {
+                        // Don't forget the last POP.
+                        _restoreSgrState();
+                    }
+
+                    if( !truncate && !backtracked )
+                    {
+                        // If we didn't backtrack, then we haven't yet accounted for the
+                        // current character--don't lose it!
+                        _appendContentChar( c );
+                    }
+                }
+                else
+                {
+                    _appendContentChar( c );
+                }
+
+                srcIdx++;
+            } // end while( still more str )
+
+            return sb.ToString();
+        } // end _WordWrap()
 
 
         // TODO: theme support
@@ -799,6 +1127,60 @@ namespace MS.Dbg
             }
         } // end class CaStringUtilStripTestCase
 
+
+        private class CaStringUtilIndentAndWrapTestCase
+        {
+            public readonly string Input;
+            public readonly int OutputWidth;
+            public readonly IndentAndWrapOptions Options;
+            public readonly int Indent;
+            public readonly int AddtlContinuationIndent;
+
+            public readonly String ExpectedOutput;
+            public readonly Type ExpectedExceptionType;
+
+            private CaStringUtilIndentAndWrapTestCase( string input,
+                                                       int outputWidth )
+            {
+                Input = input;
+                OutputWidth = outputWidth;
+            }
+
+            public CaStringUtilIndentAndWrapTestCase( string input,
+                                                      int outputWidth,
+                                                      string expectedOutput )
+                : this( input, outputWidth )
+            {
+                ExpectedOutput = expectedOutput;
+            }
+
+            public CaStringUtilIndentAndWrapTestCase( string input,
+                                                      int outputWidth,
+                                                      Type expectedExceptionType )
+                : this( input, outputWidth )
+            {
+                ExpectedExceptionType = expectedExceptionType;
+            }
+
+        /* public static string IndentAndWrap( string str,
+                                               int outputWidth,
+                                               IndentAndWrapOptions options,
+                                               int indent,
+                                               int addtlContinuationIndent ) */
+
+            public CaStringUtilIndentAndWrapTestCase( string input,
+                                                      int outputWidth,
+                                                      IndentAndWrapOptions options,
+                                                      int indent,
+                                                      int addtlContinuationIndent,
+                                                      string expectedOutput )
+                : this( input, outputWidth, expectedOutput )
+            {
+                Options = options;
+                Indent = indent;
+                AddtlContinuationIndent = addtlContinuationIndent;
+            }
+        } // end class CaStringUtilIndentAndWrapTestCase
 
 
 
@@ -1255,6 +1637,140 @@ namespace MS.Dbg
         };
 
 
+        private static List<CaStringUtilIndentAndWrapTestCase> sm_indentAndWrapTests = new List<CaStringUtilIndentAndWrapTestCase>()
+        {
+            /*
+            */
+            new CaStringUtilIndentAndWrapTestCase( null,
+                                                   outputWidth: 4,
+                                                   typeof( ArgumentNullException ) ),
+
+            new CaStringUtilIndentAndWrapTestCase( "",
+                                                   outputWidth: 4,
+                                                   expectedOutput: "" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1 2 3 4 5 6 7 8 9",
+                                                   outputWidth: 4,
+                                                   expectedOutput: "1 2\n3 4\n5 6\n7 8\n9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( " 1 2 3 4 5 6 7 8 9",
+                                                   outputWidth: 4,
+                                                   expectedOutput: " 1\n2 3\n4 5\n6 7\n8 9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "12 34 56 78 90",
+                                                   outputWidth: 4,
+                                                   expectedOutput: "12\n34\n56\n78\n90" ),
+
+            new CaStringUtilIndentAndWrapTestCase( " 12 34 56 78 90",
+                                                   outputWidth: 4,
+                                                   expectedOutput: " 12\n34\n56\n78\n90" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "123 456 789 0ab",
+                                                   outputWidth: 4,
+                                                   expectedOutput: "123\n456\n789\n0ab" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1234 5678 90ab",
+                                                   outputWidth: 4,
+                                                   expectedOutput: "123\n4\n567\n8\n90a\nb" ),
+
+            new CaStringUtilIndentAndWrapTestCase( " 1 2 3 4 5 6 7 8 9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.AddLineLeadingSpaceToAddtlContinuationIndent,
+                                                   indent: 1,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: "  1\n  2\n  3\n  4\n  5\n  6\n  7\n  8\n  9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1 2 3 4 5 6 7 8 9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.Default,
+                                                   indent: 2,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: "  1\n  2\n  3\n  4\n  5\n  6\n  7\n  8\n  9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( " 1 2 3 4 5 6 7 8 9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.Default,
+                                                   indent: 2,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: "   \n  1\n  2\n  3\n  4\n  5\n  6\n  7\n  8\n  9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( " 1 2 3 4 5 6 7 8 9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.NoWordBreaking,
+                                                   indent: 2,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: "   \n  1\n   \n  2\n   \n  3\n   \n  4\n   \n  5\n   \n  6\n   \n  7\n   \n  8\n   \n  9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1 2 3 4 5 6 7 8 9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.FirstLineAlreadyIndented,
+                                                   indent: 2,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: "1\n  2\n  3\n  4\n  5\n  6\n  7\n  8\n  9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1 2\n3 4\n5 6\n7 8\n9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.Default,
+                                                   indent: 0,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: "1 2\n3 4\n5 6\n7 8\n9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1 2\n3 4\n5 6\n7 8\n9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.Default,
+                                                   indent: 1,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: " 1\n 2\n 3\n 4\n 5\n 6\n 7\n 8\n 9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1 2\n3 4\n5 6\n7 8\n9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.DoNotIndentContinuationLines,
+                                                   indent: 1,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: " 1\n2\n 3\n4\n 5\n6\n 7\n8\n 9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( " 1 2\n3 4\n5 6\n7 8\n9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.DoNotIndentContinuationLines |
+                                                            IndentAndWrapOptions.AddLineLeadingSpaceToAddtlContinuationIndent,
+                                                   indent: 1,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: "  1\n2\n 3\n4\n 5\n6\n 7\n8\n 9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1 2\n3 4\n5 6\n7 8\n9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.TruncateInsteadOfWrap,
+                                                   indent: 1,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: " 1…\n 3…\n 5…\n 7…\n 9" ),
+
+            new CaStringUtilIndentAndWrapTestCase( "1 2\n\u009b91m3 4\n5 6\n7 8\u009bm\n9",
+                                                   outputWidth: 4,
+                                                   options: IndentAndWrapOptions.TruncateInsteadOfWrap,
+                                                   indent: 1,
+                                                   addtlContinuationIndent: 0,
+                                                   expectedOutput: $" 1…\n \u009b91m3{c_PushAndReset}…\n {c_StandalonePop}5{c_PushAndReset}…\n {c_StandalonePop}7\u009bm{c_PushAndReset}…\n {c_StandalonePop}9" ),
+        };
+
+
+        private static string _EscapeStringForDisplay( string s )
+        {
+            StringBuilder sb = new StringBuilder( s.Length * 2 );
+
+            foreach( char c in s )
+            {
+                if( c == CSI )
+                    sb.Append( @"\" ).Append( "u009b" );
+                else if( c == '\r' )
+                    sb.Append( @"\" ).Append( 'r' );
+                else if( c == '\n' )
+                    sb.Append( @"\" ).Append( 'n' );
+                else
+                    sb.Append( c );
+            }
+
+            return sb.ToString();
+        }
 
 
         public static void SelfTest()
@@ -1422,6 +1938,7 @@ namespace MS.Dbg
                 }
             } // end foreach( testCase )
 
+
             if( 0 == stripFailures )
             {
                 Console.WriteLine( "CaStringUtil StripControlSequences tests passed." );
@@ -1432,6 +1949,55 @@ namespace MS.Dbg
             }
 
             failures += stripFailures;
+
+
+            int indentAndWrapFailures = 0;
+            for( int i = 0; i < sm_indentAndWrapTests.Count; i++ )
+            {
+                var testCase = sm_indentAndWrapTests[ i ];
+                try
+                {
+                    string output = IndentAndWrap( testCase.Input,
+                                                   testCase.OutputWidth,
+                                                   testCase.Options,
+                                                   testCase.Indent,
+                                                   testCase.AddtlContinuationIndent );
+
+                    if( 0 != String.CompareOrdinal( output, testCase.ExpectedOutput ) )
+                    {
+                        indentAndWrapFailures++;
+                        Console.WriteLine( "indentAndWrap test case {0} failed.\n   Expected: {1}\n     Actual: {2}\n",
+                                           i,
+                                           _EscapeStringForDisplay( testCase.ExpectedOutput ),
+                                           _EscapeStringForDisplay( output ) );
+                    }
+                }
+                catch( Exception e )
+                {
+                    if( e.GetType() != testCase.ExpectedExceptionType )
+                    {
+                        indentAndWrapFailures++;
+                        Console.WriteLine( "IndentAndWrap Test case {0} failed. Expected exception type: {1}, Actual: {2}.",
+                                           i,
+                                           null == testCase.ExpectedExceptionType ?
+                                                   "<none>" :
+                                                   testCase.ExpectedExceptionType.Name,
+                                           e.GetType().Name );
+                    }
+                }
+            } // end foreach( testCase )
+
+            if( 0 == indentAndWrapFailures )
+            {
+                Console.WriteLine( "CaStringUtil IndentAndWrap tests passed." );
+            }
+            else
+            {
+                Console.WriteLine( "CaStringUtil IndentAndWrap tests failed ({0} failures).", indentAndWrapFailures );
+            }
+
+            failures += indentAndWrapFailures;
+
 
             if( 0 == failures )
             {
