@@ -1683,7 +1683,10 @@ namespace MS.Dbg
     } // end class PSDbgMethodInfo
 
 
-    public abstract class DbgPointerValueBase : DbgValue
+    public abstract class DbgPointerValueBase : DbgValue,
+                                                IEquatable< DbgPointerValueBase >,
+                                                IComparable< DbgPointerValueBase >,
+                                                IComparable
     {
         internal DbgPointerValueBase( DbgSymbol symbol )
             : base( symbol )
@@ -1707,6 +1710,33 @@ namespace MS.Dbg
 
             return dnv.DbgGetPointer();
         }
+
+        // TODO: need to convert from int, long as well, for PS cmdline
+        // TODO: base classes also need their own converters, because PS only likes to compare like to like?
+        public static explicit operator DbgPointerValueBase( ulong addr )
+        {
+            var dbg = DbgEngDebugger._GlobalDebugger;
+
+            var mod = dbg.GetNtdllModuleEffective();
+
+            //var ptrType = DbgPointerTypeInfo.GetPointerTypeInfo( dbg, mod, /* DNTYPE_VOID */ 0x80000000 );
+            //var ptrType = DbgPointerTypeInfo.GetNamedTypeInfo( dbg, mod, /* DNTYPE_VOID */ 0x80000000, SymTag.BaseType );
+            var ptrType = DbgPointerTypeInfo.GetFakeVoidStarType( dbg, mod );
+
+            DEBUG_VALUE dv = new DEBUG_VALUE();
+            dv.Type = DEBUG_VALUE_TYPE.INT64;
+            dv.I64 = addr;
+            var reg = new DbgPseudoRegisterInfo( dbg, "fakeyfakereg", dv, 0, 0, UInt32.MaxValue );
+
+            var sym = new DbgSimpleSymbol( dbg,
+                                           "explicit_op_DbgPointerValueBase_" + addr.ToString( "x" ),
+                                           ptrType,
+                                           reg );
+
+            //return new DbgVoidStarValue( sym );
+            return new DbgPointerValue( sym );
+        }
+
 
         // This was supposed to make null checks in PowerShell really easy, by letting you
         // just type "if( $sym.Value.m_pBlah ) ..." (like in C). Unfortunately, PS does
@@ -1813,6 +1843,32 @@ namespace MS.Dbg
         public override int GetHashCode()
         {
             return ((ulong) this).GetHashCode();
+        }
+
+        public int CompareTo( DbgPointerValueBase other )
+        {
+            if( null == other )
+                return Int32.MaxValue;
+
+            return DbgGetPointer().CompareTo( other.DbgGetPointer() );
+        }
+
+        public int CompareTo( ulong other )
+        {
+            return DbgGetPointer().CompareTo( other );
+        }
+
+        int IComparable.CompareTo( object obj )
+        {
+            if( null == obj )
+                return Int32.MaxValue;
+
+            if( obj is ulong asUlong )
+            {
+                return CompareTo( asUlong );
+            }
+
+            return CompareTo( (DbgPointerValueBase) obj );
         }
     } // end class DbgPointerValueBase
 

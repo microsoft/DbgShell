@@ -86,6 +86,13 @@ namespace MS.Dbg
             __mod = module;
         } // end constructor
 
+
+        public static DbgPointerTypeInfo GetFakeVoidStarType( DbgEngDebugger debugger,
+                                                              DbgModuleInfo module )
+        {
+            return new DbgPointerTypeInfo( debugger, module, 0, 0, debugger.PointerSize, false );
+        }
+
         #region IEquatable stuff
 
         public override bool Equals( DbgTypeInfo other )
