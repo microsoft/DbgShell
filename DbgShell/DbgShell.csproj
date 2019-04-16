@@ -86,6 +86,7 @@
     <Compile Include="ColorHostUserInterfaceSecurity.cs" />
     <Compile Include="ColorUserInterfacePromptForChoice.cs" />
     <Compile Include="CommandLineParameterParser.cs" />
+    <Compile Include="ConsoleControl.AnsiColorWriter.cs" />
     <Compile Include="ConsoleControl.cs" />
     <Compile Include="ConsoleTextWriter.cs" />
     <Compile Include="HostUtilities.cs" />
