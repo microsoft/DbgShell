@@ -21,14 +21,23 @@ Set-StrictMode -Version Latest
 # Microsoft.PowerShell.Utility\Format-Table.
 [bool] $__UseBuiltinFormattingForPropertyViews = ![string]::IsNullOrEmpty( $env:UseBuiltinFormattingForPropertyViews )
 
+[object] $__lastFormatProxyError = $null
+
 
 function Get-AltFormattingEngineOption
 {
     [CmdletBinding()]
-    param()
+    param( [switch] $LastFormatProxyError )
 
-    return [PSCustomObject] @{
-        UseBuiltinFormattingForPropertyViews = $__UseBuiltinFormattingForPropertyViews
+    if( $LastFormatProxyError )
+    {
+        return $script:__lastFormatProxyError
+    }
+    else
+    {
+        return [PSCustomObject] @{
+            UseBuiltinFormattingForPropertyViews = $__UseBuiltinFormattingForPropertyViews
+        }
     }
 }
 
@@ -39,12 +48,30 @@ function Get-AltFormattingEngineOption
 
 .PARAMETER UseBuiltinFormattingForPropertyViews
     If set, the AFE proxy functions (Format-Table, etc.) will forward to PowerShell's built-in (standard) formatting engine when given -Property parameters (like "$foo | Format-Table Pre*").
+
+.PARAMETER EnableDebugSpewForProxy
+    Handy for debugging the formatting proxy commands.
+
+.PARAMETER DisableProxyDebugSpew
+    Turns off any debug spew enabled by -EnableDebugSpewForProxy.
 #>
 function Set-AltFormattingEngineOption
 {
     [CmdletBinding()]
     param( [Parameter( Mandatory = $false )]
-           [switch] $UseBuiltinFormattingForPropertyViews
+           [switch] $UseBuiltinFormattingForPropertyViews,
+
+           [Parameter( Mandatory = $false )]
+           [ValidateSet( 'formatList',
+                         'formatTable',
+                         'formatCustom',
+                         'formatString',
+                         'formatDefault',
+                         'outStringColorShim' )]
+           [string] $EnableDebugSpewForProxy,
+
+           [Parameter( Mandatory = $false )]
+           [switch] $DisableProxyDebugSpew
          )
 
     try
@@ -52,6 +79,22 @@ function Set-AltFormattingEngineOption
         if( $PSBoundParameters.ContainsKey( 'UseBuiltinFormattingForPropertyViews' ) )
         {
             $script:__UseBuiltinFormattingForPropertyViews = $UseBuiltinFormattingForPropertyViews
+        }
+
+        if( $PSBoundParameters.ContainsKey( 'DisableProxyDebugSpew' ) )
+        {
+            $script:__outStringColorShimProxyDebugSpew = $false
+            $script:__formatDefaultProxyDebugSpew = $false
+            $script:__formatStringProxyDebugSpew = $false
+            $script:__formatTableProxyDebugSpew = $false
+            $script:__formatListProxyDebugSpew = $false
+            $script:__formatCustomProxyDebugSpew = $false
+        }
+
+        if( $PSBoundParameters.ContainsKey( 'EnableDebugSpewForProxy' ) )
+        {
+            $varName = '__' + $EnableDebugSpewForProxy + 'ProxyDebugSpew'
+            Set-Variable -Scope Script -name $varName -Value $true
         }
     }
     finally { }
@@ -216,6 +259,7 @@ function TrimStream
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES: $e" )
             throw
         }
@@ -1306,6 +1350,7 @@ function script:OutStringColorShim
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OutStringColorShim begin: OH NOES: $e" )
             throw
         }
@@ -1381,6 +1426,7 @@ function script:OutStringColorShim
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OutStringColorShim: OH NOES: $e" )
             throw
         }
@@ -1399,6 +1445,7 @@ function script:OutStringColorShim
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OutStringColorShim end: OH NOES: $e" )
             throw
         }
@@ -1504,6 +1551,7 @@ function Out-Default
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "Out-Default begin: OH NOES: $e" )
             throw
         }
@@ -1632,6 +1680,7 @@ function Out-Default
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "Out-Default: OH NOES: $e" )
             $global:HostSupportsColor = $originalColorSupport
             throw
@@ -1651,6 +1700,7 @@ function Out-Default
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "Out-Default end: OH NOES: $e" )
             throw
         }
@@ -1715,6 +1765,7 @@ function Out-String
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "Out-String begin: OH NOES: $e" )
             throw
         }
@@ -1843,6 +1894,7 @@ function Out-String
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "Out-String: OH NOES: $e" )
             $global:HostSupportsColor = $originalColorSupport
             throw
@@ -1862,6 +1914,7 @@ function Out-String
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "Out-String end: OH NOES: $e" )
             throw
         }
@@ -1975,6 +2028,7 @@ function Format-Table
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-Table begin): $e" )
             throw
         }
@@ -2172,6 +2226,7 @@ function Format-Table
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-Table process): $e" )
             $global:HostSupportsColor = $originalColorSupport
             throw
@@ -2191,6 +2246,7 @@ function Format-Table
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-Table end): $e" )
             throw
         }
@@ -2295,6 +2351,7 @@ function Format-List
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-List begin): $e" )
             throw
         }
@@ -2492,6 +2549,7 @@ function Format-List
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-List process): $e" )
             $global:HostSupportsColor = $originalColorSupport
             throw
@@ -2511,6 +2569,7 @@ function Format-List
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-List end): $e" )
             throw
         }
@@ -2598,6 +2657,7 @@ function Format-Custom
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-Custom begin): $e" )
             throw
         }
@@ -2786,6 +2846,7 @@ function Format-Custom
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-Custom process): $e" )
             $global:HostSupportsColor = $originalColorSupport
             throw
@@ -2805,6 +2866,7 @@ function Format-Custom
         catch
         {
             $e = $_
+            $script:__lastFormatProxyError = $e
             [System.Console]::WriteLine( "OH NOES (Format-Custom end): $e" )
             throw
         }
