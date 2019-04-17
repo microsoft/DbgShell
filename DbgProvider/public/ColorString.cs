@@ -215,30 +215,26 @@ namespace MS.Dbg
             return Append( Environment.NewLine );
         }
 
-        private const int PUSH = 56;
-        private const int POP = 57;
-        private static readonly int[] PopArray = { POP };
-
         public ColorString AppendPush()
         {
             _CheckReadOnly( false );
-            m_elements.Add( new SgrControlSequence( new int[] { PUSH } ) );
+            m_elements.Add( PushSgrSequence.Instance );
             return this;
         }
 
         public ColorString AppendPushFg( ConsoleColor foreground )
         {
             _CheckReadOnly( false );
-            m_elements.Add( new SgrControlSequence( new int[] { PUSH,
-                                                                CaStringUtil.ForegroundColorMap[ foreground ] } ) );
+            m_elements.Add( PushSgrSequence.Instance );
+            m_elements.Add( new SgrControlSequence( new int[] { CaStringUtil.ForegroundColorMap[ foreground ] } ) );
             return this;
         }
 
         public ColorString AppendPushBg( ConsoleColor background )
         {
             _CheckReadOnly( false );
-            m_elements.Add( new SgrControlSequence( new int[] { PUSH,
-                                                                CaStringUtil.BackgroundColorMap[ background ] } ) );
+            m_elements.Add( PushSgrSequence.Instance );
+            m_elements.Add( new SgrControlSequence( new int[] { CaStringUtil.BackgroundColorMap[ background ] } ) );
             return this;
         }
 
@@ -246,8 +242,8 @@ namespace MS.Dbg
         public ColorString AppendPushFgBg( ConsoleColor foreground, ConsoleColor background )
         {
             _CheckReadOnly( false );
-            m_elements.Add( new SgrControlSequence( new int[] { PUSH,
-                                                                CaStringUtil.ForegroundColorMap[ foreground ],
+            m_elements.Add( PushSgrSequence.Instance );
+            m_elements.Add( new SgrControlSequence( new int[] { CaStringUtil.ForegroundColorMap[ foreground ],
                                                                 CaStringUtil.BackgroundColorMap[ background ] } ) );
             return this;
         }
@@ -255,32 +251,32 @@ namespace MS.Dbg
         public ColorString AppendPop()
         {
             _CheckReadOnly( false );
-            m_elements.Add( new SgrControlSequence( PopArray ) );
+            m_elements.Add( PopSgrSequence.Instance );
             return this;
         }
 
         public ColorString AppendPushPopFg( ConsoleColor foreground, string content )
         {
             _CheckReadOnly( true );
-            m_elements.Add( new SgrControlSequence( new int[] { PUSH,
-                                                                CaStringUtil.ForegroundColorMap[ foreground ] } ) );
+            m_elements.Add( PushSgrSequence.Instance );
+            m_elements.Add( new SgrControlSequence( new int[] { CaStringUtil.ForegroundColorMap[ foreground ] } ) );
             m_elements.Add( new ContentElement( content ) );
             // The content might not be "pure"; it might be pre-rendered colorized text.
             m_apparentLength += CaStringUtil.Length( content );
-            m_elements.Add( new SgrControlSequence( PopArray ) );
+            m_elements.Add( PopSgrSequence.Instance );
             return this;
         }
 
         public ColorString AppendPushPopFgBg( ConsoleColor foreground, ConsoleColor background, string content )
         {
             _CheckReadOnly( true );
-            m_elements.Add( new SgrControlSequence( new int[] { PUSH,
-                                                                CaStringUtil.ForegroundColorMap[ foreground ],
+            m_elements.Add( PushSgrSequence.Instance );
+            m_elements.Add( new SgrControlSequence( new int[] { CaStringUtil.ForegroundColorMap[ foreground ],
                                                                 CaStringUtil.BackgroundColorMap[ background ] } ) );
             m_elements.Add( new ContentElement( content ) );
             // The content might not be "pure"; it might be pre-rendered colorized text.
             m_apparentLength += CaStringUtil.Length( content );
-            m_elements.Add( new SgrControlSequence( PopArray ) );
+            m_elements.Add( PopSgrSequence.Instance );
             return this;
         }
 
@@ -512,37 +508,81 @@ namespace MS.Dbg
             } // end AppendTo();
         } // end class ContentElement
 
-        private class SgrControlSequence : ColorStringElement
-        {
-            public readonly IReadOnlyList< int > Commands;
 
-            public SgrControlSequence( IReadOnlyList< int > commands )
+        private abstract class ControlSequence : ColorStringElement
+        {
+            public readonly IReadOnlyList< int > Parameters;
+
+            protected ControlSequence( IReadOnlyList< int > parameters )
             {
-                Commands = commands ?? throw new ArgumentNullException( nameof(commands) );
+                Parameters = parameters; // optional
             } // end constructor
 
-            private const char CSI = '\x9b';  // "Control Sequence Initiator"
-            private const char SGR = 'm';     // "Select Graphics Rendition"
+            protected const char CSI = '\x9b';  // "Control Sequence Initiator"
+
+            protected abstract string Command { get; }
 
             public override StringBuilder AppendTo( StringBuilder sb, bool withColor )
             {
-                return withColor ? AppendCommands(sb, Commands) : sb;
+                return withColor ? _AppendCommands( sb, Parameters ) : sb;
             } // end AppendTo();
 
-            public static StringBuilder AppendCommands(StringBuilder sb, IReadOnlyList<int> commands)
+            private StringBuilder _AppendCommands( StringBuilder sb, IReadOnlyList< int > parameters )
             {
-                sb.Append( CSI );
-                for( int i = 0; i < commands.Count; i++ )
-                {
-                    sb.Append( commands[ i ].ToString( CultureInfo.InvariantCulture ) );
-                    if( i != (commands.Count - 1) )
-                        sb.Append( ';' );
-                }
-
-                return sb.Append( SGR );
+                return AppendCommand( sb, parameters, Command );
             } // end AppendCommands();
 
+            internal static StringBuilder AppendCommand( StringBuilder sb, IReadOnlyList< int > parameters, string command )
+            {
+                sb.Append( CSI );
+                if( parameters != null )
+                {
+                    for( int i = 0; i < parameters.Count; i++ )
+                    {
+                        sb.Append( parameters[ i ].ToString( CultureInfo.InvariantCulture ) );
+                        if( i != (parameters.Count - 1) )
+                            sb.Append( ';' );
+                    }
+                }
+
+                return sb.Append( command );
+            } // end AppendCommand();
+        } // end class ControlSequence
+
+
+        private class SgrControlSequence : ControlSequence
+        {
+            public SgrControlSequence( IReadOnlyList< int > parameters ) : base( parameters )
+            {
+                if( null == parameters )
+                    throw new ArgumentNullException( nameof( parameters ) );
+            } // end constructor
+
+            protected override string Command { get { return "m"; } } // "Select Graphics Rendition"
         } // end class SgrControlSequence
+
+        private class PushSgrSequence : ControlSequence
+        {
+            private PushSgrSequence() : base( null )
+            {
+            }
+
+            protected override string Command { get { return "#{"; } } // "XTPUSHSGR"
+
+            public static readonly PushSgrSequence Instance = new PushSgrSequence();
+        } // end class PushSgrSequence
+
+        private class PopSgrSequence : ControlSequence
+        {
+            private PopSgrSequence() : base( null )
+            {
+            }
+
+            protected override string Command { get { return "#}"; } } // "XTPOPSGR"
+
+            public static readonly PopSgrSequence Instance = new PopSgrSequence();
+        } // end class PopSgrSequence
+
 
         private class FormatStringElement : ColorStringElement
         {
@@ -604,11 +644,11 @@ namespace MS.Dbg
 
                     if( hasFg || hasBg )
                     {
-                        var sb = new StringBuilder();
-                        var commands = new List<int> { PUSH };
-                        if( hasFg ) { commands.Add( CaStringUtil.ForegroundColorMap[ fgColor ] ); }
-                        if( hasBg ) { commands.Add( CaStringUtil.BackgroundColorMap[ bgColor ] ); }
-                        SgrControlSequence.AppendCommands( sb, commands );
+                        var sb = new StringBuilder( PushSgrSequence.Instance.ToString() );
+                        var parameters = new List< int >( 2 );
+                        if( hasFg ) { parameters.Add( CaStringUtil.ForegroundColorMap[ fgColor ] ); }
+                        if( hasBg ) { parameters.Add( CaStringUtil.BackgroundColorMap[ bgColor ] ); }
+                        SgrControlSequence.AppendCommand( sb, parameters, "m" );
 
                         if( arg is ISupportColor asColor )
                         {
@@ -619,7 +659,7 @@ namespace MS.Dbg
                             sb.Append( ArgumentToString( arg, formatPieces[ 0 ], true ) );
                         }
 
-                        SgrControlSequence.AppendCommands( sb, PopArray );
+                        sb.Append( PopSgrSequence.Instance.ToString() );
                         return sb.ToString();
                     }
 

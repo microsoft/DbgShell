@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using MS.Dbg;
 
 using ConsoleHandle = Microsoft.Win32.SafeHandles.SafeFileHandle;
 
@@ -21,11 +23,12 @@ internal static partial class ConsoleControl
     //
     internal class AnsiColorWriter
     {
-        private const char CSI = '\x9b';  // "Control Sequence Initiator"
+        private const char CSI = '\x9b';  // "Control Sequence Initiator" (single character, as opposed to '\x1b' + '[')
 
         private ConsoleColor DefaultForeground;
         private ConsoleColor DefaultBackground;
-        private Dictionary< char, Action< List< int > > > m_commands;
+        private readonly IReadOnlyDictionary< char, Func< Action< List< int > > > > m_commandTreeRoot;
+        private readonly IReadOnlyDictionary< char, Func< Action< List< int > > > > m_hashCommands;
         private ControlSequenceParseState m_state;
 
 
@@ -34,38 +37,64 @@ internal static partial class ConsoleControl
         private struct ControlSequenceParseState
         {
             private int m_accum;
+            private bool m_isParsingParam;
             private List< int > m_list;
 
             // True if we are in the middle of parsing a sequence. Useful for when sequences
             // are broken across multiple calls.
-            public bool Parsing { get; private set; }
+            public bool IsParsing
+            {
+                get
+                {
+                    return null != CurrentCommands;
+                }
+            }
+
+            private IReadOnlyDictionary< char, Func< Action< List< int > > > > m_commandTreeRoot;
+
+            public ControlSequenceParseState( IReadOnlyDictionary< char, Func< Action< List< int > > > > rootCommands )
+            {
+                m_commandTreeRoot = rootCommands;
+                CurrentCommands = null;
+                m_accum = 0;
+                m_isParsingParam = false;
+                m_list = null;
+            }
+
+            public IReadOnlyDictionary< char, Func< Action< List< int > > > > CurrentCommands;
 
             // This can tolerate multiple Begin calls without destroying state.
             public void Begin()
             {
-                if( !Parsing )
+                if( !IsParsing )
                 {
-                    Parsing = true;
+                    CurrentCommands = m_commandTreeRoot;
                     m_list = new List< int >();
+                    m_isParsingParam = false;
                 }
             }
 
-            public void Accum( int digit )
+            public void AccumParamDigit( int digit )
             {
                 m_accum *= 10;
                 m_accum += digit;
+                m_isParsingParam = true;
             }
 
-            public void Enter()
+            public void EnterParam()
             {
+                Util.Assert( m_isParsingParam );
                 m_list.Add( m_accum );
+                m_isParsingParam = false;
                 m_accum = 0;
             }
 
-            public List< int > Finish()
+            public List< int > FinishParsingParams()
             {
-                Enter();
-                Parsing = false;
+                if( m_isParsingParam )
+                    EnterParam();
+
+                CurrentCommands = null;
                 List< int > list = m_list;
                 m_list = null;
                 return list;
@@ -76,7 +105,8 @@ internal static partial class ConsoleControl
             /// </summary>
             public void Reset()
             {
-                Parsing = false;
+                CurrentCommands = null;
+                m_isParsingParam = false;
                 m_list = null;
                 m_accum = 0;
             }
@@ -88,10 +118,19 @@ internal static partial class ConsoleControl
             DefaultForeground = ConsoleControl.ForegroundColor;
             DefaultBackground = ConsoleControl.BackgroundColor;
 
-            m_commands = new Dictionary< char, Action< List< int > > >()
+            m_commandTreeRoot = new Dictionary< char, Func< Action< List< int > > > >()
             {
-                { 'm', _SelectGraphicsRendition },
+                { 'm', () => _SelectGraphicsRendition },
+                { '#', _ProcessHashCommand },
             };
+
+            m_hashCommands = new Dictionary< char, Func< Action< List< int > > > >()
+            {
+                { '{', () => _PushSgr },
+                { '}', () => _PopSgr },
+            };
+
+            m_state = new ControlSequenceParseState( m_commandTreeRoot );
         } // end constructor
 
 
@@ -99,7 +138,7 @@ internal static partial class ConsoleControl
         {
             int startIndex = 0;
 
-            if( m_state.Parsing )
+            if( m_state.IsParsing )
             {
                 // Need to continue.
                 startIndex = _HandleControlSequence( s, -1 );
@@ -126,7 +165,9 @@ internal static partial class ConsoleControl
 
 
         /// <summary>
-        ///    Returns the index of the next character after the escape sequence and code(s).
+        ///    Returns the index of the first character past the control sequence (which
+        ///    could be past the end of the string, or could be the start of another
+        ///    control sequence).
         /// </summary>
         private int _HandleControlSequence( string s, int escIndex )
         {
@@ -139,19 +180,21 @@ internal static partial class ConsoleControl
                 c = s[ curIndex ];
                 if( (c >= '0') &&  (c <= '9') )
                 {
-                    m_state.Accum( ((int) c) - 0x30 );
+                    m_state.AccumParamDigit( ((int) c) - 0x30 );
                     continue;
                 }
                 else if( ';' == c )
                 {
-                    m_state.Enter();
+                    m_state.EnterParam();
                     continue;
                 }
-                else if( (c >= '@') && (c <= '~') )
+                else if( ((c >= '@') && (c <= '~')) || (c == '#') )
                 {
-                    List< int > args = m_state.Finish();
-                    _ProcessCommand( c, args );
-                    return curIndex + 1;
+                    if( _FindCommand( c, out Action< List< int > > command ) )
+                    {
+                        command( m_state.FinishParsingParams() );
+                        return curIndex + 1;
+                    }
                 }
                 else
                 {
@@ -174,18 +217,23 @@ internal static partial class ConsoleControl
         } // end _HandleControlSequence()
 
 
-        private void _ProcessCommand( char commandChar, List< int > args )
+        /// <summary>
+        ///    Returns true if it successfully found a command to execute; false if we
+        ///    need to read more characters (some commands are expressed with multiple
+        ///    characters).
+        /// </summary>
+        private bool _FindCommand( char commandChar, out Action< List< int > > command )
         {
-            Action< List< int > > action;
-            if( !m_commands.TryGetValue( commandChar, out action ) )
+            Func< Action< List< int > > > commandSearcher;
+            if( !m_state.CurrentCommands.TryGetValue( commandChar, out commandSearcher ) )
             {
-                // See big comment above the other throw above.
-                m_state.Reset();
                 throw new NotSupportedException( String.Format( "The command code '{0}' (0x{1:x}) is not supported.", commandChar, (int) commandChar ) );
             }
 
-            action( args );
-        } // end _ProcessCommand()
+            command = commandSearcher();
+
+            return command != null;
+        } // end _FindCommand()
 
 
         // Info sources:
@@ -224,6 +272,8 @@ internal static partial class ConsoleControl
         //   56: Push fg/bg color pair
         //   57: Pop fg/bg color pair
         //
+        // However, THESE ARE DEPRECATED. Use XTPUSHSGR/XTPOPSGR instead.
+        //
 
         private void _SelectGraphicsRendition( List< int > args )
         {
@@ -234,6 +284,38 @@ internal static partial class ConsoleControl
             {
                 _ProcessSgrCode( arg );
             }
+        } // end _SelectGraphicsRendition()
+
+
+        private void _PushSgr( List< int > args )
+        {
+            if( (args != null) && (args.Count != 0) )
+            {
+                throw new NotSupportedException( "Optional arguments to the XTPUSHSGR command are not currently implemented." );
+            }
+
+            m_colorStack.Push( new ColorPair( Console.ForegroundColor, Console.BackgroundColor ) );
+        } // end _PushSgr()
+
+
+        private void _PopSgr( List< int > args )
+        {
+            if( (args != null) && (args.Count != 0) )
+            {
+                throw new InvalidOperationException( "The XTPOPSGR command does not accept arguments." );
+            }
+
+            ColorPair cp = m_colorStack.Pop();
+            Console.ForegroundColor = cp.Foreground;
+            Console.BackgroundColor = cp.Background;
+        } // end _PopSgr()
+
+
+        private Action< List< int > > _ProcessHashCommand()
+        {
+            m_state.CurrentCommands = m_hashCommands;
+
+            return null;
         } // end _SelectGraphicsRendition()
 
 
@@ -275,10 +357,12 @@ internal static partial class ConsoleControl
             }
             else if( 56 == code ) // NON-STANDARD (I made this one up)
             {
+                Util.Fail( "The 56/57 SGR codes (non-standard push/pop) are deprecated. Use XTPUSHSGR/XTPOPSGR instead." );
                 m_colorStack.Push( new ColorPair( ConsoleControl.ForegroundColor, ConsoleControl.BackgroundColor ) );
             }
             else if( 57 == code ) // NON-STANDARD (I made this one up)
             {
+                Util.Fail( "The 56/57 SGR codes (non-standard push/pop) are deprecated. Use XTPUSHSGR/XTPOPSGR instead." );
                 ColorPair cp = m_colorStack.Pop();
                 ConsoleControl.ForegroundColor = cp.Foreground;
                 ConsoleControl.BackgroundColor = cp.Background;

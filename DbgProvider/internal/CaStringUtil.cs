@@ -56,46 +56,46 @@ namespace MS.Dbg
             return Length( s, 0 );
         }
 
+
         public static int Length( string s, int startIndex )
         {
             if( null == s )
                 throw new ArgumentNullException( "s" );
 
+            if( startIndex == s.Length ) // special case for zero-length string
+                return 0;
+
+            if( startIndex > s.Length )
+                throw new ArgumentOutOfRangeException( nameof( startIndex ), startIndex, "startIndex is past the end of the string" );
+
+            int length = 0;
+
             int escIndex = s.IndexOf( CSI, startIndex );
-            if( escIndex < 0 )
-                return s.Length - startIndex; // TODO: String caches its length, right?
 
-            int length = escIndex - startIndex; // not including command sequence stuff.
-            int curIndex = escIndex;
-            char c;
-            while( ++curIndex < s.Length )
+            while( escIndex >= 0 )
             {
-                c = s[ curIndex ];
-                if( (c >= '0') &&  (c <= '9') )
-                {
-                    continue;
-                }
-                else if( ';' == c )
-                {
-                    continue;
-                }
-                else if( (c >= '@') && (c <= '~') ) // The command code character.
-                {
-                    if( s.Length == (curIndex + 1) )
-                        return length; // the command sequence is at the very end of the string.
+                length += escIndex - startIndex;
 
-                    return length + Length( s, curIndex + 1 );
+                startIndex = _SkipControlSequence( s, escIndex );
+
+                if( startIndex < s.Length )
+                {
+                    escIndex = s.IndexOf( CSI, startIndex );
                 }
                 else
                 {
-                    // You're supposed to be able to have anonther character, like a space
-                    // (0x20) before the command code character, but I'm not going to do that.
-                    throw new ArgumentException( String.Format( "Invalid command sequence character at position {0} (0x{1:x}).", curIndex, (int) c ) );
+                    // The control sequence was at the end of the string; we're done.
+                    return length;
                 }
             }
-            // Finished parsing the whole string, without seeing the end of the control
-            // sequence--the control sequence must be broken across strings.
-            throw _CreateBrokenSequenceException();
+
+            // No more control sequences left.
+
+            Util.Assert( startIndex < s.Length );
+
+            length += s.Length - startIndex; // TODO: String caches its length, right?
+
+            return length;
         } // end Length()
 
 
@@ -139,9 +139,13 @@ namespace MS.Dbg
                 if( _IsDigitOrSemi( c ) )
                     continue;
 
-                if( (c >= '@') && (c <= '~') ) // The command code character.
+                if( ((c >= '@') && (c <= '~')) || (c == '#') ) // The command code character.
                 {
-                    return curIdx + 1; // note that this could be just past the end of the string.
+                    int commandLen = 1;
+                    if( c == '#' )
+                        commandLen = 2; // '#' is the first char of a command like "#{" or "#}"
+
+                    return curIdx + commandLen; // note that this could be just past the end of the string.
                 }
                 else
                 {
@@ -561,9 +565,9 @@ namespace MS.Dbg
         };
 
 
-        internal const string SGR = "m"; // SGR: "Select Graphics Rendition"
-        internal const string PUSH = "56";
-        internal const string POP = "57";
+        internal const string SGR = "m";    // SGR: "Select Graphics Rendition"
+        internal const string PUSH = "#{";  // XTPUSHSGR
+        internal const string POP = "#}";   // XTPOPSGR
 
      // public static string FG( ConsoleColor foreground )
      // {
@@ -695,8 +699,8 @@ namespace MS.Dbg
                                                                  // leading space is longer than the entire outputWidth
         }
 
-        private const string c_PushAndReset  = "\u009b56;0m";
-        private const string c_StandalonePop = "\u009b57m";
+        private const string c_PushAndReset  = "\u009b#{\u009b0m";
+        private const string c_StandalonePop = "\u009b#}";
 
         public static string IndentAndWrap( string str,
                                             int outputWidth,
@@ -1252,6 +1256,10 @@ namespace MS.Dbg
                                             0 ),
             new CaStringUtilLengthTestCase( "\u009bm",
                                             0 ),
+            new CaStringUtilLengthTestCase( "\u009b#{",
+                                            0 ),
+            new CaStringUtilLengthTestCase( "\u009b#{\u009b91mRED\u009b#}",
+                                            3 ),
             new CaStringUtilLengthTestCase( "\u009bm123",
                                             3 ),
             new CaStringUtilLengthTestCase( "123\u009bm123",
@@ -1842,7 +1850,16 @@ namespace MS.Dbg
                 try
                 {
                     int actual = Length( testCase.Input );
-                    if( actual != testCase.ExpectedLength )
+
+                    if( testCase.ExpectedExceptionType != null )
+                    {
+                        failures++;
+                        Console.WriteLine( "Length test case {0} failed. Expected an exception of type: {1}, Actual: computed length of {2}.",
+                                           i,
+                                           Util.GetGenericTypeName( testCase.ExpectedExceptionType ),
+                                           actual );
+                    }
+                    else if( actual != testCase.ExpectedLength )
                     {
                         failures++;
                       //Util.Fail( Util.Sprintf( "Test case {0} failed. Expected: {1}, Actual: {2}.",
