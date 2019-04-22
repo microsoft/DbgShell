@@ -20,7 +20,7 @@ namespace MS.Dbg.Commands
                     ValueFromPipelineByPropertyName = true,
                     ParameterSetName = c_NameParamSet )]
         [SupportsWildcards]
-        public string Name { get; set; }
+        public string[] Name { get; set; }
 
 
         [Parameter( Mandatory = true,
@@ -36,18 +36,18 @@ namespace MS.Dbg.Commands
         public SwitchParameter Unloaded { get; set; }
 
 
-        private bool _Matches( DbgModuleInfo mod )
+        private bool _Matches( string name, DbgModuleInfo mod )
         {
-            if( String.IsNullOrEmpty( Name ) )
+            if( String.IsNullOrEmpty( name ) )
                 return true;
 
-            if( WildcardPattern.ContainsWildcardCharacters( Name ) )
+            if( WildcardPattern.ContainsWildcardCharacters( name ) )
             {
-                var pat = new WildcardPattern( Name, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase );
+                var pat = new WildcardPattern( name, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase );
                 return pat.IsMatch( mod.Name );
             }
 
-            return 0 == Util.Strcmp_OI( mod.Name, Name );
+            return 0 == Util.Strcmp_OI( mod.Name, name );
         } // end _Matches()
 
 
@@ -70,7 +70,7 @@ namespace MS.Dbg.Commands
             // Let's check if Name is actually an address:
             //
 
-            if( !String.IsNullOrEmpty( Name ) )
+            if( (null != Name) && (Name.Length == 1) && !String.IsNullOrEmpty( Name[ 0 ] ) )
             {
                 object addrObj = AddressTransformationAttribute.Transform( null,  // EngineIntrinsics
                                                                            SessionState.Path.CurrentProviderLocation( DbgProvider.ProviderId ).ProviderPath,
@@ -78,7 +78,7 @@ namespace MS.Dbg.Commands
                                                                            false, // throwOnFailure
                                                                            false, // dbgMemoryPassThru
                                                                            false, // allowList
-                                                                           Name );
+                                                                           Name[ 0 ] );
 
                 if( (null != addrObj) && (addrObj is ulong) )
                 {
@@ -97,11 +97,19 @@ namespace MS.Dbg.Commands
                 modules = Debugger.Modules;
             }
 
-            foreach( var mod in modules )
+            if( (null == Name) || (0 == Name.Length) )
             {
-                if( _Matches( mod ) )
+                Name = new string[] { String.Empty }; // matches every module
+            }
+
+            foreach( string name in Name )
+            {
+                foreach( var mod in modules )
                 {
-                    WriteObject( mod );
+                    if( _Matches( name, mod ) )
+                    {
+                        WriteObject( mod );
+                    }
                 }
             }
         } // end ProcessRecord()

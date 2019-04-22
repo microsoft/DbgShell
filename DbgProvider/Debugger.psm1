@@ -2930,6 +2930,143 @@ function ep
 
 <#
 .Synopsis
+    Similar to the windbg "lm" command: outputs information about one or more modules. This command supports either "v", "m", or "vm" windbg options as the first (flags) parameter. Note that unlike most PowerShell commands which output pure objects, if the "v" flag is included, this command outputs formatted text (it builds in a call to Format-List). For scripting purposes, do not use the "v" flag, or use Get-DbgModuleInfo instead.
+
+    Also unlike windbg, the "m" flag is implied if you pass module names.
+.Link
+    'lmvm'
+    'Get-DbgModuleInfo'
+#>
+function lm
+{
+    [CmdletBinding()]
+    param( [Parameter( Mandatory = $false,
+                       Position = 0 )]
+           [string[]] $Name,
+
+           [Parameter( Mandatory = $false,
+                       Position = 1,
+                       ValueFromPipeline = $true )]
+           [string[]] $WindbgLegacyNameParam
+         )
+
+    process
+    {
+        try
+        {
+            # Seems like it would be nicer to have the ValueFromPipeline be on the $Name
+            # parameter, but that would actually mess up pipeline scenarios, like
+            # "'ntdll' | lm m".
+            #
+            # Scenarios to verify if you want to try to tweak stuff:
+            #
+            #    lm notepad
+            #    lm v notepad
+            #    lm m notepad
+            #    lm vm notepad
+            #
+            #    lm notepad, advapi32
+            #    lm v notepad, advapi32
+            #    lm m notepad, advapi32
+            #    lm vm notepad, advapi32
+            #
+            #    'notepad' | lm
+            #    'notepad' | lm m
+            #    'notepad' | lm v
+            #    'notepad' | lm vm
+            #
+            #    'notepad', 'advapi32' | lm
+            #    'notepad', 'advapi32' | lm m
+            #    'notepad', 'advapi32' | lm v
+            #    'notepad', 'advapi32' | lm vm
+
+            [bool] $windbgVerbose = $false
+            [bool] $usingLegacyFlags = $false
+
+            # It's important that we not mess with $Name, because changes to it will
+            # persist between invocations of the 'process' block in a pipeline scenario.
+            # So we'll copy to a local.
+            $localNames = $Name
+
+            if( $localNames -and ($localNames.Length -gt 0) )
+            {
+                if( $localNames[ 0 ] -eq 'v' )
+                {
+                    $windbgVerbose = $true
+                    $usingLegacyFlags = $true
+
+                    # slice out first item, which we are interpreting as windbg-style flags
+                    $localNames = $localNames | Select-Object -Skip 1
+                }
+                elseif( ($localNames[ 0 ] -eq 'vm') -or ($localNames[ 0 ] -eq 'mv') )
+                {
+                    $windbgVerbose = $true
+                    $usingLegacyFlags = $true
+
+                    # slice out first item, which we are interpreting as windbg-style flags
+                    $localNames = $localNames | Select-Object -Skip 1
+                }
+                elseif( $localNames[ 0 ] -eq 'm' )
+                {
+                    $usingLegacyFlags = $true
+
+                    # We don't do anything special for the 'm' flag; we always support
+                    # specifying a name, whether 'm' was specified or not.
+
+                    # slice out first item, which we are interpreting as windbg-style flags
+                    $localNames = $localNames | Select-Object -Skip 1
+                }
+            }
+
+            if( $WindbgLegacyNameParam )
+            {
+                $localNames += $WindbgLegacyNameParam
+            }
+
+            $mods = Get-DbgModuleInfo $localNames
+            if( $windbgVerbose )
+            {
+                $mods | Format-List
+            }
+            else
+            {
+                $mods
+            }
+        }
+        finally { }
+    }
+} # end lm
+
+
+<#
+.Synopsis
+    Similar to the windbg "lmvm" variation of "lm": outputs information about one or more modules, in list format. This command is intended to be used interactively, for people with strong windbg muscle memory: Note that unlike most PowerShell commands which output pure objects, this command outputs formatted text. For scripting purposes, use Get-DbgModuleInfo instead.
+.Link
+    'lm'
+    'Get-DbgModuleInfo'
+#>
+function lmvm
+{
+    [CmdletBinding()]
+    param( [Parameter( Mandatory = $false,
+                       Position = 0,
+                       ValueFromPipeline = $true,
+                       ValueFromPipelineByPropertyName = $true )]
+           [string] $Name
+         )
+    process
+    {
+        try
+        {
+            Get-DbgModuleInfo $Name | Format-List
+        }
+        finally { }
+    }
+} # end lmvm
+
+
+<#
+.Synopsis
     Detaches the debugger from the current process, similar to .detach, but leaves the target process suspended.
 .Link
     '.detach'
@@ -3391,7 +3528,7 @@ Set-Alias bc Remove-DbgBreakpoint
 Set-Alias bp Set-DbgBreakpoint
 
 Set-Alias Get-ModuleInfo Get-DbgModuleInfo
-Set-Alias lm Get-DbgModuleInfo
+#Set-Alias lm Get-DbgModuleInfo
 
 Set-Alias Get-RegisterSet Get-DbgRegisterSet
 Set-Alias r Get-DbgRegisterSet -Option AllScope -Scope Local -Force  # see comment about setting in "both scopes"
