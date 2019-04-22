@@ -336,7 +336,7 @@ Register-ArgumentCompleter `
 
 
 Register-ArgumentCompleter `
-    -Command ('Get-DbgModuleInfo') `
+    -Command ('Get-DbgModuleInfo', 'lm', 'lmvm') `
     -Parameter 'Name' `
     -ScriptBlock $function:ModuleNameCompletion
 
@@ -344,6 +344,12 @@ Register-ArgumentCompleter `
 Register-ArgumentCompleter `
     -Command ('Get-DbgTypeInfo') `
     -Parameter 'Module' `
+    -ScriptBlock $function:ModuleNameCompletion
+
+
+Register-ArgumentCompleter `
+    -Command ('lm') `
+    -Parameter 'WindbgLegacyNameParam' `
     -ScriptBlock $function:ModuleNameCompletion
 
 
