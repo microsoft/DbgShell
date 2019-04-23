@@ -94,6 +94,8 @@ function Set-PathBugginessStyle
 } # end Set-PathBugginessStyle
 
 
+New-Variable -Name 'PSCallstackKey' -Value 'PSCallStack' -Scope script -Option 'Constant'
+
 function Assert
 {
     [CmdletBinding()]
@@ -3979,7 +3981,7 @@ Set-Alias .f- .f_minus
 
 <#
 .Synopsis
-    Converts unqualified hex addresses into numbers, so you can do math on them. It's a convenient way to manually apply the [AddressTransformation] attribute to something. 
+    Converts unqualified hex addresses into numbers, so you can do math on them. It's a convenient way to manually apply the [AddressTransformation] attribute to something.
 #>
 function ConvertTo-Number
 {
