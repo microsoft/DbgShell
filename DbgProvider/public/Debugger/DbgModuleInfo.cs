@@ -570,8 +570,23 @@ namespace MS.Dbg
             { DEBUG_SYMTYPE.SYM,      new ColorString(                        "('sym' symbols)" )      .MakeReadOnly() },
         };
 
+        private static readonly ColorString s_strippedPdbStatusString = new ColorString( ConsoleColor.DarkGreen, "(pdb " )
+            .AppendFg( ConsoleColor.DarkYellow ).Append( "(stripped)" )
+            .AppendFg( ConsoleColor.DarkGreen ).Append( ")" )
+            .MakeReadOnly();
+
         private ColorString _GetSymbolTypeString()
         {
+            if( SymbolType == DEBUG_SYMTYPE.PDB )
+            {
+                var modInfo = DbgHelp.GetModuleInfo( Debugger.DebuggerInterface, BaseAddress );
+                if( modInfo.GlobalSymbols == 0 )
+                {
+                    // Looks like a "stripped" PDB.
+                    return s_strippedPdbStatusString;
+                }
+            }
+
             ColorString cs;
             if( !sm_symStatusStrings.TryGetValue( SymbolType, out cs ) )
             {
