@@ -3764,6 +3764,32 @@ namespace MS.Dbg
             }
             return 0;
         }
+
+
+        public static IMAGEHLP_MODULEW64 GetModuleInfo( WDebugClient debugClient,
+                                                        ulong address )
+        {
+            return DbgEngDebugger._GlobalDebugger.ExecuteOnDbgEngThread( () =>
+                {
+                    return GetModuleInfo_naked( debugClient, address );
+                } );
+        }
+
+
+        private static unsafe IMAGEHLP_MODULEW64 GetModuleInfo_naked( WDebugClient debugClient, ulong address )
+        {
+            IntPtr hProcess = _GetHProcForDebugClient( debugClient );
+
+            IMAGEHLP_MODULEW64 modInfo = new IMAGEHLP_MODULEW64();
+            modInfo.SizeOfStruct = (uint) Marshal.SizeOf( modInfo );
+
+            bool itWorked = NativeMethods.SymGetModuleInfo64( hProcess, address, &modInfo );
+
+            if( !itWorked )
+                throw new DbgEngException( Marshal.GetLastWin32Error() );
+
+            return modInfo;
+        } // end GetModuleInfo_naked()
     } // end class DbgHelp
 
 
