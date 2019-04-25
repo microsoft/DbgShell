@@ -236,8 +236,98 @@ namespace MS.Dbg
             if( ')' == name[ name.Length - 1 ] )
                 return false;
 
+            if( _LooksLikeDotNetGeneratedName( name ) )
+                return false;
+
             return _LooksLikeATemplateNameInner( name, startIdx, ref angleBracketIdx );
         }
+
+
+        private static bool _LooksLikeDotNetGeneratedName( string name )
+        {
+            // See roslyn/src/Compilers/CSharp/Portable/Symbols/Synthesized/GeneratedNames.cs
+            // https://github.com/dotnet/roslyn/blob/master/src/Compilers/CSharp/Portable/Symbols/Synthesized/GeneratedNames.cs
+            //
+            // This looks like something that could be done handily with a regex, but I
+            // really don't want to spin up regex here; this stuff needs to be as quick as
+            // possible. So below is a simple, hand-rolled state machine. We work
+            // backwards from the end of the string. The states map to the parts of a
+            // dotnet-generated name like so:
+            //
+            //   "Blahblahblahblah<MaybeStuffHere>X__ABCD"
+            //                                   /// \__//
+            //      state_singleLetterOrDigit---///   / /
+            //              state_underscore2---//   / /
+            //              state_underscore1---/   / /
+            //                  state_identifier---/ /
+            //                        state_start---/
+            //
+
+            const int state_start = 0;
+            const int state_identifier = 1;
+            const int state_underscore1 = 2;
+            const int state_underscore2 = 3;
+            const int state_singleLetterOrDigit = 4;
+
+            // No "invalid" state: we just directly return false.
+
+            int state = state_start;
+
+            int idx = name.Length;
+
+            // The minimum length of such a name is 7: "A<>B__C"
+            // So if we get to index 1 before finding the '>', we can stop.
+
+            if( idx < 7 )
+                return false;
+
+            while( --idx > 1 )
+            {
+                char c = name[ idx ];
+
+                switch( state )
+                {
+                    case state_start:
+                        if( Char.IsLetterOrDigit( c ) )
+                            state = state_identifier;
+                        else
+                            return false;
+
+                        break;
+                    case state_identifier:
+                        if( c == '_' )
+                            state = state_underscore1;
+                        else if( !Char.IsLetterOrDigit( c ) )
+                            return false;
+
+                        break;
+                    case state_underscore1:
+                        if( c == '_' )
+                            state = state_underscore2;
+                        else
+                            return false;
+
+                        break;
+                    case state_underscore2:
+                        if( Char.IsLetterOrDigit( c ) )
+                            state = state_singleLetterOrDigit;
+                        else
+                            return false;
+
+                        break;
+                    case state_singleLetterOrDigit:
+                        if( c == '>' )
+                            return true;
+                        else
+                            return false;
+
+                    default:
+                        throw new Exception( "unexpected: invalid state" );
+                }
+            }
+
+            return false;
+        } // end _LooksLikeDotNetGeneratedName()
 
 
         // Takes care of checks that we need to do repeatedly, after the one-time checks
@@ -438,7 +528,7 @@ namespace MS.Dbg
                             }
                             else
                             {
-                                problem = Util.Sprintf( "Unexpected characters at position {0}.", idx );
+                                problem = Util.Sprintf( "Unexpected characters at position {0}.", idx + 1 );
                                 return false;
                             }
 
