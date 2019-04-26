@@ -197,39 +197,34 @@ Describe "TemplateMatching" {
 
     It "can deal with non-template dotnet names" {
 
-        # The CLR uses brackets to make types not usable in C#; it's not a template.
-        $typeName1 = 'MS.Dbg.IMAGEHLP_MODULEW64+<LoadedImageName>e__FixedBuffer'
-        $ti1 = [MS.Dbg.DbgTemplateNode]::CrackTemplate( $typeName1 )
-        $ti1.IsTemplate | Should Be $false 
-        $ti1.FullName | Should Be $typeName1
-        $ti1.TemplateName | Should Be $typeName1
-        ([MS.Dbg.DbgTemplateNode]::LooksLikeATemplateName( $typeName1 )) | Should Be $false
+        $noneOfTheseAreTemplates = @(
+            # The CLR uses brackets to make types not usable in C#; it's not a template.
+            'MS.Dbg.IMAGEHLP_MODULEW64+<LoadedImageName>e__FixedBuffer'
 
-        # This is a "fake" name (not observed in the wild; it's the same as the previous
-        # one but with the content between the angle brackets removed), but according to
-        # dotnet source, this sort of name should be possible.
-        $typeName1 = 'MS.Dbg.IMAGEHLP_MODULEW64+<>e__FixedBuffer'
-        $ti1 = [MS.Dbg.DbgTemplateNode]::CrackTemplate( $typeName1 )
-        $ti1.IsTemplate | Should Be $false
-        $ti1.FullName | Should Be $typeName1
-        $ti1.TemplateName | Should Be $typeName1
-        ([MS.Dbg.DbgTemplateNode]::LooksLikeATemplateName( $typeName1 )) | Should Be $false
+            # This is a "fake" name (not observed in the wild; it's the same as the
+            # previous one but with the content between the angle brackets removed), but
+            # according to dotnet source, this sort of name should be possible.
+            'MS.Dbg.IMAGEHLP_MODULEW64+<>e__FixedBuffer'
 
-        # Minimal archetypal dotnet generated name:
-        $typeName1 = 'A<>9__X'
-        $ti1 = [MS.Dbg.DbgTemplateNode]::CrackTemplate( $typeName1 )
-        $ti1.IsTemplate | Should Be $false
-        $ti1.FullName | Should Be $typeName1
-        $ti1.TemplateName | Should Be $typeName1
-        ([MS.Dbg.DbgTemplateNode]::LooksLikeATemplateName( $typeName1 )) | Should Be $false
+            # Minimal archetypal dotnet generated name:
+            '<>9__X'
 
-        # now with something inside the brackets
-        $typeName1 = 'A<B>9__X'
-        $ti1 = [MS.Dbg.DbgTemplateNode]::CrackTemplate( $typeName1 )
-        $ti1.IsTemplate | Should Be $false
-        $ti1.FullName | Should Be $typeName1
-        $ti1.TemplateName | Should Be $typeName1
-        ([MS.Dbg.DbgTemplateNode]::LooksLikeATemplateName( $typeName1 )) | Should Be $false
+            # now with something inside the brackets
+            '<B>9__X'
+
+            # now with stuff in front of the brackets
+            'A<>9__X'
+            'A<B>9__X'
+        )
+
+        foreach( $nonTemplate in $noneOfTheseAreTemplates )
+        {
+            $ti1 = [MS.Dbg.DbgTemplateNode]::CrackTemplate( $nonTemplate )
+            $ti1.IsTemplate | Should Be $false 
+            $ti1.FullName | Should Be $nonTemplate
+            $ti1.TemplateName | Should Be $nonTemplate
+            ([MS.Dbg.DbgTemplateNode]::LooksLikeATemplateName( $nonTemplate )) | Should Be $false
+        }
     }
 
     It "throws if the multi-match wildcard doesn't come last" {

@@ -273,15 +273,15 @@ namespace MS.Dbg
 
             int state = state_start;
 
+            // The minimum length of such a name is 6: "<>B__C"
+            // So if we get to index 0 before finding the '>', we can stop.
+
             int idx = name.Length;
 
-            // The minimum length of such a name is 7: "A<>B__C"
-            // So if we get to index 1 before finding the '>', we can stop.
-
-            if( idx < 7 )
+            if( idx < 6 )
                 return false;
 
-            while( --idx > 1 )
+            while( --idx > 0 )
             {
                 char c = name[ idx ];
 
