@@ -3794,7 +3794,7 @@ namespace MS.Dbg
 
 
     // TODO: Rationalize with DEBUG_SYMTYPE in ClrMd?
-    internal enum SYM_TYPE : uint
+    public enum SYM_TYPE : uint
     {
         None     = 0,
         Coff     = 1,
@@ -3809,7 +3809,7 @@ namespace MS.Dbg
 
     // TODO: Rationalize with IMAGEHLP_MODULE64 in ClrMd
     [StructLayout( LayoutKind.Sequential )]
-    internal unsafe struct IMAGEHLP_MODULEW64
+    public unsafe struct IMAGEHLP_MODULEW64
     {
         public         uint SizeOfStruct;           // set to sizeof(IMAGEHLP_MODULE64)
         public        ulong BaseOfImage;            // base load address of module
