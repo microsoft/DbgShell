@@ -505,6 +505,7 @@ namespace MS.Dbg
 
             m_params = null;
             m_symbolFileName = null;
+            m_imghelpModInfo = null;
             // Could anything else change?
         } // end Refresh()
 
@@ -517,6 +518,21 @@ namespace MS.Dbg
         public bool IsUnloaded
         {
             get { return this.NativeParams.Flags.HasFlag( DEBUG_MODULE.UNLOADED ); }
+        }
+
+
+        private IMAGEHLP_MODULEW64? m_imghelpModInfo;
+
+        public IMAGEHLP_MODULEW64 ImageHlpModuleInfo
+        {
+            get
+            {
+                if( null == m_imghelpModInfo )
+                {
+                    m_imghelpModInfo = DbgHelp.GetModuleInfo( Debugger.DebuggerInterface, BaseAddress );
+                }
+                return (IMAGEHLP_MODULEW64) m_imghelpModInfo;
+            }
         }
 
         #region IEquatable<DbgModuleInfo> Stuff
@@ -579,8 +595,7 @@ namespace MS.Dbg
         {
             if( SymbolType == DEBUG_SYMTYPE.PDB )
             {
-                var modInfo = DbgHelp.GetModuleInfo( Debugger.DebuggerInterface, BaseAddress );
-                if( modInfo.GlobalSymbols == 0 )
+                if( ImageHlpModuleInfo.GlobalSymbols == 0 )
                 {
                     // Looks like a "stripped" PDB.
                     return s_strippedPdbStatusString;
