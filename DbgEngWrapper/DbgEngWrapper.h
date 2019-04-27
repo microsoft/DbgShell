@@ -20,6 +20,8 @@ using namespace System::Diagnostics::Tracing;
 
 namespace DbgEngWrapper
 {
+    public delegate void NotifySomethingReallyBadHappened( String^ msg );
+
     // A custom deleter to let us use malloc-allocated pointers with unique_ptr.
     struct free_delete
     {
@@ -48,6 +50,8 @@ namespace DbgEngWrapper
     protected:
         TNativeInterface* m_pNative;
 
+        typedef TNativeInterface TN;
+
         WDebugEngInterface( TNativeInterface* pNative )
         {
             if( !pNative )
@@ -62,6 +66,46 @@ namespace DbgEngWrapper
                 throw gcnew ArgumentNullException( "pNative" );
 
             m_pNative = (TNativeInterface*) (void*) pNative;
+        }
+
+
+        // This simple exception filter just saves the exception code for the caller and
+        // then requests that the handler be executed.
+        int MyExceptionFilter( EXCEPTION_POINTERS* pEp, HRESULT* pCode )
+        {
+            *pCode = pEp->ExceptionRecord->ExceptionCode;
+            return EXCEPTION_EXECUTE_HANDLER;
+        }
+
+        // My first attempt to wrap calls to dbgeng in __try/__except was to use macros to
+        // stamp it out. Unfortunately some functions were not able to have __try (C2712:
+        // "cannot use __try in functions that require object unwinding"). So that's why
+        // the fancy template: a bunch of the calls need to be in separate functions
+        // anyway, and I didn't want to have two ways to do it.
+        //
+        // One of the downsides of this template method, though, is that I had to add in a
+        // lot of explicit casts: where before things like pin_ptr<ULONG> were implicitly
+        // convertible to PULONG, and would match up with the call signature, suddenly I
+        // was getting a lot of C2893: "Failed to specialize function template 'template
+        // name'". You have to get the types just right /before/ the template stuff will
+        // work out. Oh well.
+        template<typename Method, typename ... Arguments>
+        HRESULT
+        CallMethodWithSehProtection(
+            Method pfn,
+            Arguments... args)
+        {
+            HRESULT hr = 0;
+            __try
+            {
+                return (m_pNative->*pfn)(args...);
+            }
+            __except( MyExceptionFilter( GetExceptionInformation(), &hr ) )
+            {
+                String^ msg = String::Format( "SEH exception from dbgeng: 0x{0:x}", hr );
+                WDebugClient::g_notifyBadThingCallback( msg );
+                return hr;
+            }
         }
 
     public:
@@ -204,6 +248,8 @@ namespace DbgEngWrapper
     {
     public:
         static EventSource^ g_log = gcnew EventSource("DbgEngWrapperTraceLoggingProvider");
+        static NotifySomethingReallyBadHappened^ g_notifyBadThingCallback;
+
 
         WDebugClient( ::IDebugClient6* pDc );
 
@@ -211,7 +257,8 @@ namespace DbgEngWrapper
         WDebugClient( IntPtr pDc );
 
 
-        static int DebugCreate( [Out] WDebugClient^% dc )
+        static int DebugCreate( NotifySomethingReallyBadHappened^ notifyBadThingCallback,
+                                [Out] WDebugClient^% dc )
         {
             dc = nullptr;
             // TODO: Investigate DebugCreateEx
@@ -233,6 +280,7 @@ namespace DbgEngWrapper
             g_log->Write( L"Created IDebugClient5", gcnew TlPayload_Int( hr ) );
 #pragma warning (pop)
 
+            g_notifyBadThingCallback = notifyBadThingCallback;
             return hr;
         }
 

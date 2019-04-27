@@ -22,7 +22,7 @@ WDebugClient::WDebugClient( IntPtr pDc )
 int WDebugClient::DisconnectProcessServer(
      UInt64 Server)
 {
-    return m_pNative->DisconnectProcessServer( Server );
+    return CallMethodWithSehProtection( &TN::DisconnectProcessServer, Server );
 }
 
 
@@ -43,10 +43,11 @@ int WDebugClient::GetRunningProcessSystemIds(
     {
         tmp = gcnew array<ULONG>( numIdsAllocated );
         pin_ptr<ULONG> ppTmp = &tmp[ 0 ];
-        hr = m_pNative->GetRunningProcessSystemIds( Server,
-                                                    ppTmp,
-                                                    numIdsAllocated,
-                                                    &actualNumIds );
+        hr = CallMethodWithSehProtection( &TN::GetRunningProcessSystemIds,
+                                          Server,
+                                          (PULONG) ppTmp,
+                                          numIdsAllocated,
+                                          &actualNumIds );
     }
 
     if( S_OK == hr )
@@ -65,9 +66,11 @@ int WDebugClient::AttachProcess(
      ULONG ProcessID,
      DEBUG_ATTACH AttachFlags)
 {
-    HRESULT hr = m_pNative->AttachProcess( Server,
-                                           ProcessID,
-                                           safe_cast<ULONG>( AttachFlags ) );
+    HRESULT hr = S_OK;
+    hr = CallMethodWithSehProtection( &TN::AttachProcess,
+                                      Server,
+                                      ProcessID,
+                                      safe_cast<ULONG>( AttachFlags ) );
     g_log->Write( L"AttachProcess", gcnew TlPayload_Int( hr ) );
     return hr;
 }
@@ -76,9 +79,10 @@ int WDebugClient::AttachProcess(
 int WDebugClient::GetProcessOptions(
      [Out] DEBUG_PROCESS% Options)
 {
+    HRESULT hr = S_OK;
     Options = (DEBUG_PROCESS) 0;
     pin_ptr<DEBUG_PROCESS> pp = &Options;
-    HRESULT hr = m_pNative->GetProcessOptions( (PULONG) pp );
+    hr = CallMethodWithSehProtection( &TN::GetProcessOptions, (PULONG) pp );
     g_log->Write( L"GetProcessOptions", gcnew TlPayload_Int( hr ) );
     return hr;
 }
@@ -88,7 +92,7 @@ int WDebugClient::AddProcessOptions(
      DEBUG_PROCESS Options)
 {
     g_log->Write( L"AddProcessOptions" );
-    return m_pNative->AddProcessOptions( safe_cast<ULONG>( Options ) );
+    return CallMethodWithSehProtection( &TN::AddProcessOptions, safe_cast<ULONG>( Options ) );
 }
 
 
@@ -96,7 +100,7 @@ int WDebugClient::RemoveProcessOptions(
      DEBUG_PROCESS Options)
 {
     g_log->Write( L"RemoveProcessOptions" );
-    return m_pNative->RemoveProcessOptions( safe_cast<ULONG>( Options ) );
+    return CallMethodWithSehProtection( &TN::RemoveProcessOptions, safe_cast<ULONG>( Options ) );
 }
 
 
@@ -104,7 +108,7 @@ int WDebugClient::SetProcessOptions(
      DEBUG_PROCESS Options)
 {
     g_log->Write( L"SetProcessOptions" );
-    return m_pNative->SetProcessOptions( safe_cast<ULONG>( Options ) );
+    return CallMethodWithSehProtection( &TN::SetProcessOptions, safe_cast<ULONG>( Options ) );
 }
 
 
@@ -113,20 +117,20 @@ int WDebugClient::ConnectSession(
      ULONG HistoryLimit)
 {
     g_log->Write( L"ConnectSession" );
-    return m_pNative->ConnectSession( safe_cast<ULONG>( Flags ), HistoryLimit );
+    return CallMethodWithSehProtection( &TN::ConnectSession, safe_cast<ULONG>( Flags ), HistoryLimit );
 }
 
 int WDebugClient::TerminateProcesses()
 {
     g_log->Write( L"TerminateProcesses" );
-    return m_pNative->TerminateProcesses();
+    return CallMethodWithSehProtection( &TN::TerminateProcesses );
 }
 
 
 int WDebugClient::DetachProcesses()
 {
     g_log->Write( L"DetachProcesses" );
-    return m_pNative->DetachProcesses();
+    return CallMethodWithSehProtection( &TN::DetachProcesses );
 }
 
 
@@ -134,7 +138,7 @@ int WDebugClient::EndSession(
      DEBUG_END Flags)
 {
     g_log->Write( L"EndSession", gcnew TlPayload_Int( static_cast<ULONG>( Flags ) ) );
-    return m_pNative->EndSession( safe_cast<ULONG>( Flags ) );
+    return CallMethodWithSehProtection( &TN::EndSession, safe_cast<ULONG>( Flags ) );
 }
 
 
@@ -144,7 +148,7 @@ int WDebugClient::GetExitCode(
     g_log->Write( L"GetExitCode" );
     Code = 0xdeadbeef;
     pin_ptr<unsigned long> pp = &Code;
-    return m_pNative->GetExitCode( pp );
+    return CallMethodWithSehProtection( &TN::GetExitCode, (PULONG) pp );
 }
 
 
@@ -152,7 +156,7 @@ int WDebugClient::DispatchCallbacks(
      ULONG Timeout)
 {
     g_log->Write( L"DispatchCallbacks" );
-    return m_pNative->DispatchCallbacks( Timeout );
+    return CallMethodWithSehProtection( &TN::DispatchCallbacks, Timeout );
 }
 
 
@@ -162,17 +166,18 @@ int WDebugClient::ExitDispatch(
      WDebugClient^ Client)
 {
     g_log->Write( L"ExitDispatch" );
-    return m_pNative->ExitDispatch( (PDEBUG_CLIENT) Client->m_pNative );
+    return CallMethodWithSehProtection( &TN::ExitDispatch, (PDEBUG_CLIENT) Client->m_pNative );
 }
 
 
 int WDebugClient::CreateClient(
      [Out] WDebugClient^% Client)
 {
+    int retval = 0;
     g_log->Write( L"CreateClient" );
     Client = nullptr;
     ::IDebugClient* pNewClient = nullptr;
-    int retval = m_pNative->CreateClient( &pNewClient );
+    retval = CallMethodWithSehProtection( &TN::CreateClient, &pNewClient );
     if( pNewClient )
     {
         Client = gcnew WDebugClient( (::IDebugClient6*) pNewClient );
@@ -191,7 +196,7 @@ int WDebugClient::GetInputCallbacks(
     //Callbacks = IntPtr::Zero;
     Callbacks = IntPtr( 0 );
     pin_ptr<IntPtr> pp = &Callbacks;
-    return m_pNative->GetInputCallbacks( (PDEBUG_INPUT_CALLBACKS*) pp );
+    return CallMethodWithSehProtection( &TN::GetInputCallbacks, (PDEBUG_INPUT_CALLBACKS*) pp );
 }
 
 
@@ -201,7 +206,7 @@ int WDebugClient::SetInputCallbacks(
     if( nullptr == Callbacks )
     {
         g_log->Write( L"SetInputCallbacks (null)" );
-        return m_pNative->SetInputCallbacks( nullptr );
+        return CallMethodWithSehProtection( &TN::SetInputCallbacks, nullptr );
     }
 
     g_log->Write( L"SetInputCallbacks" );
@@ -214,7 +219,7 @@ int WDebugClient::SetInputCallbacks(
         Marshal::GetComInterfaceForObject( pAdapter,
                                            IComDbgEngInputCallbacks::typeid ).ToPointer();
 
-    return m_pNative->SetInputCallbacks( pNative );
+    return CallMethodWithSehProtection( &TN::SetInputCallbacks, pNative );
 }
 
 /* GetOutputCallbacks could a conversion thunk from the debugger engine so we can't specify a specific interface */
@@ -238,7 +243,7 @@ int WDebugClient::GetOutputMask(
     g_log->Write( L"GetOutputMask" );
     Mask = (DEBUG_OUTPUT) 0;
     pin_ptr<DEBUG_OUTPUT> pp = &Mask;
-    return m_pNative->GetOutputMask( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetOutputMask, (PULONG) pp );
 }
 
 
@@ -246,7 +251,7 @@ int WDebugClient::SetOutputMask(
      DEBUG_OUTPUT Mask)
 {
     g_log->Write( L"SetOutputMask" );
-    return m_pNative->SetOutputMask( safe_cast<ULONG>( Mask ) );
+    return CallMethodWithSehProtection( &TN::SetOutputMask, safe_cast<ULONG>( Mask ) );
 }
 
 
@@ -257,7 +262,7 @@ int WDebugClient::GetOtherOutputMask(
     g_log->Write( L"GetOtherOutputMask" );
     Mask = (DEBUG_OUTPUT) 0;
     pin_ptr<DEBUG_OUTPUT> pp = &Mask;
-    return m_pNative->GetOtherOutputMask( (::IDebugClient*) Client->m_pNative, (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetOtherOutputMask, (::IDebugClient*) Client->m_pNative, (PULONG) pp );
 }
 
 
@@ -266,7 +271,7 @@ int WDebugClient::SetOtherOutputMask(
      DEBUG_OUTPUT Mask)
 {
     g_log->Write( L"SetOtherOutputMask" );
-    return m_pNative->SetOtherOutputMask( (::IDebugClient*) Client->m_pNative, safe_cast<ULONG>( Mask ) );
+    return CallMethodWithSehProtection( &TN::SetOtherOutputMask, (::IDebugClient*) Client->m_pNative, safe_cast<ULONG>( Mask ) );
 }
 
 
@@ -276,7 +281,7 @@ int WDebugClient::GetOutputWidth(
     g_log->Write( L"GetOutputWidth" );
     Columns = 0;
     pin_ptr<ULONG> pp = &Columns;
-    return m_pNative->GetOutputWidth( pp );
+    return CallMethodWithSehProtection( &TN::GetOutputWidth, (PULONG) pp );
 }
 
 
@@ -284,7 +289,7 @@ int WDebugClient::SetOutputWidth(
      ULONG Columns)
 {
     g_log->Write( L"SetOutputWidth" );
-    return m_pNative->SetOutputWidth( Columns );
+    return CallMethodWithSehProtection( &TN::SetOutputWidth, Columns );
 }
 
 
@@ -304,14 +309,14 @@ int WDebugClient::SetOutputWidth(
 //     IntPtr Callbacks)
 //{
 //    //throw gcnew NotImplementedException();
-//    return m_pNative->SetEventCallbacks( (PDEBUG_EVENT_CALLBACKS) (void*) Callbacks );
+//    return CallMethodWithSehProtection( &TN::SetEventCallbacks, (PDEBUG_EVENT_CALLBACKS) (void*) Callbacks );
 //}
 
 
 int WDebugClient::FlushCallbacks()
 {
     g_log->Write( L"FlushCallbacks" );
-    return m_pNative->FlushCallbacks();
+    return CallMethodWithSehProtection( &TN::FlushCallbacks );
 }
 
 
@@ -321,7 +326,7 @@ int WDebugClient::EndProcessServer(
      UInt64 Server)
 {
     g_log->Write( L"EndProcessServer" );
-    return m_pNative->EndProcessServer( Server );
+    return CallMethodWithSehProtection( &TN::EndProcessServer, Server );
 }
 
 
@@ -329,35 +334,35 @@ int WDebugClient::WaitForProcessServerEnd(
      ULONG Timeout)
 {
     g_log->Write( L"WaitForProcessServerEnd" );
-    return m_pNative->WaitForProcessServerEnd( Timeout );
+    return CallMethodWithSehProtection( &TN::WaitForProcessServerEnd, Timeout );
 }
 
 
 int WDebugClient::IsKernelDebuggerEnabled()
 {
     g_log->Write( L"IsKernelDebuggerEnabled" );
-    return m_pNative->IsKernelDebuggerEnabled();
+    return CallMethodWithSehProtection( &TN::IsKernelDebuggerEnabled );
 }
 
 
 int WDebugClient::TerminateCurrentProcess()
 {
     g_log->Write( L"TerminateCurrentProcess" );
-    return m_pNative->TerminateCurrentProcess();
+    return CallMethodWithSehProtection( &TN::TerminateCurrentProcess );
 }
 
 
 int WDebugClient::DetachCurrentProcess()
 {
     g_log->Write( L"DetachCurrentProcess" );
-    return m_pNative->DetachCurrentProcess();
+    return CallMethodWithSehProtection( &TN::DetachCurrentProcess );
 }
 
 
 int WDebugClient::AbandonCurrentProcess()
 {
     g_log->Write( L"AbandonCurrentProcess" );
-    return m_pNative->AbandonCurrentProcess();
+    return CallMethodWithSehProtection( &TN::AbandonCurrentProcess );
 }
 
 /* IDebugClient3 */
@@ -372,10 +377,12 @@ int WDebugClient::GetRunningProcessSystemIdByExecutableNameWide(
     g_log->Write( L"GetRunningProcessSystemIdByExecutableNameWide" );
     marshal_context mc;
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetRunningProcessSystemIdByExecutableNameWide( Server,
-                                                                     mc.marshal_as<const wchar_t*>( ExeName ),
-                                                                     safe_cast<ULONG>( Flags ),
-                                                                     pp );
+
+    return CallMethodWithSehProtection( &TN::GetRunningProcessSystemIdByExecutableNameWide,
+                                        Server,
+                                        mc.marshal_as<const wchar_t*>( ExeName ),
+                                        safe_cast<ULONG>( Flags ),
+                                        (PULONG) pp );
 }
 
 
@@ -399,15 +406,16 @@ int WDebugClient::GetRunningProcessDescriptionWide(
         std::unique_ptr<wchar_t[]> wszExeName( new wchar_t[ cchExeName ] );
         std::unique_ptr<wchar_t[]> wszDescription( new wchar_t[ cchDescription ] );
 
-        hr = m_pNative->GetRunningProcessDescriptionWide( Server,
-                                                          SystemId,
-                                                          safe_cast<ULONG>( Flags ),
-                                                          wszExeName.get(),
-                                                          cchExeName,
-                                                          &cchExeName,
-                                                          wszDescription.get(),
-                                                          cchDescription,
-                                                          &cchDescription );
+        hr = CallMethodWithSehProtection( &TN::GetRunningProcessDescriptionWide,
+                                          Server,
+                                          SystemId,
+                                          safe_cast<ULONG>( Flags ),
+                                          wszExeName.get(),
+                                          cchExeName,
+                                          &cchExeName,
+                                          wszDescription.get(),
+                                          cchDescription,
+                                          &cchDescription );
 
         if( S_OK == hr )
         {
@@ -430,9 +438,11 @@ int WDebugClient::CreateProcessWide(
     marshal_context mc;
     const wchar_t* wszConstCommandLine = mc.marshal_as<const wchar_t*>( CommandLine );
     std::unique_ptr<wchar_t, free_delete> wszMutableCommandLine( _wcsdup( wszConstCommandLine ) );
-    return m_pNative->CreateProcessWide( Server,
-                                         wszMutableCommandLine.get(),
-                                         safe_cast<ULONG>( CreateFlags ) );
+
+    return CallMethodWithSehProtection( &TN::CreateProcessWide,
+                                        Server,
+                                        wszMutableCommandLine.get(),
+                                        safe_cast<ULONG>( CreateFlags ) );
 }
 
 
@@ -447,11 +457,13 @@ int WDebugClient::CreateProcessAndAttachWide(
     marshal_context mc;
     const wchar_t* wszConstCommandLine = mc.marshal_as<const wchar_t*>( CommandLine );
     std::unique_ptr<wchar_t, free_delete> wszMutableCommandLine( _wcsdup( wszConstCommandLine ) );
-    return m_pNative->CreateProcessAndAttachWide( Server,
-                                                  wszMutableCommandLine.get(),
-                                                  safe_cast<ULONG>( CreateFlags ),
-                                                  ProcessId,
-                                                  safe_cast<ULONG>( AttachFlags ) );
+
+    return CallMethodWithSehProtection( &TN::CreateProcessAndAttachWide,
+                                        Server,
+                                        wszMutableCommandLine.get(),
+                                        safe_cast<ULONG>( CreateFlags ),
+                                        ProcessId,
+                                        safe_cast<ULONG>( AttachFlags ) );
 }
 
 /* IDebugClient4 */
@@ -463,7 +475,8 @@ int WDebugClient::OpenDumpFileWide(
 {
     g_log->Write( L"OpenDumpFileWide" );
     marshal_context mc;
-    return m_pNative->OpenDumpFileWide( mc.marshal_as<const wchar_t*>( FileName ), FileHandle );
+
+    return CallMethodWithSehProtection( &TN::OpenDumpFileWide, mc.marshal_as<const wchar_t*>( FileName ), FileHandle );
 }
 
 
@@ -476,11 +489,13 @@ int WDebugClient::WriteDumpFileWide(
 {
     g_log->Write( L"WriteDumpFileWide" );
     marshal_context mc;
-    return m_pNative->WriteDumpFileWide( mc.marshal_as<const wchar_t*>( DumpFile ),
-                                         FileHandle,
-                                         safe_cast<ULONG>( Qualifier ),
-                                         safe_cast<ULONG>( FormatFlags ),
-                                         mc.marshal_as<const wchar_t*>( Comment ) );
+
+    return CallMethodWithSehProtection( &TN::WriteDumpFileWide,
+                                        mc.marshal_as<const wchar_t*>( DumpFile ),
+                                        FileHandle,
+                                        safe_cast<ULONG>( Qualifier ),
+                                        safe_cast<ULONG>( FormatFlags ),
+                                        mc.marshal_as<const wchar_t*>( Comment ) );
 }
 
 
@@ -491,9 +506,11 @@ int WDebugClient::AddDumpInformationFileWide(
 {
     g_log->Write( L"AddDumpInformationFileWide" );
     marshal_context mc;
-    return m_pNative->AddDumpInformationFileWide( mc.marshal_as<const wchar_t*>( FileName ),
-                                                  FileHandle,
-                                                  safe_cast<ULONG>( Type ) );
+
+    return CallMethodWithSehProtection( &TN::AddDumpInformationFileWide,
+                                        mc.marshal_as<const wchar_t*>( FileName ),
+                                        FileHandle,
+                                        safe_cast<ULONG>( Type ) );
 }
 
 
@@ -502,7 +519,7 @@ int WDebugClient::GetNumberDumpFiles(
 {
     g_log->Write( L"GetNumberDumpFiles" );
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberDumpFiles( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberDumpFiles, (PULONG) pp );
 }
 
 
@@ -527,12 +544,12 @@ int WDebugClient::GetDumpFileWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetDumpFileWide( Index,
-                                         wszName.get(),
-                                         cchName,
-                                         &cchName,
-                                         ppHandle,
-                                         ppType);
+        hr = CallMethodWithSehProtection( &TN::GetDumpFileWide, Index,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName,
+                                          (PULONG64) ppHandle,
+                                          (PULONG) ppType);
 
         if( S_OK == hr )
         {
@@ -552,7 +569,8 @@ int WDebugClient::AttachKernelWide(
 {
     g_log->Write( L"AttachKernelWide" );
     marshal_context mc;
-    return m_pNative->AttachKernelWide( safe_cast<ULONG>( Flags ),
+    return CallMethodWithSehProtection( &TN::AttachKernelWide,
+                                        safe_cast<ULONG>( Flags ),
                                         mc.marshal_as<const wchar_t*>( ConnectOptions ) );
 }
 
@@ -573,9 +591,10 @@ int WDebugClient::GetKernelConnectionOptionsWide(
     {
         std::unique_ptr<wchar_t[]> wszOptions( new wchar_t[ cchOptions ] );
 
-        hr = m_pNative->GetKernelConnectionOptionsWide( wszOptions.get(),
-                                                        cchOptions,
-                                                        &cchOptions );
+        hr = CallMethodWithSehProtection( &TN::GetKernelConnectionOptionsWide,
+                                          wszOptions.get(),
+                                          cchOptions,
+                                          &cchOptions );
 
         if( S_OK == hr )
         {
@@ -592,7 +611,7 @@ int WDebugClient::SetKernelConnectionOptionsWide(
 {
     g_log->Write( L"SetKernelConnectionOptionsWide" );
     marshal_context mc;
-    return m_pNative->SetKernelConnectionOptionsWide( mc.marshal_as<const wchar_t*>( Options ) );
+    return CallMethodWithSehProtection( &TN::SetKernelConnectionOptionsWide, mc.marshal_as<const wchar_t*>( Options ) );
 }
 
 
@@ -603,9 +622,10 @@ int WDebugClient::StartProcessServerWide(
 {
     g_log->Write( L"StartProcessServerWide" );
     marshal_context mc;
-    return m_pNative->StartProcessServerWide( safe_cast<ULONG>( Flags ),
-                                              mc.marshal_as<const wchar_t*>( Options ),
-                                              safe_cast<PVOID>( Reserved ) );
+    return CallMethodWithSehProtection( &TN::StartProcessServerWide,
+                                        safe_cast<ULONG>( Flags ),
+                                        mc.marshal_as<const wchar_t*>( Options ),
+                                        safe_cast<PVOID>( Reserved ) );
 }
 
 
@@ -616,8 +636,9 @@ int WDebugClient::ConnectProcessServerWide(
     g_log->Write( L"ConnectProcessServerWide" );
     marshal_context mc;
     pin_ptr<UInt64> pp = &Server;
-    return m_pNative->ConnectProcessServerWide( mc.marshal_as<const wchar_t*>( RemoteOptions ),
-                                                safe_cast<PULONG64>( pp ) );
+    return CallMethodWithSehProtection( &TN::ConnectProcessServerWide,
+                                        mc.marshal_as<const wchar_t*>( RemoteOptions ),
+                                        safe_cast<PULONG64>( pp ) );
 }
 
 
@@ -626,7 +647,7 @@ int WDebugClient::StartServerWide(
 {
     g_log->Write( L"StartServerWide" );
     marshal_context mc;
-    return m_pNative->StartServerWide( mc.marshal_as<const wchar_t*>( Options ) );
+    return CallMethodWithSehProtection( &TN::StartServerWide, mc.marshal_as<const wchar_t*>( Options ) );
 }
 
 
@@ -637,9 +658,10 @@ int WDebugClient::OutputServersWide(
 {
     g_log->Write( L"OutputServersWide" );
     marshal_context mc;
-    return m_pNative->OutputServersWide( safe_cast<ULONG>( OutputControl ),
-                                         mc.marshal_as<const wchar_t*>( Machine ),
-                                         safe_cast<ULONG>( Flags ) );
+    return CallMethodWithSehProtection( &TN::OutputServersWide,
+                                        safe_cast<ULONG>( OutputControl ),
+                                        mc.marshal_as<const wchar_t*>( Machine ),
+                                        safe_cast<ULONG>( Flags ) );
 }
 
 /* GetOutputCallbacks could a conversion thunk from the debugger engine so we can't specify a specific interface */
@@ -651,7 +673,7 @@ int WDebugClient::GetOutputCallbacksWide(
     g_log->Write( L"GetOutputCallbacksWide" );
     Callbacks = IntPtr( 0 );
     pin_ptr<IntPtr> pp = &Callbacks;
-    return m_pNative->GetOutputCallbacksWide( (PDEBUG_OUTPUT_CALLBACKS_WIDE*) pp );
+    return CallMethodWithSehProtection( &TN::GetOutputCallbacksWide, (PDEBUG_OUTPUT_CALLBACKS_WIDE*) pp );
 }
 
 /* We may have to pass a debugger engine conversion thunk back in so we can't specify a specific interface */
@@ -663,7 +685,7 @@ int WDebugClient::SetOutputCallbacksWide(
     g_log->Write( L"SetOutputCallbacksWide" );
     if( nullptr == Callbacks )
     {
-        return m_pNative->SetOutputCallbacksWide( nullptr );
+        return CallMethodWithSehProtection( &TN::SetOutputCallbacksWide, nullptr );
     }
 
     // First we apply a C++/CLI COM adapter wrapper over its managed counterpart:
@@ -674,7 +696,7 @@ int WDebugClient::SetOutputCallbacksWide(
         Marshal::GetComInterfaceForObject( pAdapter,
                                            IComDbgEngOutputCallbacks::typeid ).ToPointer();
 
-    return m_pNative->SetOutputCallbacksWide( pNative );
+    return CallMethodWithSehProtection( &TN::SetOutputCallbacksWide, pNative );
 }
 
 
@@ -694,9 +716,10 @@ int WDebugClient::GetOutputLinePrefixWide(
     {
         std::unique_ptr<wchar_t[]> wszPrefix( new wchar_t[ cchPrefix ] );
 
-        hr = m_pNative->GetOutputLinePrefixWide( wszPrefix.get(),
-                                                 cchPrefix,
-                                                 &cchPrefix );
+        hr = CallMethodWithSehProtection( &TN::GetOutputLinePrefixWide,
+                                          wszPrefix.get(),
+                                          cchPrefix,
+                                          &cchPrefix );
 
         if( S_OK == hr )
         {
@@ -713,7 +736,7 @@ int WDebugClient::SetOutputLinePrefixWide(
 {
     g_log->Write( L"SetOutputLinePrefixWide" );
     marshal_context mc;
-    return m_pNative->SetOutputLinePrefixWide( mc.marshal_as<const wchar_t*>( Prefix ) );
+    return CallMethodWithSehProtection( &TN::SetOutputLinePrefixWide, mc.marshal_as<const wchar_t*>( Prefix ) );
 }
 
 
@@ -733,9 +756,10 @@ int WDebugClient::GetIdentityWide(
     {
         std::unique_ptr<wchar_t[]> wszIdentity( new wchar_t[ cchIdentity ] );
 
-        hr = m_pNative->GetIdentityWide( wszIdentity.get(),
-                                         cchIdentity,
-                                         &cchIdentity );
+        hr = CallMethodWithSehProtection( &TN::GetIdentityWide,
+                                          wszIdentity.get(),
+                                          cchIdentity,
+                                          &cchIdentity );
 
         if( S_OK == hr )
         {
@@ -754,9 +778,10 @@ int WDebugClient::OutputIdentityWide(
 {
     g_log->Write( L"OutputIdentityWide" );
     marshal_context mc;
-    return m_pNative->OutputIdentityWide( safe_cast<ULONG>( OutputControl ),
-                                          Flags,
-                                          mc.marshal_as<const wchar_t*>( Format ) );
+    return CallMethodWithSehProtection( &TN::OutputIdentityWide,
+                                        safe_cast<ULONG>( OutputControl ),
+                                        Flags,
+                                        mc.marshal_as<const wchar_t*>( Format ) );
 }
 
 /* GetEventCallbacks could a conversion thunk from the debugger engine so we can't specify a specific interface */
@@ -767,7 +792,7 @@ int WDebugClient::GetEventCallbacksWide(
 {
     g_log->Write( L"GetEventCallbacksWide" );
     pin_ptr<IntPtr> pp = &Callbacks;
-    return m_pNative->GetEventCallbacksWide( (PDEBUG_EVENT_CALLBACKS_WIDE*) pp );
+    return CallMethodWithSehProtection( &TN::GetEventCallbacksWide, (PDEBUG_EVENT_CALLBACKS_WIDE*) pp );
 }
 
 /* We may have to pass a debugger engine conversion thunk back in so we can't specify a specific interface */
@@ -779,7 +804,7 @@ int WDebugClient::SetEventCallbacksWide(
     g_log->Write( L"SetEventCallbacksWide" );
     if( nullptr == Callbacks )
     {
-        return m_pNative->SetEventCallbacksWide( nullptr );
+        return CallMethodWithSehProtection( &TN::SetEventCallbacksWide, nullptr );
     }
 
     // First we apply a C++/CLI COM adapter wrapper over its managed counterpart:
@@ -790,7 +815,7 @@ int WDebugClient::SetEventCallbacksWide(
         Marshal::GetComInterfaceForObject( pAdapter,
                                            IComDbgEngEventCallbacks::typeid ).ToPointer();
 
-    return m_pNative->SetEventCallbacksWide( pNative );
+    return CallMethodWithSehProtection( &TN::SetEventCallbacksWide, pNative );
 }
 
 
@@ -806,12 +831,13 @@ int WDebugClient::CreateProcess2Wide(
     const wchar_t* wszConstCommandLine = mc.marshal_as<const wchar_t*>( CommandLine );
     std::unique_ptr<wchar_t, free_delete> wszMutableCommandLine( _wcsdup( wszConstCommandLine ) );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_CREATE_PROCESS_OPTIONS> pp = &OptionsBuffer;
-    return m_pNative->CreateProcess2Wide( Server,
-                                          wszMutableCommandLine.get(),
-                                          (void*) pp,
-                                          Marshal::SizeOf( OptionsBuffer ),
-                                          mc.marshal_as<const wchar_t*>( InitialDirectory ),
-                                          mc.marshal_as<const wchar_t*>( Environment ) );
+    return CallMethodWithSehProtection( &TN::CreateProcess2Wide,
+                                        Server,
+                                        wszMutableCommandLine.get(),
+                                        (void*) pp,
+                                        Marshal::SizeOf( OptionsBuffer ),
+                                        mc.marshal_as<const wchar_t*>( InitialDirectory ),
+                                        mc.marshal_as<const wchar_t*>( Environment ) );
 }
 
 
@@ -830,15 +856,16 @@ int WDebugClient::CreateProcessAndAttach2Wide(
     const wchar_t* wszConstCommandLine = mc.marshal_as<const wchar_t*>( CommandLine );
     std::unique_ptr<wchar_t, free_delete> wszMutableCommandLine( _wcsdup( wszConstCommandLine ) );
     //pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_CREATE_PROCESS_OPTIONS> pp = &OptionsBuffer;
-    return m_pNative->CreateProcessAndAttach2Wide( Server,
-                                                   wszMutableCommandLine.get(),
-                                                   //(void*) pp,
-                                                   (void*) OptionsBuffer,
-                                                   Marshal::SizeOf( Microsoft::Diagnostics::Runtime::Interop::DEBUG_CREATE_PROCESS_OPTIONS::typeid ),
-                                                   mc.marshal_as<const wchar_t*>( InitialDirectory ),
-                                                   mc.marshal_as<const wchar_t*>( Environment ),
-                                                   ProcessId,
-                                                   safe_cast<ULONG>( AttachFlags ) );
+    return CallMethodWithSehProtection( &TN::CreateProcessAndAttach2Wide,
+                                        Server,
+                                        wszMutableCommandLine.get(),
+                                        //(void*) pp,
+                                        (void*) OptionsBuffer,
+                                        Marshal::SizeOf( Microsoft::Diagnostics::Runtime::Interop::DEBUG_CREATE_PROCESS_OPTIONS::typeid ),
+                                        mc.marshal_as<const wchar_t*>( InitialDirectory ),
+                                        mc.marshal_as<const wchar_t*>( Environment ),
+                                        ProcessId,
+                                        safe_cast<ULONG>( AttachFlags ) );
 }
 
 
@@ -850,7 +877,7 @@ int WDebugClient::PushOutputLinePrefixWide(
     Handle = 0;
     marshal_context mc;
     pin_ptr<UInt64> pp = &Handle;
-    return m_pNative->PushOutputLinePrefixWide( mc.marshal_as<const wchar_t*>( NewPrefix ), pp );
+    return CallMethodWithSehProtection( &TN::PushOutputLinePrefixWide, mc.marshal_as<const wchar_t*>( NewPrefix ), (PULONG64) pp );
 }
 
 
@@ -858,7 +885,7 @@ int WDebugClient::PopOutputLinePrefix(
      UInt64 Handle)
 {
     g_log->Write( L"PopOutputLinePrefix" );
-    return m_pNative->PopOutputLinePrefix( Handle );
+    return CallMethodWithSehProtection( &TN::PopOutputLinePrefix, Handle );
 }
 
 
@@ -867,7 +894,7 @@ int WDebugClient::GetNumberInputCallbacks(
 {
     g_log->Write( L"GetNumberInputCallbacks" );
     pin_ptr<ULONG> pp = &Count;
-    return m_pNative->GetNumberInputCallbacks( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberInputCallbacks, (PULONG) pp );
 }
 
 
@@ -876,7 +903,7 @@ int WDebugClient::GetNumberOutputCallbacks(
 {
     g_log->Write( L"GetNumberOutputCallbacks" );
     pin_ptr<ULONG> pp = &Count;
-    return m_pNative->GetNumberOutputCallbacks( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberOutputCallbacks, (PULONG) pp );
 }
 
 
@@ -886,7 +913,7 @@ int WDebugClient::GetNumberEventCallbacks(
 {
     g_log->Write( L"GetNumberEventCallbacks" );
     pin_ptr<ULONG> pp = &Count;
-    return m_pNative->GetNumberEventCallbacks( safe_cast<ULONG>( Flags ), pp );
+    return CallMethodWithSehProtection( &TN::GetNumberEventCallbacks, safe_cast<ULONG>( Flags ), (PULONG) pp );
 }
 
 
@@ -906,9 +933,10 @@ int WDebugClient::GetQuitLockStringWide(
     {
         std::unique_ptr<wchar_t[]> wszQuitLockString( new wchar_t[ cchQuitLockString ] );
 
-        hr = m_pNative->GetQuitLockStringWide( wszQuitLockString.get(),
-                                               cchQuitLockString,
-                                               &cchQuitLockString );
+        hr = CallMethodWithSehProtection( &TN::GetQuitLockStringWide,
+                                          wszQuitLockString.get(),
+                                          cchQuitLockString,
+                                          &cchQuitLockString );
 
         if( S_OK == hr )
         {
@@ -925,7 +953,7 @@ int WDebugClient::SetQuitLockStringWide(
 {
     g_log->Write( L"SetQuitLockStringWide" );
     marshal_context mc;
-    return m_pNative->SetQuitLockStringWide( mc.marshal_as<const wchar_t*>( LockString ) );
+    return CallMethodWithSehProtection( &TN::SetQuitLockStringWide, mc.marshal_as<const wchar_t*>( LockString ) );
 }
 
 
@@ -935,7 +963,7 @@ int WDebugClient::SetEventContextCallbacks(
     g_log->Write( L"SetEventContextCallbacks" );
     if( nullptr == Callbacks )
     {
-        return m_pNative->SetEventContextCallbacks( nullptr );
+        return CallMethodWithSehProtection( &TN::SetEventContextCallbacks, nullptr );
     }
 
     // First we apply a C++/CLI COM adapter wrapper over its managed counterpart:
@@ -946,7 +974,7 @@ int WDebugClient::SetEventContextCallbacks(
         Marshal::GetComInterfaceForObject( pAdapter,
                                            IComDbgEngEventContextCallbacks::typeid ).ToPointer();
 
-    return m_pNative->SetEventContextCallbacks( pNative );
+    return CallMethodWithSehProtection( &TN::SetEventContextCallbacks, pNative );
 }
 
 //
@@ -979,7 +1007,7 @@ int WDebugBreakpoint::GetId(
     WDebugClient::g_log->Write( L"BP::GetId" );
     _CheckInterfaceAbandoned();
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetId( pp );
+    return CallMethodWithSehProtection( &TN::GetId, (PULONG) pp );
 }
 
 // Retrieves the type of break and
@@ -992,7 +1020,7 @@ int WDebugBreakpoint::GetType(
     _CheckInterfaceAbandoned();
     pin_ptr<ULONG> ppBreakType = &BreakType;
     pin_ptr<ULONG> ppProcType = &ProcType;
-    return m_pNative->GetType( ppBreakType, ppProcType );
+    return CallMethodWithSehProtection( &TN::GetType, (PULONG) ppBreakType, (PULONG) ppProcType );
 }
 
 // Returns the client that called AddBreakpoint.
@@ -1003,7 +1031,7 @@ int WDebugBreakpoint::GetAdder(
     _CheckInterfaceAbandoned();
     Adder = nullptr;
     PDEBUG_CLIENT pdc = nullptr;
-    int retval = m_pNative->GetAdder( &pdc );
+    int retval = CallMethodWithSehProtection( &TN::GetAdder, &pdc );
     if( (S_OK == retval) && pdc )
     {
         Adder = gcnew WDebugClient( (::IDebugClient6*) pdc );
@@ -1017,7 +1045,7 @@ int WDebugBreakpoint::GetFlags(
     WDebugClient::g_log->Write( L"BP::GetFlags" );
     _CheckInterfaceAbandoned();
     pin_ptr<DEBUG_BREAKPOINT_FLAG> pp = &Flags;
-    return m_pNative->GetFlags( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetFlags, (PULONG) pp );
 }
 
 // Only certain flags can be changed.  Flags
@@ -1028,7 +1056,7 @@ int WDebugBreakpoint::AddFlags(
 {
     WDebugClient::g_log->Write( L"BP::AddFlags" );
     _CheckInterfaceAbandoned();
-    return m_pNative->AddFlags( (ULONG) Flags );
+    return CallMethodWithSehProtection( &TN::AddFlags, (ULONG) Flags );
 }
 
 // Clears the given flags.
@@ -1037,7 +1065,7 @@ int WDebugBreakpoint::RemoveFlags(
 {
     WDebugClient::g_log->Write( L"BP::RemoveFlags" );
     _CheckInterfaceAbandoned();
-    return m_pNative->RemoveFlags( (ULONG) Flags );
+    return CallMethodWithSehProtection( &TN::RemoveFlags, (ULONG) Flags );
 }
 
 // Sets the flags.
@@ -1046,7 +1074,7 @@ int WDebugBreakpoint::SetFlags(
 {
     WDebugClient::g_log->Write( L"BP::SetFlags" );
     _CheckInterfaceAbandoned();
-    return m_pNative->SetFlags( (ULONG) Flags );
+    return CallMethodWithSehProtection( &TN::SetFlags, (ULONG) Flags );
 }
 
 
@@ -1061,7 +1089,7 @@ int WDebugBreakpoint::GetOffset(
     WDebugClient::g_log->Write( L"BP::GetOffset" );
     _CheckInterfaceAbandoned();
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetOffset, (PULONG64) pp );
 }
 
 int WDebugBreakpoint::SetOffset(
@@ -1069,7 +1097,7 @@ int WDebugBreakpoint::SetOffset(
 {
     WDebugClient::g_log->Write( L"BP::SetOffset" );
     _CheckInterfaceAbandoned();
-    return m_pNative->SetOffset( Offset );
+    return CallMethodWithSehProtection( &TN::SetOffset, Offset );
 }
 
 
@@ -1086,7 +1114,7 @@ int WDebugBreakpoint::GetDataParameters(
     _CheckInterfaceAbandoned();
     pin_ptr<ULONG> ppSize = &Size;
     pin_ptr<ULONG> ppAccessType = &AccessType;
-    return m_pNative->GetDataParameters( ppSize, ppAccessType );
+    return CallMethodWithSehProtection( &TN::GetDataParameters, (PULONG) ppSize, (PULONG) ppAccessType );
 }
 
 int WDebugBreakpoint::SetDataParameters(
@@ -1095,7 +1123,7 @@ int WDebugBreakpoint::SetDataParameters(
 {
     WDebugClient::g_log->Write( L"BP::SetDataParameters" );
     _CheckInterfaceAbandoned();
-    return m_pNative->SetDataParameters( Size, AccessType );
+    return CallMethodWithSehProtection( &TN::SetDataParameters, Size, AccessType );
 }
 
 
@@ -1106,7 +1134,7 @@ int WDebugBreakpoint::GetPassCount(
     WDebugClient::g_log->Write( L"BP::GetPassCount" );
     _CheckInterfaceAbandoned();
     pin_ptr<ULONG> pp = &Count;
-    return m_pNative->GetPassCount( pp );
+    return CallMethodWithSehProtection( &TN::GetPassCount, (PULONG) pp );
 }
 
 int WDebugBreakpoint::SetPassCount(
@@ -1114,7 +1142,7 @@ int WDebugBreakpoint::SetPassCount(
 {
     WDebugClient::g_log->Write( L"BP::SetPassCount" );
     _CheckInterfaceAbandoned();
-    return m_pNative->SetPassCount( Count );
+    return CallMethodWithSehProtection( &TN::SetPassCount, Count );
 }
 
 // Gets the current number of times
@@ -1126,7 +1154,7 @@ int WDebugBreakpoint::GetCurrentPassCount(
     WDebugClient::g_log->Write( L"BP::GetCurrentPassCount" );
     _CheckInterfaceAbandoned();
     pin_ptr<ULONG> pp = &Count;
-    return m_pNative->GetCurrentPassCount( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentPassCount, (PULONG) pp );
 }
 
 
@@ -1141,7 +1169,7 @@ int WDebugBreakpoint::GetMatchThreadId(
     WDebugClient::g_log->Write( L"BP::GetMatchThreadId" );
     _CheckInterfaceAbandoned();
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetMatchThreadId( pp );
+    return CallMethodWithSehProtection( &TN::GetMatchThreadId, (PULONG) pp );
 }
 
 int WDebugBreakpoint::SetMatchThreadId(
@@ -1149,7 +1177,7 @@ int WDebugBreakpoint::SetMatchThreadId(
 {
     WDebugClient::g_log->Write( L"BP::SetMatchThreadId" );
     _CheckInterfaceAbandoned();
-    return m_pNative->SetMatchThreadId( Thread );
+    return CallMethodWithSehProtection( &TN::SetMatchThreadId, Thread );
 }
 
 
@@ -1160,7 +1188,7 @@ int WDebugBreakpoint::GetParameters(
     WDebugClient::g_log->Write( L"BP::GetParameters" );
     _CheckInterfaceAbandoned();
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_BREAKPOINT_PARAMETERS> pp = &Params;
-    return m_pNative->GetParameters( (PDEBUG_BREAKPOINT_PARAMETERS) pp );
+    return CallMethodWithSehProtection( &TN::GetParameters, (PDEBUG_BREAKPOINT_PARAMETERS) pp );
 }
 
 
@@ -1203,9 +1231,10 @@ int WDebugBreakpoint::GetCommandWide(
     {
         std::unique_ptr<wchar_t[]> wszCommand( new wchar_t[ cchBuffer ] );
 
-        hr = m_pNative->GetCommandWide( wszCommand.get(),
-                                        cchBuffer,
-                                        &cchBuffer );
+        hr = CallMethodWithSehProtection( &TN::GetCommandWide,
+                                          wszCommand.get(),
+                                          cchBuffer,
+                                          &cchBuffer );
 
         if( S_OK == hr )
         {
@@ -1223,7 +1252,7 @@ int WDebugBreakpoint::SetCommandWide(
     WDebugClient::g_log->Write( L"BP::SetCommandWide" );
     _CheckInterfaceAbandoned();
     marshal_context mc;
-    return m_pNative->SetCommandWide( mc.marshal_as<const wchar_t*>( Command ) );
+    return CallMethodWithSehProtection( &TN::SetCommandWide, mc.marshal_as<const wchar_t*>( Command ) );
 }
 
 
@@ -1261,9 +1290,10 @@ int WDebugBreakpoint::GetOffsetExpressionWide(
     {
         std::unique_ptr<wchar_t[]> wszExpression( new wchar_t[ cchExpression ] );
 
-        hr = m_pNative->GetOffsetExpressionWide( wszExpression.get(),
-                                                 cchExpression,
-                                                 &cchExpression );
+        hr = CallMethodWithSehProtection( &TN::GetOffsetExpressionWide,
+                                          wszExpression.get(),
+                                          cchExpression,
+                                          &cchExpression );
 
         if( S_OK == hr )
         {
@@ -1280,7 +1310,7 @@ int WDebugBreakpoint::SetOffsetExpressionWide(
     WDebugClient::g_log->Write( L"BP::SetOffsetExpressionWide" );
     _CheckInterfaceAbandoned();
     marshal_context mc;
-    return m_pNative->SetOffsetExpressionWide( mc.marshal_as<const wchar_t*>( Expression ) );
+    return CallMethodWithSehProtection( &TN::SetOffsetExpressionWide, mc.marshal_as<const wchar_t*>( Expression ) );
 }
 
 
@@ -1294,7 +1324,7 @@ int WDebugBreakpoint::GetGuid(
     WDebugClient::g_log->Write( L"BP::GetGuid" );
     _CheckInterfaceAbandoned();
     pin_ptr<System::Guid> pp = &Guid;
-    return m_pNative->GetGuid( (LPGUID) pp );
+    return CallMethodWithSehProtection( &TN::GetGuid, (LPGUID) pp );
 }
 
 
@@ -1319,14 +1349,14 @@ WDebugControl::WDebugControl( IntPtr pDc )
 int WDebugControl::GetInterrupt()
 {
     WDebugClient::g_log->Write( L"DebugControl::GetInterrupt" );
-    return m_pNative->GetInterrupt();
+    return CallMethodWithSehProtection( &TN::GetInterrupt );
 }
 
 int WDebugControl::SetInterrupt(
     [In] DEBUG_INTERRUPT Flags)
 {
     WDebugClient::g_log->Write( L"DebugControl::SetInterrupt" );
-    return m_pNative->SetInterrupt( (ULONG) Flags );
+    return CallMethodWithSehProtection( &TN::SetInterrupt, (ULONG) Flags );
 }
 
 int WDebugControl::GetInterruptTimeout(
@@ -1334,14 +1364,14 @@ int WDebugControl::GetInterruptTimeout(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetInterruptTimeout" );
     pin_ptr<ULONG> pp = &Seconds;
-    return m_pNative->GetInterruptTimeout( pp );
+    return CallMethodWithSehProtection( &TN::GetInterruptTimeout, (PULONG) pp );
 }
 
 int WDebugControl::SetInterruptTimeout(
     [In] ULONG Seconds)
 {
     WDebugClient::g_log->Write( L"DebugControl::SetInterruptTimeout" );
-    return m_pNative->SetInterruptTimeout( Seconds );
+    return CallMethodWithSehProtection( &TN::SetInterruptTimeout, Seconds );
 }
 
 //    int GetLogFile(
@@ -1435,7 +1465,7 @@ int WDebugControl::GetDisassembleEffectiveOffset(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetDisassembleEffectiveOffset" );
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetDisassembleEffectiveOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetDisassembleEffectiveOffset, (PULONG64) pp );
 }
 
 //    int OutputDisassembly(
@@ -1462,7 +1492,7 @@ int WDebugControl::GetNearInstruction(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetNearInstruction" );
     pin_ptr<UInt64> pp = &NearOffset;
-    return m_pNative->GetNearInstruction( Offset, Delta, pp );
+    return CallMethodWithSehProtection( &TN::GetNearInstruction, Offset, Delta, (PULONG64) pp );
 }
 
 //    int GetStackTrace(
@@ -1489,8 +1519,9 @@ int WDebugControl::GetDebuggeeType(
     WDebugClient::g_log->Write( L"DebugControl::GetDebuggeeType" );
     pin_ptr<DEBUG_CLASS> ppClass = &Class;
     pin_ptr<DEBUG_CLASS_QUALIFIER> ppQualifier = &Qualifier;
-    return m_pNative->GetDebuggeeType( (PULONG) ppClass,
-                                       (PULONG) ppQualifier );
+    return CallMethodWithSehProtection( &TN::GetDebuggeeType,
+                                        (PULONG) ppClass,
+                                        (PULONG) ppQualifier );
 }
 
 int WDebugControl::GetActualProcessorType(
@@ -1498,7 +1529,7 @@ int WDebugControl::GetActualProcessorType(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetActualProcessorType" );
     pin_ptr<IMAGE_FILE_MACHINE> pp = &Type;
-    return m_pNative->GetActualProcessorType( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetActualProcessorType, (PULONG) pp );
 }
 
 int WDebugControl::GetExecutingProcessorType(
@@ -1506,7 +1537,7 @@ int WDebugControl::GetExecutingProcessorType(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetExecutingProcessorType" );
     pin_ptr<IMAGE_FILE_MACHINE> pp = &Type;
-    return m_pNative->GetExecutingProcessorType( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetExecutingProcessorType, (PULONG) pp );
 }
 
 /* Not needed; just use GetPossibleExecutingProcessorTypes instead.
@@ -1515,7 +1546,7 @@ int WDebugControl::GetNumberPossibleExecutingProcessorTypes(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetNumberPossibleExecutingProcessorTypes" );
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberPossibleExecutingProcessorTypes( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberPossibleExecutingProcessorTypes, (PULONG) pp );
 }
 */
 
@@ -1529,7 +1560,7 @@ int WDebugControl::GetPossibleExecutingProcessorTypes(
     Types = nullptr;
 
     ULONG num = 0;
-    int hr = m_pNative->GetNumberPossibleExecutingProcessorTypes( &num );
+    int hr = CallMethodWithSehProtection( &TN::GetNumberPossibleExecutingProcessorTypes, &num );
     if( FAILED( hr ) )
     {
         return hr;
@@ -1538,9 +1569,10 @@ int WDebugControl::GetPossibleExecutingProcessorTypes(
     array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>( num );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE> ppTmp = &tmp[ 0 ];
 
-    hr = m_pNative->GetPossibleExecutingProcessorTypes( 0,   // start
-                                                        num, // count
-                                                        (PULONG) ppTmp );
+    hr = CallMethodWithSehProtection( &TN::GetPossibleExecutingProcessorTypes,
+                                      0,   // start
+                                      num, // count
+                                      (PULONG) ppTmp );
 
     if( SUCCEEDED( hr ) )
     {
@@ -1554,7 +1586,7 @@ int WDebugControl::GetNumberProcessors(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetNumberProcessors" );
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberProcessors( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberProcessors, (PULONG) pp );
 }
 
 //    int GetSystemVersion(
@@ -1599,17 +1631,17 @@ int WDebugControl::GetSystemVersion(
     ULONG servicePackStringUsed = 0;
     ULONG buildStringUsed = 0;
 
-    HRESULT hr = m_pNative->GetSystemVersion(
-        ppPlatformId,
-        ppMajor,
-        ppMinor,
-        ppServicePackStringStackBuf,
-        sizeof( servicePackStringStackBuf ),
-        &servicePackStringUsed,
-        ppServicePackNumber,
-        ppBuildStringStackBuf,
-        sizeof( buildStringStackBuf ),
-        &buildStringUsed );
+    HRESULT hr = CallMethodWithSehProtection( &TN::GetSystemVersion,
+                                              (PULONG) ppPlatformId,
+                                              (PULONG) ppMajor,
+                                              (PULONG) ppMinor,
+                                              (PSTR) ppServicePackStringStackBuf,
+                                              static_cast<ULONG>( sizeof( servicePackStringStackBuf ) ),
+                                              &servicePackStringUsed,
+                                              (PULONG) ppServicePackNumber,
+                                              (PSTR) ppBuildStringStackBuf,
+                                              static_cast<ULONG>( sizeof( buildStringStackBuf ) ),
+                                              &buildStringUsed );
 
     if (SUCCEEDED(hr))
     {
@@ -1629,7 +1661,7 @@ int WDebugControl::GetSystemVersion(
 int WDebugControl::IsPointer64Bit()
 {
     WDebugClient::g_log->Write( L"DebugControl::IsPointer64Bit" );
-    return m_pNative->IsPointer64Bit();
+    return CallMethodWithSehProtection( &TN::IsPointer64Bit );
 }
 
 //    int ReadBugCheckData(
@@ -1645,7 +1677,7 @@ int WDebugControl::GetNumberSupportedProcessorTypes(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetNumberSupportedProcessorTypes" );
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberSupportedProcessorTypes( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberSupportedProcessorTypes, (PULONG) pp );
 }
 */
 
@@ -1659,7 +1691,7 @@ int WDebugControl::GetSupportedProcessorTypes(
     Types = nullptr;
 
     ULONG num = 0;
-    int hr = m_pNative->GetNumberSupportedProcessorTypes( &num );
+    int hr = CallMethodWithSehProtection( &TN::GetNumberSupportedProcessorTypes, &num );
     if( FAILED( hr ) )
     {
         return hr;
@@ -1668,9 +1700,10 @@ int WDebugControl::GetSupportedProcessorTypes(
     array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE>( num );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::IMAGE_FILE_MACHINE> ppTmp = &tmp[ 0 ];
 
-    hr = m_pNative->GetSupportedProcessorTypes( 0,   // start
-                                                num, // count
-                                                (PULONG) ppTmp );
+    hr = CallMethodWithSehProtection( &TN::GetSupportedProcessorTypes,
+                                      0,   // start
+                                      num, // count
+                                      (PULONG) ppTmp );
 
     if( SUCCEEDED( hr ) )
     {
@@ -1694,14 +1727,14 @@ int WDebugControl::GetEffectiveProcessorType(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetEffectiveProcessorType" );
     pin_ptr<IMAGE_FILE_MACHINE> pp = &Type;
-    return m_pNative->GetEffectiveProcessorType( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetEffectiveProcessorType, (PULONG) pp );
 }
 
 int WDebugControl::SetEffectiveProcessorType(
     [In] IMAGE_FILE_MACHINE Type )
 {
     WDebugClient::g_log->Write( L"DebugControl::SetEffectiveProcessorType" );
-    return m_pNative->SetEffectiveProcessorType( (ULONG) Type );
+    return CallMethodWithSehProtection( &TN::SetEffectiveProcessorType, (ULONG) Type );
 }
 
 int WDebugControl::GetExecutionStatus(
@@ -1709,14 +1742,14 @@ int WDebugControl::GetExecutionStatus(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetExecutionStatus" );
     pin_ptr<DEBUG_STATUS> pp = &Status;
-    return m_pNative->GetExecutionStatus( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetExecutionStatus, (PULONG) pp );
 }
 
 int WDebugControl::SetExecutionStatus(
     [In] DEBUG_STATUS Status)
 {
     WDebugClient::g_log->Write( L"DebugControl::SetExecutionStatus" );
-    return m_pNative->SetExecutionStatus( (ULONG) Status );
+    return CallMethodWithSehProtection( &TN::SetExecutionStatus, (ULONG) Status );
 }
 
 int WDebugControl::GetCodeLevel(
@@ -1724,14 +1757,14 @@ int WDebugControl::GetCodeLevel(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetCodeLevel" );
     pin_ptr<DEBUG_LEVEL> pp = &Level;
-    return m_pNative->GetCodeLevel( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetCodeLevel, (PULONG) pp );
 }
 
 int WDebugControl::SetCodeLevel(
     [In] DEBUG_LEVEL Level)
 {
     WDebugClient::g_log->Write( L"DebugControl::SetCodeLevel" );
-    return m_pNative->SetCodeLevel( (ULONG) Level );
+    return CallMethodWithSehProtection( &TN::SetCodeLevel, (ULONG) Level );
 }
 
 int WDebugControl::GetEngineOptions(
@@ -1739,28 +1772,28 @@ int WDebugControl::GetEngineOptions(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetEngineOptions" );
     pin_ptr<DEBUG_ENGOPT> pp = &Options;
-    return m_pNative->GetEngineOptions( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetEngineOptions, (PULONG) pp );
 }
 
 int WDebugControl::AddEngineOptions(
     [In] DEBUG_ENGOPT Options)
 {
     WDebugClient::g_log->Write( L"DebugControl::AddEngineOptions", gcnew TlPayload_Int( (ULONG) Options ) );
-    return m_pNative->AddEngineOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::AddEngineOptions, (ULONG) Options );
 }
 
 int WDebugControl::RemoveEngineOptions(
     [In] DEBUG_ENGOPT Options)
 {
     WDebugClient::g_log->Write( L"DebugControl::RemoveEngineOptions" );
-    return m_pNative->RemoveEngineOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::RemoveEngineOptions, (ULONG) Options );
 }
 
 int WDebugControl::SetEngineOptions(
     [In] DEBUG_ENGOPT Options)
 {
     WDebugClient::g_log->Write( L"DebugControl::SetEngineOptions" );
-    return m_pNative->SetEngineOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::SetEngineOptions, (ULONG) Options );
 }
 
 int WDebugControl::GetSystemErrorControl(
@@ -1770,8 +1803,9 @@ int WDebugControl::GetSystemErrorControl(
     WDebugClient::g_log->Write( L"DebugControl::GetSystemErrorControl" );
     pin_ptr<ERROR_LEVEL> ppOutputLevel = &OutputLevel;
     pin_ptr<ERROR_LEVEL> ppBreakLevel = &BreakLevel;
-    return m_pNative->GetSystemErrorControl( (PULONG) ppOutputLevel,
-                                             (PULONG) ppBreakLevel );
+    return CallMethodWithSehProtection( &TN::GetSystemErrorControl,
+                                        (PULONG) ppOutputLevel,
+                                        (PULONG) ppBreakLevel );
 }
 
 int WDebugControl::SetSystemErrorControl(
@@ -1779,7 +1813,7 @@ int WDebugControl::SetSystemErrorControl(
     [In] ERROR_LEVEL BreakLevel)
 {
     WDebugClient::g_log->Write( L"DebugControl::SetSystemErrorControl" );
-    return m_pNative->SetSystemErrorControl( (ULONG) OutputLevel, (ULONG) BreakLevel );
+    return CallMethodWithSehProtection( &TN::SetSystemErrorControl, (ULONG) OutputLevel, (ULONG) BreakLevel );
 }
 
 //    int GetTextMacro(
@@ -1830,7 +1864,7 @@ int WDebugControl::GetNumberBreakpoints(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetNumberBreakpoints" );
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberBreakpoints( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberBreakpoints, (PULONG) pp );
 }
 
 //    int GetBreakpointByIndex(
@@ -1857,10 +1891,11 @@ int WDebugControl::GetBreakpointParameters(
     array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_BREAKPOINT_PARAMETERS>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_BREAKPOINT_PARAMETERS>( Ids->Length );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_BREAKPOINT_PARAMETERS> ppTmp = &tmp[ 0 ];
 
-    int hr = m_pNative->GetBreakpointParameters( Ids->Length,
-                                                 ppIds,
-                                                 0, // Start
-                                                 (PDEBUG_BREAKPOINT_PARAMETERS) ppTmp );
+    int hr = CallMethodWithSehProtection( &TN::GetBreakpointParameters,
+                                          Ids->Length,
+                                          (PULONG) ppIds,
+                                          0, // Start
+                                          (PDEBUG_BREAKPOINT_PARAMETERS) ppTmp );
     // S_FALSE indicates a deleted breakpoint. It's ID will be set to DEBUG_ANY_ID.
     if( (S_OK == hr) || (S_FALSE == hr) )
     {
@@ -1884,10 +1919,11 @@ int WDebugControl::GetBreakpointParameters(
     array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_BREAKPOINT_PARAMETERS>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_BREAKPOINT_PARAMETERS>( Count );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_BREAKPOINT_PARAMETERS> ppTmp = &tmp[ 0 ];
 
-    int hr = m_pNative->GetBreakpointParameters( Count,
-                                                 nullptr,
-                                                 Start,
-                                                 (PDEBUG_BREAKPOINT_PARAMETERS) ppTmp );
+    int hr = CallMethodWithSehProtection( &TN::GetBreakpointParameters,
+                                          Count,
+                                          nullptr,
+                                          Start,
+                                          (PDEBUG_BREAKPOINT_PARAMETERS) ppTmp );
     // S_FALSE indicates a deleted breakpoint. It's ID will be set to DEBUG_ANY_ID.
     if( (S_OK == hr) || (S_FALSE == hr) )
     {
@@ -1913,7 +1949,7 @@ int WDebugControl::RemoveExtension(
     [In] UInt64 Handle)
 {
     WDebugClient::g_log->Write( L"DebugControl::RemoveExtension" );
-    return m_pNative->RemoveExtension( Handle );
+    return CallMethodWithSehProtection( &TN::RemoveExtension, Handle );
 }
 
       // Use GetExtensionByPathWide instead.
@@ -1950,9 +1986,10 @@ int WDebugControl::GetNumberEventFilters(
     pin_ptr<ULONG> ppSpecificEvents = &SpecificEvents;
     pin_ptr<ULONG> ppSpecificExceptions = &SpecificExceptions;
     pin_ptr<ULONG> ppArbitraryExceptions = &ArbitraryExceptions;
-    return m_pNative->GetNumberEventFilters( ppSpecificEvents,
-                                             ppSpecificExceptions,
-                                             ppArbitraryExceptions );
+    return CallMethodWithSehProtection( &TN::GetNumberEventFilters,
+                                        (PULONG) ppSpecificEvents,
+                                        (PULONG) ppSpecificExceptions,
+                                        (PULONG) ppArbitraryExceptions );
 }
 
 //   int GetEventFilterText(
@@ -1980,9 +2017,10 @@ int WDebugControl::GetSpecificFilterParameters(
     Params = nullptr;
     auto tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_SPECIFIC_FILTER_PARAMETERS>( Count );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_SPECIFIC_FILTER_PARAMETERS> pp = &tmp[ 0 ];
-    int hr = m_pNative->GetSpecificFilterParameters( Start,
-                                                     Count,
-                                                     (PDEBUG_SPECIFIC_FILTER_PARAMETERS) pp );
+    int hr = CallMethodWithSehProtection( &TN::GetSpecificFilterParameters,
+                                          Start,
+                                          Count,
+                                          (PDEBUG_SPECIFIC_FILTER_PARAMETERS) pp );
     if( S_OK == hr )
     {
         Params = tmp;
@@ -2020,10 +2058,11 @@ int WDebugControl::GetExceptionFilterParameters(
     array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_EXCEPTION_FILTER_PARAMETERS>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_EXCEPTION_FILTER_PARAMETERS>( Codes->Length );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_EXCEPTION_FILTER_PARAMETERS> ppParams = &Params[ 0 ];
 
-    int hr = m_pNative->GetExceptionFilterParameters( Codes->Length,
-                                                      ppCodes,
-                                                      0, // Start
-                                                      (PDEBUG_EXCEPTION_FILTER_PARAMETERS) ppParams );
+    int hr = CallMethodWithSehProtection( &TN::GetExceptionFilterParameters,
+                                          Codes->Length,
+                                          (PULONG) ppCodes,
+                                          0, // Start
+                                          (PDEBUG_EXCEPTION_FILTER_PARAMETERS) ppParams );
     if( S_OK == hr )
     {
         Params = tmp;
@@ -2046,10 +2085,11 @@ int WDebugControl::GetExceptionFilterParameters(
     array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_EXCEPTION_FILTER_PARAMETERS>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_EXCEPTION_FILTER_PARAMETERS>( Count );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_EXCEPTION_FILTER_PARAMETERS> ppParams = &tmp[ 0 ];
 
-    int hr = m_pNative->GetExceptionFilterParameters( Count,
-                                                      nullptr,
-                                                      Start,
-                                                      (PDEBUG_EXCEPTION_FILTER_PARAMETERS) ppParams );
+    int hr = CallMethodWithSehProtection( &TN::GetExceptionFilterParameters,
+                                          Count,
+                                          nullptr,
+                                          Start,
+                                          (PDEBUG_EXCEPTION_FILTER_PARAMETERS) ppParams );
     if( S_OK == hr )
     {
         Params = tmp;
@@ -2076,7 +2116,7 @@ int WDebugControl::WaitForEvent(
     [In] ULONG Timeout)
 {
     WDebugClient::g_log->Write( L"DebugControl::WaitForEvent" );
-    return m_pNative->WaitForEvent( (ULONG) Flags, Timeout );
+    return CallMethodWithSehProtection( &TN::WaitForEvent, (ULONG) Flags, Timeout );
 }
 
 //   int GetLastEventInformation(
@@ -2104,14 +2144,14 @@ int WDebugControl::GetDumpFormatFlags(
     WDebugClient::g_log->Write( L"DebugControl::GetDumpFormatFlags" );
     FormatFlags = (DEBUG_FORMAT) 0;
     pin_ptr<DEBUG_FORMAT> pp = &FormatFlags;
-    return m_pNative->GetDumpFormatFlags( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetDumpFormatFlags, (PULONG) pp );
 }
 
  int WDebugControl::GetNumberTextReplacements(
      [Out] ULONG% NumRepl)
  {
     pin_ptr<ULONG> pp = &NumRepl;
-    return m_pNative->GetNumberTextReplacements( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberTextReplacements, (PULONG) pp );
  }
 
 //   int GetTextReplacement(
@@ -2131,7 +2171,7 @@ int WDebugControl::GetDumpFormatFlags(
 int WDebugControl::RemoveTextReplacements()
 {
     WDebugClient::g_log->Write( L"DebugControl::RemoveTextReplacements" );
-    return m_pNative->RemoveTextReplacements();
+    return CallMethodWithSehProtection( &TN::RemoveTextReplacements );
 }
 
 //   int OutputTextReplacements(
@@ -2145,28 +2185,28 @@ int WDebugControl::GetAssemblyOptions(
 {
     WDebugClient::g_log->Write( L"DebugControl::GetAssemblyOptions" );
    pin_ptr<DEBUG_ASMOPT> pp = &Options;
-   return m_pNative->GetAssemblyOptions( (PULONG) pp );
+   return CallMethodWithSehProtection( &TN::GetAssemblyOptions, (PULONG) pp );
 }
 
 int WDebugControl::AddAssemblyOptions(
     [In] DEBUG_ASMOPT Options)
 {
     WDebugClient::g_log->Write( L"DebugControl::AddAssemblyOptions" );
-    return m_pNative->AddAssemblyOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::AddAssemblyOptions, (ULONG) Options );
 }
 
 int WDebugControl::RemoveAssemblyOptions(
     [In] DEBUG_ASMOPT Options)
 {
     WDebugClient::g_log->Write( L"DebugControl::RemoveAssemblyOptions" );
-    return m_pNative->RemoveAssemblyOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::RemoveAssemblyOptions, (ULONG) Options );
 }
 
 int WDebugControl::SetAssemblyOptions(
     [In] DEBUG_ASMOPT Options)
 {
     WDebugClient::g_log->Write( L"DebugControl::SetAssemblyOptions" );
-    return m_pNative->SetAssemblyOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::SetAssemblyOptions, (ULONG) Options );
 }
 
 //   int GetExpressionSyntax(
@@ -2243,9 +2283,10 @@ int WDebugControl::SetAssemblyOptions(
      [In] String^ Message)
  {
     marshal_context mc;
-    return m_pNative->ControlledOutputWide( (ULONG) OutputControl,
-                                            (ULONG) Mask,
-                                            mc.marshal_as<const wchar_t*>( Message ) );
+    return CallMethodWithSehProtection( &TN::ControlledOutputWide,
+                                        (ULONG) OutputControl,
+                                        (ULONG) Mask,
+                                        mc.marshal_as<const wchar_t*>( Message ) );
  }
 
 //   int ControlledOutputVaListWide( /* THIS SHOULD NEVER BE CALLED FROM C# */
@@ -2294,12 +2335,13 @@ int WDebugControl::DisassembleWide(
     {
         std::unique_ptr<wchar_t[]> wszDisassembly( new wchar_t[ cchDisassembly ] );
 
-        hr = m_pNative->DisassembleWide( Offset,
-                                         (ULONG) Flags,
-                                         wszDisassembly.get(),
-                                         cchDisassembly,
-                                         &cchDisassembly,
-                                         &tmpEndOffset );
+        hr = CallMethodWithSehProtection( &TN::DisassembleWide,
+                                          Offset,
+                                          (ULONG) Flags,
+                                          wszDisassembly.get(),
+                                          cchDisassembly,
+                                          &cchDisassembly,
+                                          &tmpEndOffset );
         if( S_OK == hr )
         {
             Disassembly = gcnew String( wszDisassembly.get() );
@@ -2335,13 +2377,14 @@ int WDebugControl::GetProcessorTypeNamesWide(
         std::unique_ptr<wchar_t[]> wszFullName( new wchar_t[ cchFullName ] );
         std::unique_ptr<wchar_t[]> wszAbbrevName( new wchar_t[ cchAbbrevName ] );
 
-        hr = m_pNative->GetProcessorTypeNamesWide( (ULONG) Type,
-                                                   wszFullName.get(),
-                                                   cchFullName,
-                                                   &cchFullName,
-                                                   wszAbbrevName.get(),
-                                                   cchAbbrevName,
-                                                   &cchAbbrevName );
+        hr = CallMethodWithSehProtection( &TN::GetProcessorTypeNamesWide,
+                                          (ULONG) Type,
+                                          wszFullName.get(),
+                                          cchFullName,
+                                          &cchFullName,
+                                          wszAbbrevName.get(),
+                                          cchAbbrevName,
+                                          &cchAbbrevName );
 
         if( S_OK == hr )
         {
@@ -2376,9 +2419,10 @@ int WDebugControl::ExecuteWide(
 {
     WDebugClient::g_log->Write( L"DebugControl::ExecuteWide" );
     marshal_context mc;
-    return m_pNative->ExecuteWide( (ULONG) OutputControl,
-                                   mc.marshal_as<const wchar_t*>( Command ),
-                                   (ULONG) Flags );
+    return CallMethodWithSehProtection( &TN::ExecuteWide,
+                                        (ULONG) OutputControl,
+                                        mc.marshal_as<const wchar_t*>( Command ),
+                                        (ULONG) Flags );
 }
 
 //   int ExecuteCommandFileWide(
@@ -2393,7 +2437,7 @@ int WDebugControl::GetBreakpointByIndex2(
     WDebugClient::g_log->Write( L"DebugControl::GetBreakpointByIndex2" );
     bp = nullptr;
     PDEBUG_BREAKPOINT2 pbp = nullptr;
-    HRESULT hr = m_pNative->GetBreakpointByIndex2( Index, &pbp );
+    HRESULT hr = CallMethodWithSehProtection( &TN::GetBreakpointByIndex2, Index, &pbp );
     if( S_OK == hr )
     {
         bp = WDebugBreakpoint::GetBreakpoint( (IntPtr) pbp );
@@ -2408,7 +2452,7 @@ int WDebugControl::GetBreakpointById2(
     WDebugClient::g_log->Write( L"DebugControl::GetBreakpointById2" );
     bp = nullptr;
     PDEBUG_BREAKPOINT2 pbp = nullptr;
-    HRESULT hr = m_pNative->GetBreakpointById2( Id, &pbp );
+    HRESULT hr = CallMethodWithSehProtection( &TN::GetBreakpointById2, Id, &pbp );
     if( S_OK == hr )
     {
         bp = WDebugBreakpoint::GetBreakpoint( (IntPtr) pbp );
@@ -2424,9 +2468,10 @@ int WDebugControl::AddBreakpoint2(
     WDebugClient::g_log->Write( L"DebugControl::AddBreakpoint2" );
     Bp = nullptr;
     PDEBUG_BREAKPOINT2 pbp = nullptr;
-    HRESULT hr = m_pNative->AddBreakpoint2( (ULONG) Type,
-                                            DesiredId,
-                                            &pbp );
+    HRESULT hr = CallMethodWithSehProtection( &TN::AddBreakpoint2,
+                                              (ULONG) Type,
+                                              DesiredId,
+                                              &pbp );
     if( S_OK == hr )
     {
         Bp = WDebugBreakpoint::GetBreakpoint( (IntPtr) pbp );
@@ -2442,7 +2487,7 @@ int WDebugControl::RemoveBreakpoint2(
     // (the refcounting on it is a sham)
     PDEBUG_BREAKPOINT2 pbp = (PDEBUG_BREAKPOINT2) (void*) Bp->GetRaw();
     Bp->AbandonInterface();
-    return m_pNative->RemoveBreakpoint2( pbp );
+    return CallMethodWithSehProtection( &TN::RemoveBreakpoint2, pbp );
 }
 
 int WDebugControl::AddExtensionWide(
@@ -2453,9 +2498,10 @@ int WDebugControl::AddExtensionWide(
     WDebugClient::g_log->Write( L"DebugControl::AddExtensionWide" );
     marshal_context mc;
     pin_ptr<UInt64> pp = &Handle;
-    return m_pNative->AddExtensionWide( mc.marshal_as<const wchar_t*>( Path ),
+    return CallMethodWithSehProtection( &TN::AddExtensionWide,
+                                        mc.marshal_as<const wchar_t*>( Path ),
                                         Flags,
-                                        pp );
+                                        (PULONG64) pp );
 }
 
 int WDebugControl::GetExtensionByPathWide(
@@ -2466,8 +2512,9 @@ int WDebugControl::GetExtensionByPathWide(
     Handle = 0;
     marshal_context mc;
     pin_ptr<UInt64> pp = &Handle;
-    return m_pNative->GetExtensionByPathWide( mc.marshal_as<const wchar_t*>( Path ),
-                                              pp );
+    return CallMethodWithSehProtection( &TN::GetExtensionByPathWide,
+                                        mc.marshal_as<const wchar_t*>( Path ),
+                                        (PULONG64) pp );
 }
 
 int WDebugControl::CallExtensionWide(
@@ -2477,9 +2524,10 @@ int WDebugControl::CallExtensionWide(
 {
     WDebugClient::g_log->Write( L"DebugControl::CallExtensionWide" );
     marshal_context mc;
-    return m_pNative->CallExtensionWide( Handle,
-                                         mc.marshal_as<const wchar_t*>( Function ),
-                                         mc.marshal_as<const wchar_t*>( Arguments ) );
+    return CallMethodWithSehProtection( &TN::CallExtensionWide,
+                                        Handle,
+                                        mc.marshal_as<const wchar_t*>( Function ),
+                                        mc.marshal_as<const wchar_t*>( Arguments ) );
 }
 
 int WDebugControl::GetExtensionFunctionWide(
@@ -2490,9 +2538,10 @@ int WDebugControl::GetExtensionFunctionWide(
     WDebugClient::g_log->Write( L"DebugControl::GetExtensionFunctionWide" );
     marshal_context mc;
     pin_ptr<IntPtr> pp = &Function;
-    return m_pNative->GetExtensionFunctionWide( Handle,
-                                                mc.marshal_as<const wchar_t*>( FuncName ),
-                                                reinterpret_cast<FARPROC*>( pp ) );
+    return CallMethodWithSehProtection( &TN::GetExtensionFunctionWide,
+                                        Handle,
+                                        mc.marshal_as<const wchar_t*>( FuncName ),
+                                        reinterpret_cast<FARPROC*>( pp ) );
 }
 
 int WDebugControl::GetEventFilterTextWide(
@@ -2512,10 +2561,11 @@ int WDebugControl::GetEventFilterTextWide(
     {
         std::unique_ptr<wchar_t[]> wszFilterText( new wchar_t[ cchFilterText ] );
 
-        hr = m_pNative->GetEventFilterTextWide( Index,
-                                                wszFilterText.get(),
-                                                cchFilterText,
-                                                &cchFilterText );
+        hr = CallMethodWithSehProtection( &TN::GetEventFilterTextWide,
+                                          Index,
+                                          wszFilterText.get(),
+                                          cchFilterText,
+                                          &cchFilterText );
 
         if( S_OK == hr )
         {
@@ -2543,10 +2593,11 @@ int WDebugControl::GetEventFilterCommandWide(
     {
         std::unique_ptr<wchar_t[]> wszCommand( new wchar_t[ cchCommand ] );
 
-        hr = m_pNative->GetEventFilterCommandWide( Index,
-                                                   wszCommand.get(),
-                                                   cchCommand,
-                                                   &cchCommand );
+        hr = CallMethodWithSehProtection( &TN::GetEventFilterCommandWide,
+                                          Index,
+                                          wszCommand.get(),
+                                          cchCommand,
+                                          &cchCommand );
 
         if( S_OK == hr )
         {
@@ -2563,8 +2614,9 @@ int WDebugControl::SetEventFilterCommandWide(
 {
     WDebugClient::g_log->Write( L"DebugControl::SetEventFilterCommandWide" );
     marshal_context mc;
-    return m_pNative->SetEventFilterCommandWide( Index,
-                                                 mc.marshal_as<const wchar_t*>( Command ) );
+    return CallMethodWithSehProtection( &TN::SetEventFilterCommandWide,
+                                        Index,
+                                        mc.marshal_as<const wchar_t*>( Command ) );
 }
 
 int WDebugControl::GetSpecificFilterArgumentWide(
@@ -2584,10 +2636,11 @@ int WDebugControl::GetSpecificFilterArgumentWide(
     {
         std::unique_ptr<wchar_t[]> wszArgument( new wchar_t[ cchArgument ] );
 
-        hr = m_pNative->GetSpecificFilterArgumentWide( Index,
-                                                       wszArgument.get(),
-                                                       cchArgument,
-                                                       &cchArgument );
+        hr = CallMethodWithSehProtection( &TN::GetSpecificFilterArgumentWide,
+                                          Index,
+                                          wszArgument.get(),
+                                          cchArgument,
+                                          &cchArgument );
 
         if( S_OK == hr )
         {
@@ -2604,8 +2657,9 @@ int WDebugControl::SetSpecificFilterArgumentWide(
 {
     WDebugClient::g_log->Write( L"DebugControl::SetSpecificFilterArgumentWide" );
     marshal_context mc;
-    return m_pNative->SetSpecificFilterArgumentWide( Index,
-                                                     mc.marshal_as<const wchar_t*>( Argument ) );
+    return CallMethodWithSehProtection( &TN::SetSpecificFilterArgumentWide,
+                                        Index,
+                                        mc.marshal_as<const wchar_t*>( Argument ) );
 }
 
 int WDebugControl::GetExceptionFilterSecondCommandWide(
@@ -2625,10 +2679,11 @@ int WDebugControl::GetExceptionFilterSecondCommandWide(
     {
         std::unique_ptr<wchar_t[]> wszCommand( new wchar_t[ cchCommand ] );
 
-        hr = m_pNative->GetExceptionFilterSecondCommandWide( Index,
-                                                             wszCommand.get(),
-                                                             cchCommand,
-                                                             &cchCommand );
+        hr = CallMethodWithSehProtection( &TN::GetExceptionFilterSecondCommandWide,
+                                          Index,
+                                          wszCommand.get(),
+                                          cchCommand,
+                                          &cchCommand );
 
         if( S_OK == hr )
         {
@@ -2668,15 +2723,16 @@ int WDebugControl::GetLastEventInformationWide(
     {
         std::unique_ptr<wchar_t[]> wszDescription( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetLastEventInformationWide( (PULONG) ppType,
-                                                     ppProcessId,
-                                                     ppThreadId,
-                                                     ppInfo,
-                                                     cbExtraInfo,
-                                                     &cbExtraInfo,
-                                                     wszDescription.get(),
-                                                     cchName,
-                                                     &cchName );
+        hr = CallMethodWithSehProtection( &TN::GetLastEventInformationWide,
+                                          (PULONG) ppType,
+                                          (PULONG) ppProcessId,
+                                          (PULONG) ppThreadId,
+                                          (PVOID) ppInfo,
+                                          cbExtraInfo,
+                                          &cbExtraInfo,
+                                          wszDescription.get(),
+                                          cchName,
+                                          &cchName );
 
         if( S_OK == hr )
         {
@@ -2717,14 +2773,15 @@ int WDebugControl::GetTextReplacementWide(
         ZeroMemory( wszName.get(), cchName * sizeof( wchar_t ) );
         ZeroMemory( wszValue.get(), cchValue * sizeof( wchar_t ) );
 
-        hr = m_pNative->GetTextReplacementWide( nullptr,
-                                                Index,
-                                                wszName.get(),
-                                                cchName,
-                                                &cchName,
-                                                wszValue.get(),
-                                                cchValue,
-                                                &cchValue );
+        hr = CallMethodWithSehProtection( &TN::GetTextReplacementWide,
+                                          nullptr,
+                                          Index,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName,
+                                          wszValue.get(),
+                                          cchValue,
+                                          &cchValue );
         if( S_OK == hr )
         {
             AliasName = gcnew String( wszName.get() );
@@ -2750,14 +2807,15 @@ int WDebugControl::GetTextReplacementWide(
         std::unique_ptr<wchar_t[]> wszValue( new wchar_t[ cchValue ] );
         ZeroMemory( wszValue.get(), cchValue * sizeof( wchar_t ) );
 
-        hr = m_pNative->GetTextReplacementWide( mc.marshal_as<const wchar_t*>( AliasName ),
-                                                0,       // Index
-                                                nullptr, // SrcBuffer
-                                                0,       // SrcBufferSize
-                                                nullptr, // SrcSize
-                                                wszValue.get(),
-                                                cchValue,
-                                                &cchValue );
+        hr = CallMethodWithSehProtection( &TN::GetTextReplacementWide,
+                                          mc.marshal_as<const wchar_t*>( AliasName ),
+                                          0,       // Index
+                                          nullptr, // SrcBuffer
+                                          0,       // SrcBufferSize
+                                          nullptr, // SrcSize
+                                          wszValue.get(),
+                                          cchValue,
+                                          &cchValue );
         if( S_OK == hr )
         {
             AliasValue = gcnew String( wszValue.get() );
@@ -2774,8 +2832,9 @@ int WDebugControl::SetTextReplacementWide(
 {
     WDebugClient::g_log->Write( L"DebugControl::SetTextReplacementWide" );
     marshal_context mc;
-    return m_pNative->SetTextReplacementWide( mc.marshal_as<const wchar_t*>( AliasName ),
-                                              mc.marshal_as<const wchar_t*>( AliasValue ) );
+    return CallMethodWithSehProtection( &TN::SetTextReplacementWide,
+                                        mc.marshal_as<const wchar_t*>( AliasName ),
+                                        mc.marshal_as<const wchar_t*>( AliasValue ) );
 }
 
 
@@ -2839,11 +2898,12 @@ int WDebugControl::GetSystemVersionValues(
     pin_ptr<ULONG> ppKdMajor    = &KdMajor;
     pin_ptr<ULONG> ppKdMinor    = &KdMinor;
 
-    return m_pNative->GetSystemVersionValues( ppPlatformId ,
-                                              ppWin32Major ,
-                                              ppWin32Minor ,
-                                              ppKdMajor    ,
-                                              ppKdMinor );
+    return CallMethodWithSehProtection( &TN::GetSystemVersionValues,
+                                        (PULONG) ppPlatformId ,
+                                        (PULONG) ppWin32Major ,
+                                        (PULONG) ppWin32Minor ,
+                                        (PULONG) ppKdMajor    ,
+                                        (PULONG) ppKdMinor );
 }
 
 //  int GetSystemVersionString(
@@ -2870,10 +2930,11 @@ int WDebugControl::GetSystemVersionStringWide(
     pin_ptr<WCHAR> ppBuf = &buf[ 0 ];
 
     ULONG cchUsed = 0;
-    HRESULT hr = m_pNative->GetSystemVersionStringWide( static_cast< ULONG >( Which ),
-                                                        ppBuf,
-                                                        _countof( buf ),
-                                                        &cchUsed );
+    HRESULT hr = CallMethodWithSehProtection( &TN::GetSystemVersionStringWide,
+                                              static_cast< ULONG >( Which ),
+                                              (PWSTR) ppBuf,
+                                              static_cast<ULONG>( _countof( buf ) ),
+                                              &cchUsed );
 
     // S_FALSE means the string was truncated, but I don't really care.
     if( SUCCEEDED( hr ) )
@@ -2972,12 +3033,13 @@ int WDebugControl::GetStackTraceEx(
     {
         tmpArray = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_STACK_FRAME_EX>( numFramesAllocated );
         pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_STACK_FRAME_EX> pp = &tmpArray[ 0 ];
-        HRESULT hr = m_pNative->GetStackTraceEx( FrameOffset,
-                                                 StackOffset,
-                                                 InstructionOffset,
-                                                 (PDEBUG_STACK_FRAME_EX) pp,
-                                                 numFramesAllocated,
-                                                 &numFramesFilled );
+        HRESULT hr = CallMethodWithSehProtection( &TN::GetStackTraceEx,
+                                                  FrameOffset,
+                                                  StackOffset,
+                                                  InstructionOffset,
+                                                  (PDEBUG_STACK_FRAME_EX) pp,
+                                                  numFramesAllocated,
+                                                  &numFramesFilled );
         // TODO: I don't know how to properly handle more than 1024 frames
         if( S_OK != hr )
             return hr;
@@ -3034,8 +3096,9 @@ int WDebugControl::GetBreakpointByGuid(
     Bp = nullptr;
     pin_ptr<System::Guid> pp = &Guid;
     PDEBUG_BREAKPOINT3 pbp = nullptr;
-    HRESULT hr = m_pNative->GetBreakpointByGuid( (LPGUID) pp,
-                                                 &pbp );
+    HRESULT hr = CallMethodWithSehProtection( &TN::GetBreakpointByGuid,
+                                              (LPGUID) pp,
+                                              &pbp );
     if( (S_OK == hr) && pbp )
     {
         Bp = WDebugBreakpoint::GetBreakpoint( pbp );
@@ -3050,7 +3113,7 @@ int WDebugControl::GetExecutionStatusEx( [Out] DEBUG_STATUS% Status )
 {
     WDebugClient::g_log->Write( L"DebugControl::GetExecutionStatusEx" );
     pin_ptr<DEBUG_STATUS> pp = &Status;
-    return m_pNative->GetExecutionStatusEx( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetExecutionStatusEx, (PULONG) pp );
 }
 
 int WDebugControl::GetSynchronizationStatus(
@@ -3060,8 +3123,9 @@ int WDebugControl::GetSynchronizationStatus(
     WDebugClient::g_log->Write( L"DebugControl::GetSynchronizationStatus" );
     pin_ptr<ULONG> ppSendsAttempted = &SendsAttempted;
     pin_ptr<ULONG> ppSecondsSinceLastResponse = &SecondsSinceLastResponse;
-    return m_pNative->GetSynchronizationStatus( ppSendsAttempted,
-                                                ppSecondsSinceLastResponse );
+    return CallMethodWithSehProtection( &TN::GetSynchronizationStatus,
+                                        (PULONG) ppSendsAttempted,
+                                        (PULONG) ppSecondsSinceLastResponse );
 }
 
 
@@ -3089,7 +3153,7 @@ int WDebugSystemObjects::GetEventThread(
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetEventThread" );
     Id = DEBUG_ANY_ID;
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetEventThread( pp );
+    return CallMethodWithSehProtection( &TN::GetEventThread, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetEventProcess(
@@ -3098,7 +3162,7 @@ int WDebugSystemObjects::GetEventProcess(
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetEventProcess" );
     Id = DEBUG_ANY_ID;
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetEventProcess( pp );
+    return CallMethodWithSehProtection( &TN::GetEventProcess, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetCurrentThreadId(
@@ -3107,14 +3171,14 @@ int WDebugSystemObjects::GetCurrentThreadId(
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentThreadId" );
     Id = DEBUG_ANY_ID;
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetCurrentThreadId( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentThreadId, (PULONG) pp );
 }
 
 int WDebugSystemObjects::SetCurrentThreadId(
     [In] ULONG Id)
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::SetCurrentThreadId" );
-    return m_pNative->SetCurrentThreadId( Id );
+    return CallMethodWithSehProtection( &TN::SetCurrentThreadId, Id );
 }
 
 int WDebugSystemObjects::GetCurrentProcessId(
@@ -3123,14 +3187,14 @@ int WDebugSystemObjects::GetCurrentProcessId(
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentProcessId" );
     Id = DEBUG_ANY_ID;
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetCurrentProcessId( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentProcessId, (PULONG) pp );
 }
 
 int WDebugSystemObjects::SetCurrentProcessId(
     [In] ULONG Id)
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::SetCurrentProcessId" );
-    return m_pNative->SetCurrentProcessId( Id );
+    return CallMethodWithSehProtection( &TN::SetCurrentProcessId, Id );
 }
 
 int WDebugSystemObjects::GetNumberThreads(
@@ -3138,7 +3202,7 @@ int WDebugSystemObjects::GetNumberThreads(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetNumberThreads" );
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberThreads( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberThreads, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetTotalNumberThreads(
@@ -3148,8 +3212,9 @@ int WDebugSystemObjects::GetTotalNumberThreads(
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetTotalNumberThreads" );
     pin_ptr<ULONG> ppTotal = &Total;
     pin_ptr<ULONG> ppLargestProcess = &LargestProcess;
-    return m_pNative->GetTotalNumberThreads( ppTotal,
-                                             ppLargestProcess );
+    return CallMethodWithSehProtection( &TN::GetTotalNumberThreads,
+                                        (PULONG) ppTotal,
+                                        (PULONG) ppLargestProcess );
 }
 
 int WDebugSystemObjects::GetThreadIdsByIndex(
@@ -3165,10 +3230,11 @@ int WDebugSystemObjects::GetThreadIdsByIndex(
     pin_ptr<ULONG> ppIds = &Ids[ 0 ];
     pin_ptr<ULONG> ppSysIds = &SysIds[ 0 ];
 
-    return m_pNative->GetThreadIdsByIndex( Start,
-                                           Count,
-                                           ppIds,
-                                           ppSysIds );
+    return CallMethodWithSehProtection( &TN::GetThreadIdsByIndex,
+                                        Start,
+                                        Count,
+                                        (PULONG) ppIds,
+                                        (PULONG) ppSysIds );
 }
 
 // int GetThreadIdByProcessor(
@@ -3180,7 +3246,7 @@ int WDebugSystemObjects::GetCurrentThreadDataOffset(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentThreadDataOffset" );
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetCurrentThreadDataOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentThreadDataOffset, (PULONG64) pp );
 }
 
 // int GetThreadIdByDataOffset(
@@ -3192,7 +3258,7 @@ int WDebugSystemObjects::GetCurrentThreadTeb(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentThreadTeb" );
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetCurrentThreadTeb( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentThreadTeb, (PULONG64) pp );
 }
 
 int WDebugSystemObjects::GetThreadIdByTeb(
@@ -3201,7 +3267,7 @@ int WDebugSystemObjects::GetThreadIdByTeb(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetThreadIdByTeb" );
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetThreadIdByTeb( Offset, pp );
+    return CallMethodWithSehProtection( &TN::GetThreadIdByTeb, Offset, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetCurrentThreadSystemId(
@@ -3209,7 +3275,7 @@ int WDebugSystemObjects::GetCurrentThreadSystemId(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentThreadSystemId" );
     pin_ptr<ULONG> pp = &SysId;
-    return m_pNative->GetCurrentThreadSystemId( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentThreadSystemId, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetThreadIdBySystemId(
@@ -3218,7 +3284,7 @@ int WDebugSystemObjects::GetThreadIdBySystemId(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetThreadIdBySystemId" );
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetThreadIdBySystemId( SysId, pp );
+    return CallMethodWithSehProtection( &TN::GetThreadIdBySystemId, SysId, (PULONG) pp );
 }
 
 // int GetCurrentThreadHandle(
@@ -3233,7 +3299,7 @@ int WDebugSystemObjects::GetNumberProcesses(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetNumberProcesses" );
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberProcesses( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberProcesses, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetProcessIdsByIndex(
@@ -3256,7 +3322,7 @@ int WDebugSystemObjects::GetProcessIdsByIndex(
     array<ULONG>^ tmpSysIds = gcnew array<ULONG>( Count );
     pin_ptr<ULONG> ppIds = &tmpIds[ 0 ];
     pin_ptr<ULONG> ppSysIds = &tmpSysIds[ 0 ];
-    int hr = m_pNative->GetProcessIdsByIndex( Start, Count, ppIds, ppSysIds );
+    int hr = CallMethodWithSehProtection( &TN::GetProcessIdsByIndex, Start, Count, (PULONG) ppIds, (PULONG) ppSysIds );
     if( 0 == hr )
     {
         Ids = tmpIds;
@@ -3270,7 +3336,7 @@ int WDebugSystemObjects::GetCurrentProcessDataOffset(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentProcessDataOffset" );
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetCurrentProcessDataOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentProcessDataOffset, (PULONG64) pp );
 }
 
 // int GetProcessIdByDataOffset(
@@ -3282,7 +3348,7 @@ int WDebugSystemObjects::GetCurrentProcessPeb(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentProcessPeb" );
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetCurrentProcessPeb( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentProcessPeb, (PULONG64) pp );
 }
 
 // int GetProcessIdByPeb(
@@ -3294,7 +3360,7 @@ int WDebugSystemObjects::GetCurrentProcessSystemId(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentProcessSystemId" );
     pin_ptr<ULONG> pp = &SysId;
-    return m_pNative->GetCurrentProcessSystemId( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentProcessSystemId, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetProcessIdBySystemId(
@@ -3303,7 +3369,7 @@ int WDebugSystemObjects::GetProcessIdBySystemId(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetProcessIdBySystemId" );
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetProcessIdBySystemId( SysId, pp );
+    return CallMethodWithSehProtection( &TN::GetProcessIdBySystemId, SysId, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetCurrentProcessHandle(
@@ -3311,7 +3377,7 @@ int WDebugSystemObjects::GetCurrentProcessHandle(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentProcessHandle" );
     pin_ptr<UInt64> pp = &Handle;
-    return m_pNative->GetCurrentProcessHandle( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentProcessHandle, (PULONG64) pp );
 }
 
 // int GetProcessIdByHandle(
@@ -3332,7 +3398,7 @@ int WDebugSystemObjects::GetCurrentProcessUpTime(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentProcessUpTime" );
     pin_ptr<ULONG> pp = &UpTime;
-    return m_pNative->GetCurrentProcessUpTime( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentProcessUpTime, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetImplicitThreadDataOffset(
@@ -3340,14 +3406,14 @@ int WDebugSystemObjects::GetImplicitThreadDataOffset(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetImplicitThreadDataOffset" );
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetImplicitThreadDataOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetImplicitThreadDataOffset, (PULONG64) pp );
 }
 
 int WDebugSystemObjects::SetImplicitThreadDataOffset(
     [In] UInt64 Offset)
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::SetImplicitThreadDataOffset" );
-    return m_pNative->SetImplicitThreadDataOffset( Offset );
+    return CallMethodWithSehProtection( &TN::SetImplicitThreadDataOffset, Offset );
 }
 
 int WDebugSystemObjects::GetImplicitProcessDataOffset(
@@ -3355,14 +3421,14 @@ int WDebugSystemObjects::GetImplicitProcessDataOffset(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetImplicitProcessDataOffset" );
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetImplicitProcessDataOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetImplicitProcessDataOffset, (PULONG64) pp );
 }
 
 int WDebugSystemObjects::SetImplicitProcessDataOffset(
     [In] UInt64 Offset)
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::SetImplicitProcessDataOffset" );
-    return m_pNative->SetImplicitProcessDataOffset( Offset );
+    return CallMethodWithSehProtection( &TN::SetImplicitProcessDataOffset, Offset );
 }
 
 int WDebugSystemObjects::GetEventSystem(
@@ -3370,7 +3436,7 @@ int WDebugSystemObjects::GetEventSystem(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetEventSystem" );
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetEventSystem( pp );
+    return CallMethodWithSehProtection( &TN::GetEventSystem, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetCurrentSystemId(
@@ -3378,14 +3444,14 @@ int WDebugSystemObjects::GetCurrentSystemId(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetCurrentSystemId" );
     pin_ptr<ULONG> pp = &Id;
-    return m_pNative->GetCurrentSystemId( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentSystemId, (PULONG) pp );
 }
 
 int WDebugSystemObjects::SetCurrentSystemId(
     [In] ULONG Id)
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::SetCurrentSystemId" );
-    return m_pNative->SetCurrentSystemId( Id );
+    return CallMethodWithSehProtection( &TN::SetCurrentSystemId, Id );
 }
 
 int WDebugSystemObjects::GetNumberSystems(
@@ -3393,7 +3459,7 @@ int WDebugSystemObjects::GetNumberSystems(
 {
     WDebugClient::g_log->Write( L"DebugSystemObjects::GetNumberSystems" );
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberSystems( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberSystems, (PULONG) pp );
 }
 
 int WDebugSystemObjects::GetSystemIdsByIndex(
@@ -3411,7 +3477,7 @@ int WDebugSystemObjects::GetSystemIdsByIndex(
     Ids = nullptr;
     array<ULONG>^ tmp = gcnew array<ULONG>( Count );
     pin_ptr<ULONG> pp = &tmp[ 0 ];
-    int hr = m_pNative->GetSystemIdsByIndex( Start, Count, pp );
+    int hr = CallMethodWithSehProtection( &TN::GetSystemIdsByIndex, Start, Count, (PULONG) pp );
     if( 0 == hr )
     {
         Ids = tmp;
@@ -3435,7 +3501,7 @@ int WDebugSystemObjects::GetCurrentProcessExecutableNameWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cch ] );
 
-        hr = m_pNative->GetCurrentProcessExecutableNameWide( wszName.get(), cch, &cch );
+        hr = CallMethodWithSehProtection( &TN::GetCurrentProcessExecutableNameWide, wszName.get(), cch, &cch );
 
         if( S_OK == hr )
         {
@@ -3469,25 +3535,25 @@ int WDebugSymbols::GetSymbolOptions(
     [Out] SYMOPT% Options)
 {
     pin_ptr<SYMOPT> pp = &Options;
-    return m_pNative->GetSymbolOptions( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetSymbolOptions, (PULONG) pp );
 }
 
 int WDebugSymbols::AddSymbolOptions(
     [In] SYMOPT Options)
 {
-    return m_pNative->AddSymbolOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::AddSymbolOptions, (ULONG) Options );
 }
 
 int WDebugSymbols::RemoveSymbolOptions(
     [In] SYMOPT Options)
 {
-    return m_pNative->RemoveSymbolOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::RemoveSymbolOptions, (ULONG) Options );
 }
 
 int WDebugSymbols::SetSymbolOptions(
     [In] SYMOPT Options)
 {
-    return m_pNative->SetSymbolOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::SetSymbolOptions, (ULONG) Options );
 }
 
 int WDebugSymbols::GetNumberModules(
@@ -3496,8 +3562,9 @@ int WDebugSymbols::GetNumberModules(
 {
     pin_ptr<ULONG> ppLoaded = &Loaded;
     pin_ptr<ULONG> ppUnloaded = &Unloaded;
-    return m_pNative->GetNumberModules( ppLoaded,
-                                        ppUnloaded );
+    return CallMethodWithSehProtection( &TN::GetNumberModules,
+                                        (PULONG) ppLoaded,
+                                        (PULONG) ppUnloaded );
 }
 
 int WDebugSymbols::GetModuleByIndex(
@@ -3505,7 +3572,7 @@ int WDebugSymbols::GetModuleByIndex(
     [Out] UInt64% Base)
 {
     pin_ptr<UInt64> pp = &Base;
-    return m_pNative->GetModuleByIndex( Index, pp );
+    return CallMethodWithSehProtection( &TN::GetModuleByIndex, Index, (PULONG64) pp );
 }
 
 int WDebugSymbols::GetModuleByOffset(
@@ -3516,10 +3583,11 @@ int WDebugSymbols::GetModuleByOffset(
 {
     pin_ptr<ULONG> ppIndex = &Index;
     pin_ptr<UInt64> ppBase = &Base;
-    return m_pNative->GetModuleByOffset( Offset,
-                                         StartIndex,
-                                         ppIndex,
-                                         ppBase );
+    return CallMethodWithSehProtection( &TN::GetModuleByOffset,
+                                        Offset,
+                                        StartIndex,
+                                        (PULONG) ppIndex,
+                                        (PULONG64) ppBase );
 }
 
 int WDebugSymbols::GetModuleParameters(
@@ -3548,10 +3616,11 @@ int WDebugSymbols::GetModuleParameters(
 
     pin_ptr<UInt64> ppBases = Bases ? &Bases[ 0 ] : nullptr;
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_MODULE_PARAMETERS> ppParams = &tmpParams[ 0 ];
-    int retval = m_pNative->GetModuleParameters( Count,
-                                                 ppBases,
-                                                 Start,
-                                                 (PDEBUG_MODULE_PARAMETERS) ppParams );
+    int retval = CallMethodWithSehProtection( &TN::GetModuleParameters,
+                                              Count,
+                                              (PULONG64) ppBases,
+                                              Start,
+                                              (PDEBUG_MODULE_PARAMETERS) ppParams );
     if( S_OK == retval )
     {
         Params = tmpParams;
@@ -3566,7 +3635,7 @@ int WDebugSymbols::GetTypeSize(
     [Out] ULONG% Size)
 {
     pin_ptr<ULONG> pp = &Size;
-    return m_pNative->GetTypeSize( Module, TypeId, pp );
+    return CallMethodWithSehProtection( &TN::GetTypeSize, Module, TypeId, (PULONG) pp );
 }
 
 int WDebugSymbols::GetOffsetTypeId(
@@ -3576,7 +3645,7 @@ int WDebugSymbols::GetOffsetTypeId(
 {
     pin_ptr<ULONG> ppTypeId = &TypeId;
     pin_ptr<UInt64> ppModule = &Module;
-    return m_pNative->GetOffsetTypeId( Offset, ppTypeId, ppModule );
+    return CallMethodWithSehProtection( &TN::GetOffsetTypeId, Offset, (PULONG) ppTypeId, (PULONG64) ppModule );
 }
 
 //  int ReadTypedDataVirtual(
@@ -3640,13 +3709,13 @@ int WDebugSymbols::GetOffsetTypeId(
 int WDebugSymbols::ResetScope()
 {
     WDebugClient::g_log->Write( L"DebugSymbols::ResetScope" );
-    return m_pNative->ResetScope();
+    return CallMethodWithSehProtection( &TN::ResetScope );
 }
 
 int WDebugSymbols::EndSymbolMatch(
     [In] UInt64 Handle)
 {
-    return m_pNative->EndSymbolMatch( Handle );
+    return CallMethodWithSehProtection( &TN::EndSymbolMatch, Handle );
 }
 
 
@@ -3656,25 +3725,25 @@ int WDebugSymbols::GetTypeOptions(
     [Out] DEBUG_TYPEOPTS% Options)
 {
     pin_ptr<DEBUG_TYPEOPTS> pp = &Options;
-    return m_pNative->GetTypeOptions( (PULONG) pp );
+    return CallMethodWithSehProtection( &TN::GetTypeOptions, (PULONG) pp );
 }
 
 int WDebugSymbols::AddTypeOptions(
     [In] DEBUG_TYPEOPTS Options)
 {
-    return m_pNative->AddTypeOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::AddTypeOptions, (ULONG) Options );
 }
 
 int WDebugSymbols::RemoveTypeOptions(
     [In] DEBUG_TYPEOPTS Options)
 {
-    return m_pNative->RemoveTypeOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::RemoveTypeOptions, (ULONG) Options );
 }
 
 int WDebugSymbols::SetTypeOptions(
     [In] DEBUG_TYPEOPTS Options)
 {
-    return m_pNative->SetTypeOptions( (ULONG) Options );
+    return CallMethodWithSehProtection( &TN::SetTypeOptions, (ULONG) Options );
 }
 
 /* IDebugSymbols3 */
@@ -3698,11 +3767,12 @@ int WDebugSymbols::GetNameByOffsetWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetNameByOffsetWide( Offset,
-                                             wszName.get(),
-                                             cchName,
-                                             &cchName,
-                                             ppDisplacement );
+        hr = CallMethodWithSehProtection( &TN::GetNameByOffsetWide,
+                                          Offset,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName,
+                                          (PULONG64) ppDisplacement );
 
         if( S_OK == hr )
         {
@@ -3719,8 +3789,9 @@ int WDebugSymbols::GetOffsetByNameWide(
 {
     marshal_context mc;
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetOffsetByNameWide( mc.marshal_as<const wchar_t*>( Symbol ),
-                                           pp );
+    return CallMethodWithSehProtection( &TN::GetOffsetByNameWide,
+                                        mc.marshal_as<const wchar_t*>( Symbol ),
+                                        (PULONG64) pp );
 }
 
 int WDebugSymbols::GetNearNameByOffsetWide(
@@ -3743,12 +3814,13 @@ int WDebugSymbols::GetNearNameByOffsetWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetNearNameByOffsetWide( Offset,
-                                                 Delta,
-                                                 wszName.get(),
-                                                 cchName,
-                                                 &cchName,
-                                                 ppDisplacement );
+        hr = CallMethodWithSehProtection( &TN::GetNearNameByOffsetWide,
+                                          Offset,
+                                          Delta,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName,
+                                          (PULONG64) ppDisplacement );
 
         if( S_OK == hr )
         {
@@ -3781,12 +3853,13 @@ int WDebugSymbols::GetLineByOffsetWide(
     {
         std::unique_ptr<wchar_t[]> wszFile( new wchar_t[ cchFile ] );
 
-        hr = m_pNative->GetLineByOffsetWide( Offset,
-                                             ppLine,
-                                             wszFile.get(),
-                                             cchFile,
-                                             &cchFile,
-                                             ppDisplacement );
+        hr = CallMethodWithSehProtection( &TN::GetLineByOffsetWide,
+                                          Offset,
+                                          (PULONG) ppLine,
+                                          wszFile.get(),
+                                          cchFile,
+                                          &cchFile,
+                                          (PULONG64) ppDisplacement );
 
         if( S_OK == hr )
         {
@@ -3804,9 +3877,10 @@ int WDebugSymbols::GetOffsetByLineWide(
 {
     marshal_context mc;
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetOffsetByLineWide( Line,
-                                           mc.marshal_as<const wchar_t*>( File ),
-                                           pp );
+    return CallMethodWithSehProtection( &TN::GetOffsetByLineWide,
+                                        Line,
+                                        mc.marshal_as<const wchar_t*>( File ),
+                                        (PULONG64) pp );
 }
 
 int WDebugSymbols::GetModuleByModuleNameWide(
@@ -3818,10 +3892,11 @@ int WDebugSymbols::GetModuleByModuleNameWide(
     marshal_context mc;
     pin_ptr<ULONG> ppIndex = &Index;
     pin_ptr<UInt64> ppBase = &Base;
-    return m_pNative->GetModuleByModuleNameWide( mc.marshal_as<const wchar_t*>( Name ),
-                                                 StartIndex,
-                                                 ppIndex,
-                                                 ppBase );
+    return CallMethodWithSehProtection( &TN::GetModuleByModuleNameWide,
+                                        mc.marshal_as<const wchar_t*>( Name ),
+                                        StartIndex,
+                                        (PULONG) ppIndex,
+                                        (PULONG64) ppBase );
 }
 
 int WDebugSymbols::GetSymbolModuleWide(
@@ -3830,8 +3905,9 @@ int WDebugSymbols::GetSymbolModuleWide(
 {
     marshal_context mc;
     pin_ptr<UInt64> pp = &Base;
-    return m_pNative->GetSymbolModuleWide( mc.marshal_as<const wchar_t*>( Symbol ),
-                                           pp );
+    return CallMethodWithSehProtection( &TN::GetSymbolModuleWide,
+                                        mc.marshal_as<const wchar_t*>( Symbol ),
+                                        (PULONG64) pp );
 }
 
 int WDebugSymbols::GetTypeNameWide(
@@ -3851,11 +3927,12 @@ int WDebugSymbols::GetTypeNameWide(
     {
         std::unique_ptr<wchar_t[]> wszTypeName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetTypeNameWide( Module,
-                                         TypeId,
-                                         wszTypeName.get(),
-                                         cchName,
-                                         &cchName );
+        hr = CallMethodWithSehProtection( &TN::GetTypeNameWide,
+                                          Module,
+                                          TypeId,
+                                          wszTypeName.get(),
+                                          cchName,
+                                          &cchName );
 
         if( S_OK == hr )
         {
@@ -3874,9 +3951,10 @@ int WDebugSymbols::GetTypeIdWide(
     marshal_context mc;
     pin_ptr<ULONG> pp = &TypeId;
 
-    return m_pNative->GetTypeIdWide( Module,
-                                     mc.marshal_as<const wchar_t*>( Name ),
-                                     pp );
+    return CallMethodWithSehProtection( &TN::GetTypeIdWide,
+                                        Module,
+                                        mc.marshal_as<const wchar_t*>( Name ),
+                                        (PULONG) pp );
 }
 
 int WDebugSymbols::GetFieldOffsetWide(
@@ -3888,10 +3966,11 @@ int WDebugSymbols::GetFieldOffsetWide(
     marshal_context mc;
     pin_ptr<ULONG> pp = &Offset;
 
-    return m_pNative->GetFieldOffsetWide( Module,
-                                          TypeId,
-                                          mc.marshal_as<const wchar_t*>( Field ),
-                                          pp );
+    return CallMethodWithSehProtection( &TN::GetFieldOffsetWide,
+                                        Module,
+                                        TypeId,
+                                        mc.marshal_as<const wchar_t*>( Field ),
+                                        (PULONG) pp );
 }
 
 int WDebugSymbols::GetSymbolTypeIdWide(
@@ -3903,9 +3982,10 @@ int WDebugSymbols::GetSymbolTypeIdWide(
     pin_ptr<ULONG> ppTypeId = &TypeId;
     pin_ptr<UInt64> ppModule = &Module;
 
-    return m_pNative->GetSymbolTypeIdWide( mc.marshal_as<const wchar_t*>( Symbol ),
-                                           ppTypeId,
-                                           ppModule );
+    return CallMethodWithSehProtection( &TN::GetSymbolTypeIdWide,
+                                        mc.marshal_as<const wchar_t*>( Symbol ),
+                                        (PULONG) ppTypeId,
+                                        (PULONG64) ppModule );
 }
 
 int WDebugSymbols::GetScopeSymbolGroup2(
@@ -3916,9 +3996,10 @@ int WDebugSymbols::GetScopeSymbolGroup2(
     Symbols = nullptr;
     PDEBUG_SYMBOL_GROUP2 pdsg = nullptr;
 
-    int retval = m_pNative->GetScopeSymbolGroup2( (ULONG) Flags,
-                                                  Update ? (PDEBUG_SYMBOL_GROUP2) (void*) Update->GetRaw() : nullptr,
-                                                  &pdsg );
+    int retval = CallMethodWithSehProtection( &TN::GetScopeSymbolGroup2,
+                                              (ULONG) Flags,
+                                              Update ? (PDEBUG_SYMBOL_GROUP2) (void*) Update->GetRaw() : nullptr,
+                                              &pdsg );
     if( S_OK == retval )
     {
         Symbols = gcnew WDebugSymbolGroup( pdsg );
@@ -3931,7 +4012,7 @@ int WDebugSymbols::CreateSymbolGroup2(
 {
     Group = nullptr;
     PDEBUG_SYMBOL_GROUP2 pdsg = nullptr;
-    int retval = m_pNative->CreateSymbolGroup2( &pdsg );
+    int retval = CallMethodWithSehProtection( &TN::CreateSymbolGroup2, &pdsg );
     if( S_OK == retval )
     {
         Group = gcnew WDebugSymbolGroup( pdsg );
@@ -3946,8 +4027,9 @@ int WDebugSymbols::StartSymbolMatchWide(
     marshal_context mc;
     pin_ptr<UInt64> pp = &Handle;
 
-    return m_pNative->StartSymbolMatchWide( mc.marshal_as<const wchar_t*>( Pattern ),
-                                            pp );
+    return CallMethodWithSehProtection( &TN::StartSymbolMatchWide,
+                                        mc.marshal_as<const wchar_t*>( Pattern ),
+                                        (PULONG64) pp );
 }
 
 int WDebugSymbols::GetNextSymbolMatchWide(
@@ -3969,11 +4051,12 @@ int WDebugSymbols::GetNextSymbolMatchWide(
     {
         std::unique_ptr<wchar_t[]> wszMatch( new wchar_t[ cchMatch ] );
 
-        hr = m_pNative->GetNextSymbolMatchWide( Offset,
-                                                wszMatch.get(),
-                                                cchMatch,
-                                                &cchMatch,
-                                                ppOffset );
+        hr = CallMethodWithSehProtection( &TN::GetNextSymbolMatchWide,
+                                          Offset,
+                                          wszMatch.get(),
+                                          cchMatch,
+                                          &cchMatch,
+                                          (PULONG64) ppOffset );
 
         if( S_OK == hr )
         {
@@ -3989,7 +4072,7 @@ int WDebugSymbols::ReloadWide(
 {
     WDebugClient::g_log->Write( L"DebugSymbols::ReloadWide" );
     marshal_context mc;
-    return m_pNative->ReloadWide( mc.marshal_as<const wchar_t*>( Module ) );
+    return CallMethodWithSehProtection( &TN::ReloadWide, mc.marshal_as<const wchar_t*>( Module ) );
 }
 
 int WDebugSymbols::GetSymbolPathWide(
@@ -4007,9 +4090,10 @@ int WDebugSymbols::GetSymbolPathWide(
     {
         std::unique_ptr<wchar_t[]> wszPath( new wchar_t[ cchPath ] );
 
-        hr = m_pNative->GetSymbolPathWide( wszPath.get(),
-                                           cchPath,
-                                           &cchPath );
+        hr = CallMethodWithSehProtection( &TN::GetSymbolPathWide,
+                                          wszPath.get(),
+                                          cchPath,
+                                          &cchPath );
 
         if( S_OK == hr )
         {
@@ -4024,14 +4108,14 @@ int WDebugSymbols::SetSymbolPathWide(
     [In] String^ Path)
 {
     marshal_context mc;
-    return m_pNative->SetSymbolPathWide( mc.marshal_as<const wchar_t*>( Path ) );
+    return CallMethodWithSehProtection( &TN::SetSymbolPathWide, mc.marshal_as<const wchar_t*>( Path ) );
 }
 
 int WDebugSymbols::AppendSymbolPathWide(
     [In] String^ Addition)
 {
     marshal_context mc;
-    return m_pNative->AppendSymbolPathWide( mc.marshal_as<const wchar_t*>( Addition ) );
+    return CallMethodWithSehProtection( &TN::AppendSymbolPathWide, mc.marshal_as<const wchar_t*>( Addition ) );
 }
 
 int WDebugSymbols::GetImagePathWide(
@@ -4049,7 +4133,8 @@ int WDebugSymbols::GetImagePathWide(
     {
         std::unique_ptr<wchar_t[]> wszImagePath( new wchar_t[ cchImagePath ] );
 
-        hr = m_pNative->GetImagePathWide( wszImagePath.get(),
+        hr = CallMethodWithSehProtection( &TN::GetImagePathWide,
+                                          wszImagePath.get(),
                                           cchImagePath,
                                           &cchImagePath );
 
@@ -4067,7 +4152,7 @@ int WDebugSymbols::SetImagePathWide(
 {
     marshal_context mc;
 
-    return m_pNative->SetImagePathWide( mc.marshal_as<const wchar_t*>( Path ) );
+    return CallMethodWithSehProtection( &TN::SetImagePathWide, mc.marshal_as<const wchar_t*>( Path ) );
 }
 
 int WDebugSymbols::AppendImagePathWide(
@@ -4075,7 +4160,7 @@ int WDebugSymbols::AppendImagePathWide(
 {
     marshal_context mc;
 
-    return m_pNative->AppendImagePathWide( mc.marshal_as<const wchar_t*>( Addition ) );
+    return CallMethodWithSehProtection( &TN::AppendImagePathWide, mc.marshal_as<const wchar_t*>( Addition ) );
 }
 
 int WDebugSymbols::GetSourcePathWide(
@@ -4093,9 +4178,10 @@ int WDebugSymbols::GetSourcePathWide(
     {
         std::unique_ptr<wchar_t[]> wszSourcePath( new wchar_t[ cchSourcePath ] );
 
-        hr = m_pNative->GetSourcePathWide( wszSourcePath.get(),
-                                           cchSourcePath,
-                                           &cchSourcePath );
+        hr = CallMethodWithSehProtection( &TN::GetSourcePathWide,
+                                          wszSourcePath.get(),
+                                          cchSourcePath,
+                                          &cchSourcePath );
 
         if( S_OK == hr )
         {
@@ -4122,10 +4208,11 @@ int WDebugSymbols::GetSourcePathElementWide(
     {
         std::unique_ptr<wchar_t[]> wszElement( new wchar_t[ cchElement ] );
 
-        hr = m_pNative->GetSourcePathElementWide( Index,
-                                                  wszElement.get(),
-                                                  cchElement,
-                                                  &cchElement );
+        hr = CallMethodWithSehProtection( &TN::GetSourcePathElementWide,
+                                          Index,
+                                          wszElement.get(),
+                                          cchElement,
+                                          &cchElement );
 
         if( S_OK == hr )
         {
@@ -4141,7 +4228,7 @@ int WDebugSymbols::SetSourcePathWide(
 {
     marshal_context mc;
 
-    return m_pNative->SetSourcePathWide( mc.marshal_as<const wchar_t*>( Path ) );
+    return CallMethodWithSehProtection( &TN::SetSourcePathWide, mc.marshal_as<const wchar_t*>( Path ) );
 }
 
 int WDebugSymbols::AppendSourcePathWide(
@@ -4149,7 +4236,7 @@ int WDebugSymbols::AppendSourcePathWide(
 {
     marshal_context mc;
 
-    return m_pNative->AppendSourcePathWide( mc.marshal_as<const wchar_t*>( Addition ) );
+    return CallMethodWithSehProtection( &TN::AppendSourcePathWide, mc.marshal_as<const wchar_t*>( Addition ) );
 }
 
 // int FindSourceFileWide(
@@ -4203,13 +4290,14 @@ int WDebugSymbols::_GetModuleVersionInformationWide_VS_FIXEDFILEINFO(
 {
     pin_ptr<VOID> pp = &fixedFileInfo;
     ULONG actualSize = 0;
-    int hr = m_pNative->GetModuleVersionInformationWide( Index,
-                                                         Base,
-                                                         L"\\",
-                                                         pp,
-                                                         //Marshal::SizeOf( Microsoft::Diagnostics::Runtime::Interop::VS_FIXEDFILEINFO ),
-                                                         Marshal::SizeOf( fixedFileInfo ),
-                                                         &actualSize );
+    int hr = CallMethodWithSehProtection( &TN::GetModuleVersionInformationWide,
+                                          Index,
+                                          Base,
+                                          L"\\",
+                                          (PVOID) pp,
+                                          //Marshal::SizeOf( Microsoft::Diagnostics::Runtime::Interop::VS_FIXEDFILEINFO ),
+                                          Marshal::SizeOf( fixedFileInfo ),
+                                          &actualSize );
     return hr;
 }
 
@@ -4240,12 +4328,13 @@ int WDebugSymbols::_GetModuleVersionInformationWide_Translations(
     pin_ptr<VOID> pp = &stackBuf[ 0 ];
     ULONG actualSize = 0;
     LangCodepagePairs = nullptr;
-    int hr = m_pNative->GetModuleVersionInformationWide( Index,
-                                                         Base,
-                                                         L"\\VarFileInfo\\Translation",
-                                                         pp,
-                                                         sizeof( stackBuf ),
-                                                         &actualSize );
+    int hr = CallMethodWithSehProtection( &TN::GetModuleVersionInformationWide,
+                                          Index,
+                                          Base,
+                                          L"\\VarFileInfo\\Translation",
+                                          (PVOID) pp,
+                                          static_cast<ULONG>( sizeof( stackBuf ) ),
+                                          &actualSize );
     if( hr )
         return hr;
 
@@ -4306,12 +4395,13 @@ int WDebugSymbols::_GetModuleVersionInformationWide_StringInfo(
                                        (LangCodepagePair & 0xffff0000) >> 16,
                                        StringName );
 
-    int hr = m_pNative->GetModuleVersionInformationWide( Index,
-                                                         Base,
-                                                         mc.marshal_as<const wchar_t*>( queryStr ),
-                                                         pp,
-                                                         sizeof( stackBuf ),
-                                                         &actualSize );
+    int hr = CallMethodWithSehProtection( &TN::GetModuleVersionInformationWide,
+                                          Index,
+                                          Base,
+                                          mc.marshal_as<const wchar_t*>( queryStr ),
+                                          (PVOID) pp,
+                                          static_cast<ULONG>( sizeof( stackBuf ) ),
+                                          &actualSize );
 
     static const int hr_resNotFound = HRESULT_FROM_WIN32( ERROR_RESOURCE_TYPE_NOT_FOUND );
     if( hr && (hr != hr_resNotFound) )
@@ -4356,12 +4446,13 @@ int WDebugSymbols::GetModuleNameStringWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetModuleNameStringWide( (ULONG) Which,
-                                                 Index,
-                                                 Base,
-                                                 wszName.get(),
-                                                 cchName,
-                                                 &cchName );
+        hr = CallMethodWithSehProtection( &TN::GetModuleNameStringWide,
+                                          (ULONG) Which,
+                                          Index,
+                                          Base,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName );
 
         if( S_OK == hr )
         {
@@ -4390,12 +4481,13 @@ int WDebugSymbols::GetConstantNameWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetConstantNameWide( Module,
-                                             TypeId,
-                                             Value,
-                                             wszName.get(),
-                                             cchName,
-                                             &cchName );
+        hr = CallMethodWithSehProtection( &TN::GetConstantNameWide,
+                                          Module,
+                                          TypeId,
+                                          Value,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName );
 
         if( S_OK == hr )
         {
@@ -4424,7 +4516,8 @@ int WDebugSymbols::GetFieldNameWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetFieldNameWide( Module,
+        hr = CallMethodWithSehProtection( &TN::GetFieldNameWide,
+                                          Module,
                                           TypeId,
                                           FieldIndex,
                                           wszName.get(),
@@ -4444,7 +4537,7 @@ int WDebugSymbols::IsManagedModule(
     [In] ULONG Index,
     [In] UInt64 Base)
 {
-    return m_pNative->IsManagedModule( Index, Base );
+    return CallMethodWithSehProtection( &TN::IsManagedModule, Index, Base );
 }
 
 int WDebugSymbols::GetModuleByModuleName2Wide(
@@ -4458,11 +4551,12 @@ int WDebugSymbols::GetModuleByModuleName2Wide(
     pin_ptr<ULONG> ppIndex = &Index;
     pin_ptr<UInt64> ppBase = &Base;
 
-    return m_pNative->GetModuleByModuleName2Wide( mc.marshal_as<const wchar_t*>( Name ),
-                                                  StartIndex,
-                                                  (ULONG) Flags,
-                                                  ppIndex,
-                                                  ppBase );
+    return CallMethodWithSehProtection( &TN::GetModuleByModuleName2Wide,
+                                        mc.marshal_as<const wchar_t*>( Name ),
+                                        StartIndex,
+                                        (ULONG) Flags,
+                                        (PULONG) ppIndex,
+                                        (PULONG64) ppBase );
 }
 
 int WDebugSymbols::GetModuleByOffset2(
@@ -4475,11 +4569,12 @@ int WDebugSymbols::GetModuleByOffset2(
     pin_ptr<ULONG> ppIndex = &Index;
     pin_ptr<UInt64> ppBase = &Base;
 
-    return m_pNative->GetModuleByOffset2( Offset,
-                                          StartIndex,
-                                          (ULONG) Flags,
-                                          ppIndex,
-                                          ppBase );
+    return CallMethodWithSehProtection( &TN::GetModuleByOffset2,
+                                        Offset,
+                                        StartIndex,
+                                        (ULONG) Flags,
+                                        (PULONG) ppIndex,
+                                        (PULONG64) ppBase );
 }
 
 int WDebugSymbols::AddSyntheticModuleWide(
@@ -4491,17 +4586,18 @@ int WDebugSymbols::AddSyntheticModuleWide(
 {
     marshal_context mc;
 
-    return m_pNative->AddSyntheticModuleWide( Base,
-                                              Size,
-                                              mc.marshal_as<const wchar_t*>( ImagePath ),
-                                              mc.marshal_as<const wchar_t*>( ModuleName ),
-                                              (ULONG) Flags );
+    return CallMethodWithSehProtection( &TN::AddSyntheticModuleWide,
+                                        Base,
+                                        Size,
+                                        mc.marshal_as<const wchar_t*>( ImagePath ),
+                                        mc.marshal_as<const wchar_t*>( ModuleName ),
+                                        (ULONG) Flags );
 }
 
 int WDebugSymbols::RemoveSyntheticModule(
     [In] UInt64 Base)
 {
-    return m_pNative->RemoveSyntheticModule( Base );
+    return CallMethodWithSehProtection( &TN::RemoveSyntheticModule, Base );
 }
 
 int WDebugSymbols::GetCurrentScopeFrameIndex(
@@ -4510,14 +4606,14 @@ int WDebugSymbols::GetCurrentScopeFrameIndex(
     WDebugClient::g_log->Write( L"DebugSymbols::GetCurrentScopeFrameIndex" );
     pin_ptr<ULONG> pp = &Index;
 
-    return m_pNative->GetCurrentScopeFrameIndex( pp );
+    return CallMethodWithSehProtection( &TN::GetCurrentScopeFrameIndex, (PULONG) pp );
 }
 
 int WDebugSymbols::SetScopeFrameByIndex(
     [In] ULONG Index)
 {
     WDebugClient::g_log->Write( L"DebugSymbols::SetScopeFrameByIndex" );
-    return m_pNative->SetScopeFrameByIndex( Index );
+    return CallMethodWithSehProtection( &TN::SetScopeFrameByIndex, Index );
 }
 
 int WDebugSymbols::SetScopeFromJitDebugInfo(
@@ -4525,13 +4621,13 @@ int WDebugSymbols::SetScopeFromJitDebugInfo(
     [In] UInt64 InfoOffset)
 {
     WDebugClient::g_log->Write( L"DebugSymbols::SetScopeFromJitDebugInfo" );
-    return m_pNative->SetScopeFromJitDebugInfo( OutputControl, InfoOffset );
+    return CallMethodWithSehProtection( &TN::SetScopeFromJitDebugInfo, OutputControl, InfoOffset );
 }
 
 int WDebugSymbols::SetScopeFromStoredEvent()
 {
     WDebugClient::g_log->Write( L"DebugSymbols::SetScopeFromStoredEvent" );
-    return m_pNative->SetScopeFromStoredEvent();
+    return CallMethodWithSehProtection( &TN::SetScopeFromStoredEvent );
 }
 
 // int OutputSymbolByOffset(
@@ -4557,11 +4653,12 @@ int WDebugSymbols::GetFieldTypeAndOffsetWide(
     pin_ptr<ULONG> ppFieldTypeId = &FieldTypeId;
     pin_ptr<ULONG> ppOffset = &Offset;
 
-    return m_pNative->GetFieldTypeAndOffsetWide( Module,
-                                                 ContainerTypeId,
-                                                 mc.marshal_as<const wchar_t*>( Field ),
-                                                 ppFieldTypeId,
-                                                 ppOffset );
+    return CallMethodWithSehProtection( &TN::GetFieldTypeAndOffsetWide,
+                                        Module,
+                                        ContainerTypeId,
+                                        mc.marshal_as<const wchar_t*>( Field ),
+                                        (PULONG) ppFieldTypeId,
+                                        (PULONG) ppOffset );
 }
 
 int WDebugSymbols::AddSyntheticSymbolWide(
@@ -4574,16 +4671,17 @@ int WDebugSymbols::AddSyntheticSymbolWide(
     marshal_context mc;
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_MODULE_AND_ID> pp = &Id;
 
-    return m_pNative->AddSyntheticSymbolWide( Offset,
-                                              Size,
-                                              mc.marshal_as<const wchar_t*>( Name ),
-                                              (ULONG) Flags,
-                                              (PDEBUG_MODULE_AND_ID) pp );
+    return CallMethodWithSehProtection( &TN::AddSyntheticSymbolWide,
+                                        Offset,
+                                        Size,
+                                        mc.marshal_as<const wchar_t*>( Name ),
+                                        (ULONG) Flags,
+                                        (PDEBUG_MODULE_AND_ID) pp );
 }
 
 int WDebugSymbols::RemoveSyntheticSymbol([In] Microsoft::Diagnostics::Runtime::Interop::DEBUG_MODULE_AND_ID Id)
 {
-    return m_pNative->RemoveSyntheticSymbol( (PDEBUG_MODULE_AND_ID) &Id );
+    return CallMethodWithSehProtection( &TN::RemoveSyntheticSymbol, (PDEBUG_MODULE_AND_ID) &Id );
 }
 
 int WDebugSymbols::GetSymbolEntriesByOffset(
@@ -4607,12 +4705,13 @@ int WDebugSymbols::GetSymbolEntriesByOffset(
         array<UInt64>^ tmpDispsArray = gcnew array<UInt64>( (int) count );
         pin_ptr<UInt64> ppDisps = &tmpDispsArray[ 0 ];
 
-        hr = m_pNative->GetSymbolEntriesByOffset( Offset,
-                                                  Flags,
-                                                  (PDEBUG_MODULE_AND_ID) ppIds,
-                                                  ppDisps,
-                                                  count,
-                                                  &count );
+        hr = CallMethodWithSehProtection( &TN::GetSymbolEntriesByOffset,
+                                          Offset,
+                                          Flags,
+                                          (PDEBUG_MODULE_AND_ID) ppIds,
+                                          (PULONG64) ppDisps,
+                                          count,
+                                          &count );
 
         if( S_OK == hr )
         {
@@ -4644,11 +4743,12 @@ int WDebugSymbols::GetSymbolEntriesByNameWide(
         array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_MODULE_AND_ID>^ tmpArray = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_MODULE_AND_ID>( (int) count );
         pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_MODULE_AND_ID> pp = &tmpArray[ 0 ];
 
-        hr = m_pNative->GetSymbolEntriesByNameWide( mc.marshal_as<const wchar_t*>( Symbol ),
-                                                    Flags,
-                                                    (PDEBUG_MODULE_AND_ID) pp,
-                                                    count,
-                                                    &count );
+        hr = CallMethodWithSehProtection( &TN::GetSymbolEntriesByNameWide,
+                                          mc.marshal_as<const wchar_t*>( Symbol ),
+                                          Flags,
+                                          (PDEBUG_MODULE_AND_ID) pp,
+                                          count,
+                                          &count );
 
         if( S_OK == hr )
         {
@@ -4666,9 +4766,10 @@ int WDebugSymbols::GetSymbolEntryByToken(
     [Out] Microsoft::Diagnostics::Runtime::Interop::DEBUG_MODULE_AND_ID% Id)
 {
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_MODULE_AND_ID> pp = &Id;
-    return m_pNative->GetSymbolEntryByToken( ModuleBase,
-                                             Token,
-                                             (PDEBUG_MODULE_AND_ID) pp );
+    return CallMethodWithSehProtection( &TN::GetSymbolEntryByToken,
+                                        ModuleBase,
+                                        Token,
+                                        (PDEBUG_MODULE_AND_ID) pp );
 }
 
 int WDebugSymbols::GetSymbolEntryInformation(
@@ -4678,8 +4779,9 @@ int WDebugSymbols::GetSymbolEntryInformation(
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_SYMBOL_ENTRY> pp = &Info;
 
     memset( pp, 0, sizeof(::DEBUG_SYMBOL_ENTRY) );
-    return m_pNative->GetSymbolEntryInformation( (PDEBUG_MODULE_AND_ID) Id,
-                                                 (PDEBUG_SYMBOL_ENTRY) pp );
+    return CallMethodWithSehProtection( &TN::GetSymbolEntryInformation,
+                                        (PDEBUG_MODULE_AND_ID) Id,
+                                        (PDEBUG_SYMBOL_ENTRY) pp );
 }
 
 // int GetSymbolEntryStringWide(
@@ -4750,10 +4852,11 @@ int WDebugSymbols::GetScopeEx(
     pin_ptr<UInt64> ppInstOffset = &InstructionOffset;
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_STACK_FRAME_EX> ppScopeFrame = &ScopeFrame;
 
-    return m_pNative->GetScopeEx( ppInstOffset,
-                                  (PDEBUG_STACK_FRAME_EX) ppScopeFrame,
-                                  (PVOID) ScopeContext,
-                                  ScopeContextSize );
+    return CallMethodWithSehProtection( &TN::GetScopeEx,
+                                        (PULONG64) ppInstOffset,
+                                        (PDEBUG_STACK_FRAME_EX) ppScopeFrame,
+                                        (PVOID) ScopeContext,
+                                        ScopeContextSize );
 }
 
 int WDebugSymbols::SetScopeEx(
@@ -4763,10 +4866,11 @@ int WDebugSymbols::SetScopeEx(
     [In] ULONG ScopeContextSize)
 {
     WDebugClient::g_log->Write( L"DebugSymbols::SetScopeEx" );
-    return m_pNative->SetScopeEx( InstructionOffset,
-                                  (PDEBUG_STACK_FRAME_EX) &ScopeFrame,
-                                  (PVOID) ScopeContext,
-                                  ScopeContextSize );
+    return CallMethodWithSehProtection( &TN::SetScopeEx,
+                                        InstructionOffset,
+                                        (PDEBUG_STACK_FRAME_EX) &ScopeFrame,
+                                        (PVOID) ScopeContext,
+                                        ScopeContextSize );
 }
 
 int WDebugSymbols::GetNameByInlineContextWide(
@@ -4789,12 +4893,13 @@ int WDebugSymbols::GetNameByInlineContextWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetNameByInlineContextWide( Offset,
-                                                    InlineContext,
-                                                    wszName.get(),
-                                                    cchName,
-                                                    &cchName,
-                                                    ppDisplacement );
+        hr = CallMethodWithSehProtection( &TN::GetNameByInlineContextWide,
+                                          Offset,
+                                          InlineContext,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName,
+                                          (PULONG64) ppDisplacement );
 
         if( S_OK == hr )
         {
@@ -4823,13 +4928,15 @@ int WDebugSymbols::GetNameByInlineContextWide(
 
 /* IDebugSymbols5 */
 
+
 int WDebugSymbols::GetCurrentScopeFrameIndexEx(
     [In] DEBUG_FRAME Flags,
     [Out] ULONG% Index)
 {
     WDebugClient::g_log->Write( L"DebugSymbols::GetCurrentScopeFrameIndexEx" );
     pin_ptr<ULONG> pp = &Index;
-    return m_pNative->GetCurrentScopeFrameIndexEx( (ULONG) Flags, pp );
+
+    return CallMethodWithSehProtection( &TN::GetCurrentScopeFrameIndexEx, (ULONG) Flags, (PULONG) pp );
 }
 
 int WDebugSymbols::SetScopeFrameByIndexEx(
@@ -4837,7 +4944,7 @@ int WDebugSymbols::SetScopeFrameByIndexEx(
     [In] ULONG Index)
 {
     WDebugClient::g_log->Write( L"DebugSymbols::SetScopeFrameByIndexEx" );
-    return m_pNative->SetScopeFrameByIndexEx( (ULONG) Flags, Index );
+    return CallMethodWithSehProtection( &TN::SetScopeFrameByIndexEx, (ULONG) Flags, Index );
 }
 
 
@@ -4864,7 +4971,7 @@ int WDebugSymbolGroup::GetNumberSymbols(
     [Out] ULONG% Number)
 {
     pin_ptr<ULONG> pp = &Number;
-    return m_pDsg->GetNumberSymbols( pp );
+    return m_pDsg->GetNumberSymbols( (PULONG) pp );
 }
 
 int WDebugSymbolGroup::RemoveSymbolByIndex(
@@ -4920,7 +5027,7 @@ int WDebugSymbolGroup::AddSymbolWide(
     marshal_context mc;
     pin_ptr<ULONG> pp = &Index;
     return m_pDsg->AddSymbolWide( mc.marshal_as<const wchar_t*>( Name ),
-                                  pp );
+                                  (PULONG) pp );
 }
 
 int WDebugSymbolGroup::RemoveSymbolByNameWide(
@@ -5013,7 +5120,7 @@ int WDebugSymbolGroup::GetSymbolSize(
 {
     pin_ptr<ULONG> pp = &Size;
 
-    return m_pDsg->GetSymbolSize( Index, pp );
+    return m_pDsg->GetSymbolSize( Index, (PULONG) pp );
 }
 
 int WDebugSymbolGroup::GetSymbolOffset(
@@ -5022,7 +5129,7 @@ int WDebugSymbolGroup::GetSymbolOffset(
 {
     pin_ptr<UInt64> pp = &Offset;
 
-    return m_pDsg->GetSymbolOffset( Index, pp );
+    return m_pDsg->GetSymbolOffset( Index, (PULONG64) pp );
 }
 
 int WDebugSymbolGroup::GetSymbolRegister(
@@ -5031,7 +5138,7 @@ int WDebugSymbolGroup::GetSymbolRegister(
 {
     pin_ptr<ULONG> pp = &Register;
 
-    return m_pDsg->GetSymbolRegister( Index, pp );
+    return m_pDsg->GetSymbolRegister( Index, (PULONG) pp );
 }
 
 int WDebugSymbolGroup::GetSymbolValueTextWide(
@@ -5111,10 +5218,11 @@ int WDebugDataSpaces::ReadVirtual(
     array<byte>^ tmp = gcnew array<byte>( BytesRequested );
     pin_ptr<byte> pp = &tmp[ 0 ];
     ULONG bytesRead = 0;
-    int hr = m_pNative->ReadVirtual( Offset,
-                                     pp,
-                                     BytesRequested,
-                                     &bytesRead );
+    int hr = CallMethodWithSehProtection( &TN::ReadVirtual,
+                                          Offset,
+                                          (PVOID) pp,
+                                          BytesRequested,
+                                          &bytesRead );
     if( S_OK == hr )
     {
         if( bytesRead != BytesRequested )
@@ -5140,10 +5248,11 @@ int WDebugDataSpaces::ReadVirtualDirect(
         throw gcnew ArgumentException( L"You must request at least one byte." );
 
     pin_ptr<ULONG> pBytesRead = &BytesRead;
-    int hr = m_pNative->ReadVirtual( Offset,
-                                     buffer,
-                                     BytesRequested,
-                                     pBytesRead );
+    int hr = CallMethodWithSehProtection( &TN::ReadVirtual,
+                                          Offset,
+                                          buffer,
+                                          BytesRequested,
+                                          (PULONG) pBytesRead );
     return hr;
 }
 
@@ -5155,11 +5264,12 @@ int WDebugDataSpaces::ReadVirtualValue(
 {
     ULONG BytesRead;
     pin_ptr<TValue> pval = &value;
-    int hr = m_pNative->ReadVirtual( Offset,
-                                     pval,
-                                     sizeof(TValue),
-                                     &BytesRead);
-    
+    int hr = CallMethodWithSehProtection( &TN::ReadVirtual,
+                                          Offset,
+                                          (PVOID) pval,
+                                          static_cast<ULONG>( sizeof(TValue) ),
+                                          &BytesRead);
+
     //Since we are reading a single discrete value, treat under-read as failure
     if (hr == S_OK && BytesRead < sizeof(TValue))
     {
@@ -5178,10 +5288,11 @@ int WDebugDataSpaces::WriteVirtual(
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppBytesWritten = &BytesWritten;
 
-    return m_pNative->WriteVirtual( Offset,
-                                    ppBuffer,
-                                    buffer->Length,
-                                    ppBytesWritten );
+    return CallMethodWithSehProtection( &TN::WriteVirtual,
+                                        Offset,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppBytesWritten );
 }
 
 // Note that not all bytes may be written!
@@ -5193,10 +5304,11 @@ int WDebugDataSpaces::WriteVirtual(
 {
     pin_ptr<ULONG> ppBytesWritten = &BytesWritten;
 
-    return m_pNative->WriteVirtual( Offset,
-                                    Buffer,
-                                    BufferSize,
-                                    ppBytesWritten );
+    return CallMethodWithSehProtection( &TN::WriteVirtual,
+                                        Offset,
+                                        Buffer,
+                                        BufferSize,
+                                        (PULONG) ppBytesWritten );
 }
 
 
@@ -5210,12 +5322,13 @@ int WDebugDataSpaces::SearchVirtual(
 {
     pin_ptr<byte> ppPattern = &Pattern[ 0 ];
     pin_ptr<UInt64> ppMatchOffset = &MatchOffset;
-    return m_pNative->SearchVirtual( Offset,
-                                     Length,
-                                     ppPattern,
-                                     Pattern->Length,
-                                     PatternGranularity,
-                                     ppMatchOffset );
+    return CallMethodWithSehProtection( &TN::SearchVirtual,
+                                        Offset,
+                                        Length,
+                                        (PVOID) ppPattern,
+                                        Pattern->Length,
+                                        PatternGranularity,
+                                        (PULONG64) ppMatchOffset );
 }
 
 int WDebugDataSpaces::ReadVirtualUncached(
@@ -5229,10 +5342,11 @@ int WDebugDataSpaces::ReadVirtualUncached(
     array<byte>^ tmp = gcnew array<byte>( BytesRequested );
     pin_ptr<byte> pp = &tmp[ 0 ];
     ULONG bytesRead = 0;
-    int hr = m_pNative->ReadVirtualUncached( Offset,
-                                             pp,
-                                             BytesRequested,
-                                             &bytesRead );
+    int hr = CallMethodWithSehProtection( &TN::ReadVirtualUncached,
+                                          Offset,
+                                          (PVOID) pp,
+                                          BytesRequested,
+                                          &bytesRead );
     if( S_OK == hr )
     {
         if( bytesRead != BytesRequested )
@@ -5254,10 +5368,11 @@ int WDebugDataSpaces::WriteVirtualUncached(
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppBytesWritten = &BytesWritten;
 
-    return m_pNative->WriteVirtualUncached( Offset,
-                                            ppBuffer,
-                                            buffer->Length,
-                                            ppBytesWritten );
+    return CallMethodWithSehProtection( &TN::WriteVirtualUncached,
+                                        Offset,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppBytesWritten );
 }
 
 int WDebugDataSpaces::ReadPointersVirtual(
@@ -5269,9 +5384,10 @@ int WDebugDataSpaces::ReadPointersVirtual(
     array<UInt64>^ tmp = gcnew array<UInt64>( Count );
     pin_ptr<UInt64> pp = &tmp[ 0 ];
     ULONG bytesRead = 0;
-    int hr = m_pNative->ReadPointersVirtual( Count,
-                                             Offset,
-                                             pp );
+    int hr = CallMethodWithSehProtection( &TN::ReadPointersVirtual,
+                                          Count,
+                                          Offset,
+                                          (PULONG64) pp );
     if( S_OK == hr )
     {
         Ptrs = tmp;
@@ -5287,9 +5403,10 @@ int WDebugDataSpaces::WritePointersVirtual(
 {
     pin_ptr<UInt64> pp = &Ptrs[ 0 ];
 
-    return m_pNative->WritePointersVirtual( Ptrs->Length,
-                                            Offset,
-                                            pp );
+    return CallMethodWithSehProtection( &TN::WritePointersVirtual,
+                                        Ptrs->Length,
+                                        Offset,
+                                        (PULONG64) pp );
 }
 
 int WDebugDataSpaces::ReadPhysical(
@@ -5303,10 +5420,11 @@ int WDebugDataSpaces::ReadPhysical(
     array<byte>^ tmp = gcnew array<byte>( BytesRequested );
     pin_ptr<byte> pp = &tmp[ 0 ];
     ULONG bytesRead = 0;
-    int hr = m_pNative->ReadPhysical( Offset,
-                                      pp,
-                                      BytesRequested,
-                                      &bytesRead );
+    int hr = CallMethodWithSehProtection( &TN::ReadPhysical,
+                                          Offset,
+                                          (PVOID) pp,
+                                          BytesRequested,
+                                          &bytesRead );
     if( S_OK == hr )
     {
         if( bytesRead != BytesRequested )
@@ -5328,10 +5446,11 @@ int WDebugDataSpaces::WritePhysical(
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppBytesWritten = &BytesWritten;
 
-    return m_pNative->WritePhysical( Offset,
-                                     ppBuffer,
-                                     buffer->Length,
-                                     ppBytesWritten );
+    return CallMethodWithSehProtection( &TN::WritePhysical,
+                                        Offset,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppBytesWritten );
 }
 
 int WDebugDataSpaces::ReadControl(
@@ -5346,11 +5465,12 @@ int WDebugDataSpaces::ReadControl(
     array<byte>^ tmp = gcnew array<byte>( BytesRequested );
     pin_ptr<byte> pp = &tmp[ 0 ];
     ULONG bytesRead = 0;
-    int hr = m_pNative->ReadControl( Processor,
-                                     Offset,
-                                     pp,
-                                     BytesRequested,
-                                     &bytesRead );
+    int hr = CallMethodWithSehProtection( &TN::ReadControl,
+                                          Processor,
+                                          Offset,
+                                          (PVOID) pp,
+                                          BytesRequested,
+                                          &bytesRead );
     if( S_OK == hr )
     {
         if( bytesRead != BytesRequested )
@@ -5373,11 +5493,12 @@ int WDebugDataSpaces::WriteControl(
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppBytesWritten = &BytesWritten;
 
-    return m_pNative->WriteControl( Processor,
-                                    Offset,
-                                    ppBuffer,
-                                    buffer->Length,
-                                    ppBytesWritten );
+    return CallMethodWithSehProtection( &TN::WriteControl,
+                                        Processor,
+                                        Offset,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppBytesWritten );
 }
 
 int WDebugDataSpaces::ReadIo(
@@ -5394,13 +5515,14 @@ int WDebugDataSpaces::ReadIo(
     array<byte>^ tmp = gcnew array<byte>( BytesRequested );
     pin_ptr<byte> pp = &tmp[ 0 ];
     ULONG bytesRead = 0;
-    int hr = m_pNative->ReadIo( (ULONG) InterfaceType,
-                                BusNumber,
-                                AddressSpace,
-                                Offset,
-                                pp,
-                                BytesRequested,
-                                &bytesRead );
+    int hr = CallMethodWithSehProtection( &TN::ReadIo,
+                                          (ULONG) InterfaceType,
+                                          BusNumber,
+                                          AddressSpace,
+                                          Offset,
+                                          (PVOID) pp,
+                                          BytesRequested,
+                                          &bytesRead );
     if( S_OK == hr )
     {
         if( bytesRead != BytesRequested )
@@ -5425,13 +5547,14 @@ int WDebugDataSpaces::WriteIo(
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppBytesWritten = &BytesWritten;
 
-    return m_pNative->WriteIo( (ULONG) InterfaceType,
-                               BusNumber,
-                               AddressSpace,
-                               Offset,
-                               ppBuffer,
-                               buffer->Length,
-                               ppBytesWritten );
+    return CallMethodWithSehProtection( &TN::WriteIo,
+                                        (ULONG) InterfaceType,
+                                        BusNumber,
+                                        AddressSpace,
+                                        Offset,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppBytesWritten );
 }
 
 int WDebugDataSpaces::ReadMsr(
@@ -5439,14 +5562,14 @@ int WDebugDataSpaces::ReadMsr(
     [Out] UInt64% MsrValue)
 {
     pin_ptr<UInt64> pp = &MsrValue;
-    return m_pNative->ReadMsr( Msr, pp );
+    return CallMethodWithSehProtection( &TN::ReadMsr, Msr, (PULONG64) pp );
 }
 
 int WDebugDataSpaces::WriteMsr(
     [In] ULONG Msr,
     [In] UInt64 MsrValue)
 {
-    return m_pNative->WriteMsr( Msr, MsrValue );
+    return CallMethodWithSehProtection( &TN::WriteMsr, Msr, MsrValue );
 }
 
 int WDebugDataSpaces::ReadBusData(
@@ -5463,13 +5586,14 @@ int WDebugDataSpaces::ReadBusData(
     array<byte>^ tmp = gcnew array<byte>( BytesRequested );
     pin_ptr<byte> pp = &tmp[ 0 ];
     ULONG bytesRead = 0;
-    int hr = m_pNative->ReadBusData( (ULONG) BusDataType,
-                                     BusNumber,
-                                     SlotNumber,
-                                     Offset,
-                                     pp,
-                                     BytesRequested,
-                                     &bytesRead );
+    int hr = CallMethodWithSehProtection( &TN::ReadBusData,
+                                          (ULONG) BusDataType,
+                                          BusNumber,
+                                          SlotNumber,
+                                          Offset,
+                                          (PVOID) pp,
+                                          BytesRequested,
+                                          &bytesRead );
     if( S_OK == hr )
     {
         if( bytesRead != BytesRequested )
@@ -5494,18 +5618,19 @@ int WDebugDataSpaces::WriteBusData(
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppBytesWritten = &BytesWritten;
 
-    return m_pNative->WriteBusData( (ULONG) BusDataType,
-                                    BusNumber,
-                                    SlotNumber,
-                                    Offset,
-                                    ppBuffer,
-                                    buffer->Length,
-                                    ppBytesWritten );
+    return CallMethodWithSehProtection( &TN::WriteBusData,
+                                        (ULONG) BusDataType,
+                                        BusNumber,
+                                        SlotNumber,
+                                        Offset,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppBytesWritten );
 }
 
 int WDebugDataSpaces::CheckLowMemory()
 {
-    return m_pNative->CheckLowMemory();
+    return CallMethodWithSehProtection( &TN::CheckLowMemory );
 }
 
 int WDebugDataSpaces::ReadDebuggerData(
@@ -5516,10 +5641,11 @@ int WDebugDataSpaces::ReadDebuggerData(
 {
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppDataSize = &DataSize;
-    return m_pNative->ReadDebuggerData( Index,
-                                        ppBuffer,
+    return CallMethodWithSehProtection( &TN::ReadDebuggerData,
+                                        Index,
+                                        (PVOID) ppBuffer,
                                         buffer->Length,
-                                        ppDataSize );
+                                        (PULONG) ppDataSize );
 }
 
 int WDebugDataSpaces::ReadProcessorSystemData(
@@ -5531,11 +5657,12 @@ int WDebugDataSpaces::ReadProcessorSystemData(
 {
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppDataSize = &DataSize;
-    return m_pNative->ReadProcessorSystemData( Processor,
-                                               (ULONG) Index,
-                                               ppBuffer,
-                                               buffer->Length,
-                                               ppDataSize );
+    return CallMethodWithSehProtection( &TN::ReadProcessorSystemData,
+                                        Processor,
+                                        (ULONG) Index,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppDataSize );
 }
 
 /* IDebugDataSpaces2 */
@@ -5545,7 +5672,7 @@ int WDebugDataSpaces::VirtualToPhysical(
     [Out] UInt64% Physical)
 {
     pin_ptr<UInt64> pp = &Physical;
-    return m_pNative->VirtualToPhysical( Virtual, pp );
+    return CallMethodWithSehProtection( &TN::VirtualToPhysical, Virtual, (PULONG64) pp );
 }
 
 int WDebugDataSpaces::GetVirtualTranslationPhysicalOffsets(
@@ -5556,10 +5683,11 @@ int WDebugDataSpaces::GetVirtualTranslationPhysicalOffsets(
 {
     pin_ptr<UInt64> ppOffsets = &Offsets[ 0 ];
     pin_ptr<ULONG> ppLevels = &Levels;
-    return m_pNative->GetVirtualTranslationPhysicalOffsets( Virtual,
-                                                            ppOffsets,
-                                                            Offsets->Length,
-                                                            ppLevels );
+    return CallMethodWithSehProtection( &TN::GetVirtualTranslationPhysicalOffsets,
+                                        Virtual,
+                                        (PULONG64) ppOffsets,
+                                        Offsets->Length,
+                                        (PULONG) ppLevels );
 }
 
 int WDebugDataSpaces::ReadHandleData(
@@ -5571,11 +5699,12 @@ int WDebugDataSpaces::ReadHandleData(
 {
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppDataSize = &DataSize;
-    return m_pNative->ReadHandleData( Handle,
-                                      (ULONG) DataType,
-                                      ppBuffer,
-                                      buffer->Length,
-                                      ppDataSize );
+    return CallMethodWithSehProtection( &TN::ReadHandleData,
+                                        Handle,
+                                        (ULONG) DataType,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppDataSize );
 }
 
 int WDebugDataSpaces::FillVirtual(
@@ -5587,11 +5716,12 @@ int WDebugDataSpaces::FillVirtual(
 {
     pin_ptr<byte> ppPattern = &Pattern[ 0 ];
     pin_ptr<ULONG> ppFilled = &Filled;
-    return m_pNative->FillVirtual( Start,
-                                   Size,
-                                   ppPattern,
-                                   Pattern->Length,
-                                   ppFilled );
+    return CallMethodWithSehProtection( &TN::FillVirtual,
+                                        Start,
+                                        Size,
+                                        (PVOID) ppPattern,
+                                        Pattern->Length,
+                                        (PULONG) ppFilled );
 }
 
 int WDebugDataSpaces::FillPhysical(
@@ -5603,11 +5733,12 @@ int WDebugDataSpaces::FillPhysical(
 {
     pin_ptr<byte> ppPattern = &Pattern[ 0 ];
     pin_ptr<ULONG> ppFilled = &Filled;
-    return m_pNative->FillPhysical( Start,
-                                    Size,
-                                    ppPattern,
-                                    Pattern->Length,
-                                    ppFilled );
+    return CallMethodWithSehProtection( &TN::FillPhysical,
+                                        Start,
+                                        Size,
+                                        (PVOID) ppPattern,
+                                        Pattern->Length,
+                                        (PULONG) ppFilled );
 }
 
 int WDebugDataSpaces::QueryVirtual(
@@ -5629,7 +5760,7 @@ int WDebugDataSpaces::QueryVirtual(
         alignedPointer = alignedPointer + 4;
     }
 
-    int hr = m_pNative->QueryVirtual( Offset, (::PMEMORY_BASIC_INFORMATION64) (void*) alignedPointer );
+    int hr = CallMethodWithSehProtection( &TN::QueryVirtual, Offset, (::PMEMORY_BASIC_INFORMATION64) (void*) alignedPointer );
 
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::MEMORY_BASIC_INFORMATION64> pp = &Info;
     memcpy( pp, (void*) alignedPointer, Marshal::SizeOf( Info ) );
@@ -5645,8 +5776,9 @@ int WDebugDataSpaces::ReadImageNtHeaders(
     [Out] Microsoft::Diagnostics::Runtime::Interop::IMAGE_NT_HEADERS64% Headers)
 {
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::IMAGE_NT_HEADERS64> pp = &Headers;
-    return m_pNative->ReadImageNtHeaders( ImageBase,
-                                          (PIMAGE_NT_HEADERS64) pp );
+    return CallMethodWithSehProtection( &TN::ReadImageNtHeaders,
+                                        ImageBase,
+                                        (PIMAGE_NT_HEADERS64) pp );
 }
 
 int WDebugDataSpaces::ReadTagged(
@@ -5659,19 +5791,20 @@ int WDebugDataSpaces::ReadTagged(
     //pin_ptr<Guid> ppTag = &Tag;
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppTotalSize = &TotalSize;
-    //return m_pNative->ReadTagged( (LPGUID) ppTag,
-    return m_pNative->ReadTagged( (LPGUID) &Tag,
-                                  Offset,
-                                  ppBuffer,
-                                  buffer->Length,
-                                  ppTotalSize );
+    //return CallMethodWithSehProtection( &TN::ReadTagged, (LPGUID) ppTag,
+    return CallMethodWithSehProtection( &TN::ReadTagged,
+                                        (LPGUID) &Tag,
+                                        Offset,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppTotalSize );
 }
 
 int WDebugDataSpaces::StartEnumTagged(
     [Out] UInt64% Handle)
 {
     pin_ptr<UInt64> pp = &Handle;
-    return m_pNative->StartEnumTagged( pp );
+    return CallMethodWithSehProtection( &TN::StartEnumTagged, (PULONG64) pp );
 }
 
 int WDebugDataSpaces::GetNextTagged(
@@ -5681,15 +5814,16 @@ int WDebugDataSpaces::GetNextTagged(
 {
     pin_ptr<Guid> ppTag = &Tag;
     pin_ptr<ULONG> ppSize = &Size;
-    return m_pNative->GetNextTagged( Handle,
-                                     (LPGUID) ppTag,
-                                     ppSize );
+    return CallMethodWithSehProtection( &TN::GetNextTagged,
+                                        Handle,
+                                        (LPGUID) ppTag,
+                                        (PULONG) ppSize );
 }
 
 int WDebugDataSpaces::EndEnumTagged(
     [In] UInt64 Handle)
 {
-    return m_pNative->EndEnumTagged( Handle );
+    return CallMethodWithSehProtection( &TN::EndEnumTagged, Handle );
 }
 
 /* IDebugDataSpaces4 */
@@ -5704,12 +5838,13 @@ int WDebugDataSpaces::GetOffsetInformation(
 {
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppInfoSize = &InfoSize;
-    return m_pNative->GetOffsetInformation( (ULONG) Space,
-                                            (ULONG) Which,
-                                            Offset,
-                                            ppBuffer,
-                                            buffer->Length,
-                                            ppInfoSize );
+    return CallMethodWithSehProtection( &TN::GetOffsetInformation,
+                                        (ULONG) Space,
+                                        (ULONG) Which,
+                                        Offset,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppInfoSize );
 }
 
 int WDebugDataSpaces::GetNextDifferentlyValidOffsetVirtual(
@@ -5717,8 +5852,9 @@ int WDebugDataSpaces::GetNextDifferentlyValidOffsetVirtual(
     [Out] UInt64% NextOffset)
 {
     pin_ptr<UInt64> pp = &NextOffset;
-    return m_pNative->GetNextDifferentlyValidOffsetVirtual( Offset,
-                                                            pp );
+    return CallMethodWithSehProtection( &TN::GetNextDifferentlyValidOffsetVirtual,
+                                        Offset,
+                                        (PULONG64) pp );
 }
 
 int WDebugDataSpaces::GetValidRegionVirtual(
@@ -5729,10 +5865,11 @@ int WDebugDataSpaces::GetValidRegionVirtual(
 {
     pin_ptr<UInt64> ppValidBase = &ValidBase;
     pin_ptr<ULONG> ppValidSize = &ValidSize;
-    return m_pNative->GetValidRegionVirtual( Base,
-                                             Size,
-                                             ppValidBase,
-                                             ppValidSize );
+    return CallMethodWithSehProtection( &TN::GetValidRegionVirtual,
+                                        Base,
+                                        Size,
+                                        (PULONG64) ppValidBase,
+                                        (PULONG) ppValidSize );
 }
 
 int WDebugDataSpaces::SearchVirtual2(
@@ -5746,13 +5883,14 @@ int WDebugDataSpaces::SearchVirtual2(
 {
     pin_ptr<byte> ppPattern = &Pattern[ 0 ];
     pin_ptr<UInt64> ppMatchOffset = &MatchOffset;
-    return m_pNative->SearchVirtual2( Offset,
-                                     Length,
-                                     (ULONG) Flags,
-                                     ppPattern,
-                                     Pattern->Length,
-                                     PatternGranularity,
-                                     ppMatchOffset );
+    return CallMethodWithSehProtection( &TN::SearchVirtual2,
+                                        Offset,
+                                        Length,
+                                        (ULONG) Flags,
+                                        (PVOID) ppPattern,
+                                        Pattern->Length,
+                                        PatternGranularity,
+                                        (PULONG64) ppMatchOffset );
 }
 
 /*
@@ -5770,11 +5908,12 @@ int WDebugDataSpaces::ReadMultiByteStringVirtual(
     {
         std::unique_ptr<char[]> szResult( new char[ cchResult ] );
 
-        hr = m_pNative->ReadMultiByteStringVirtual( Offset,
-                                                    MaxBytes,
-                                                    szResult.get(),
-                                                    cchResult,
-                                                    &cchResult );
+        hr = CallMethodWithSehProtection( &TN::ReadMultiByteStringVirtual,
+                                          Offset,
+                                          MaxBytes,
+                                          szResult.get(),
+                                          cchResult,
+                                          &cchResult );
 
         if( S_OK == hr )
         {
@@ -5805,12 +5944,13 @@ int WDebugDataSpaces::ReadMultiByteStringVirtualWide(
         //wprintf( L"RMBSVW: Top of loop: cchResult is: %i (MaxBytes %i)\n", cchResult, MaxBytes );
 
         ULONG dbgEngSaysCchResultShouldBe = cchResult;
-        hr = m_pNative->ReadMultiByteStringVirtualWide( Offset,
-                                                        MaxBytes,
-                                                        (ULONG) CodePage,
-                                                        wszResult.get(),
-                                                        cchResult,
-                                                        &dbgEngSaysCchResultShouldBe );
+        hr = CallMethodWithSehProtection( &TN::ReadMultiByteStringVirtualWide,
+                                          Offset,
+                                          MaxBytes,
+                                          (ULONG) CodePage,
+                                          wszResult.get(),
+                                          cchResult,
+                                          &dbgEngSaysCchResultShouldBe );
 
         //wprintf( L"RMBSVW: After call: dbgEngSaysCchResultShouldBe is: %i (hr=%#x)\n", dbgEngSaysCchResultShouldBe, hr );
         // Workaround for INT34c803e7.
@@ -5861,11 +6001,12 @@ int WDebugDataSpaces::ReadUnicodeStringVirtualWide(
         //wprintf( L"RUSVW: Top of loop: cchResult is: %i (MaxBytes %i)\n", cchResult, MaxBytes );
         std::unique_ptr<wchar_t[]> wszResult( new wchar_t[ cchResult ] );
 
-        hr = m_pNative->ReadUnicodeStringVirtualWide( Offset,
-                                                      MaxBytes,
-                                                      wszResult.get(),
-                                                      cchResult,
-                                                      &cbResultValue );
+        hr = CallMethodWithSehProtection( &TN::ReadUnicodeStringVirtualWide,
+                                          Offset,
+                                          MaxBytes,
+                                          wszResult.get(),
+                                          cchResult,
+                                          &cbResultValue );
         //wprintf( L"RUSVW: After call: cbResultValue is: %i\n", cbResultValue );
 
         // I don't know if INT34c803e7 affects ReadUnicodeStringVirtualWide
@@ -5907,11 +6048,12 @@ int WDebugDataSpaces::ReadPhysical2(
     array<byte>^ tmp = gcnew array<byte>( BytesRequested );
     pin_ptr<byte> pp = &tmp[ 0 ];
     ULONG bytesRead = 0;
-    int hr = m_pNative->ReadPhysical2( Offset,
-                                       (ULONG) Flags,
-                                       pp,
-                                       BytesRequested,
-                                       &bytesRead );
+    int hr = CallMethodWithSehProtection( &TN::ReadPhysical2,
+                                          Offset,
+                                          (ULONG) Flags,
+                                          (PVOID) pp,
+                                          BytesRequested,
+                                          &bytesRead );
     if( S_OK == hr )
     {
         if( bytesRead != BytesRequested )
@@ -5934,11 +6076,12 @@ int WDebugDataSpaces::WritePhysical2(
     pin_ptr<byte> ppBuffer = &buffer[ 0 ];
     pin_ptr<ULONG> ppBytesWritten = &BytesWritten;
 
-    return m_pNative->WritePhysical2( Offset,
-                                      (ULONG) Flags,
-                                      ppBuffer,
-                                      buffer->Length,
-                                      ppBytesWritten );
+    return CallMethodWithSehProtection( &TN::WritePhysical2,
+                                        Offset,
+                                        (ULONG) Flags,
+                                        (PVOID) ppBuffer,
+                                        buffer->Length,
+                                        (PULONG) ppBytesWritten );
 }
 
 
@@ -5964,7 +6107,7 @@ int WDebugRegisters::GetNumberRegisters(
     [Out] ULONG% Number)
 {
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberRegisters( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberRegisters, (PULONG) pp );
 }
 
 int WDebugRegisters::GetValue(
@@ -5972,14 +6115,14 @@ int WDebugRegisters::GetValue(
     [Out] Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE% Value)
 {
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE> pp = &Value;
-    return m_pNative->GetValue( Register, (PDEBUG_VALUE) pp );
+    return CallMethodWithSehProtection( &TN::GetValue, Register, (PDEBUG_VALUE) pp );
 }
 
 int WDebugRegisters::SetValue(
     [In] ULONG Register,
     [In] Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE Value)
 {
-    return m_pNative->SetValue( Register, (PDEBUG_VALUE) &Value );
+    return CallMethodWithSehProtection( &TN::SetValue, Register, (PDEBUG_VALUE) &Value );
 }
 
 
@@ -6009,21 +6152,21 @@ int WDebugRegisters::GetInstructionOffset(
     [Out] UInt64% Offset)
 {
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetInstructionOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetInstructionOffset, (PULONG64) pp );
 }
 
 int WDebugRegisters::GetStackOffset(
     [Out] UInt64% Offset)
 {
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetStackOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetStackOffset, (PULONG64) pp );
 }
 
 int WDebugRegisters::GetFrameOffset(
     [Out] UInt64% Offset)
 {
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetFrameOffset( pp );
+    return CallMethodWithSehProtection( &TN::GetFrameOffset, (PULONG64) pp );
 }
 
 /* IDebugRegisters2 */
@@ -6046,11 +6189,12 @@ int WDebugRegisters::GetDescriptionWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetDescriptionWide( Register,
-                                            wszName.get(),
-                                            cchName,
-                                            &cchName,
-                                            (PDEBUG_REGISTER_DESCRIPTION) pp );
+        hr = CallMethodWithSehProtection( &TN::GetDescriptionWide,
+                                          Register,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName,
+                                          (PDEBUG_REGISTER_DESCRIPTION) pp );
 
         if( S_OK == hr )
         {
@@ -6067,15 +6211,16 @@ int WDebugRegisters::GetIndexByNameWide(
 {
     pin_ptr<ULONG> pp = &Index;
     marshal_context mc;
-    return m_pNative->GetIndexByNameWide( mc.marshal_as<const wchar_t*>( Name ),
-                                          pp );
+    return CallMethodWithSehProtection( &TN::GetIndexByNameWide,
+                                        mc.marshal_as<const wchar_t*>( Name ),
+                                        (PULONG) pp );
 }
 
 int WDebugRegisters::GetNumberPseudoRegisters(
     [Out] ULONG% Number )
 {
     pin_ptr<ULONG> pp = &Number;
-    return m_pNative->GetNumberPseudoRegisters( pp );
+    return CallMethodWithSehProtection( &TN::GetNumberPseudoRegisters, (PULONG) pp );
 }
 
 int WDebugRegisters::GetPseudoDescriptionWide(
@@ -6097,12 +6242,13 @@ int WDebugRegisters::GetPseudoDescriptionWide(
     {
         std::unique_ptr<wchar_t[]> wszName( new wchar_t[ cchName ] );
 
-        hr = m_pNative->GetPseudoDescriptionWide( Register,
-                                                  wszName.get(),
-                                                  cchName,
-                                                  &cchName,
-                                                  ppTypeModule,
-                                                  ppTypeId );
+        hr = CallMethodWithSehProtection( &TN::GetPseudoDescriptionWide,
+                                          Register,
+                                          wszName.get(),
+                                          cchName,
+                                          &cchName,
+                                          (PULONG64) ppTypeModule,
+                                          (PULONG) ppTypeId );
 
         if( S_OK == hr )
         {
@@ -6119,8 +6265,9 @@ int WDebugRegisters::GetPseudoIndexByNameWide(
 {
     pin_ptr<ULONG> pp = &Index;
     marshal_context mc;
-    return m_pNative->GetPseudoIndexByNameWide( mc.marshal_as<const wchar_t*>( Name ),
-                                                pp );
+    return CallMethodWithSehProtection( &TN::GetPseudoIndexByNameWide,
+                                        mc.marshal_as<const wchar_t*>( Name ),
+                                        (PULONG) pp );
 }
 
 int WDebugRegisters::GetPseudoValues(
@@ -6137,11 +6284,12 @@ int WDebugRegisters::GetPseudoValues(
     array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE>( Count );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE> ppTmp = &tmp[ 0 ];
 
-    int hr = m_pNative->GetPseudoValues( (ULONG) Source,
-                                         Count,
-                                         nullptr,
-                                         Start,
-                                         (PDEBUG_VALUE) ppTmp );
+    int hr = CallMethodWithSehProtection( &TN::GetPseudoValues,
+                                          (ULONG) Source,
+                                          Count,
+                                          nullptr,
+                                          Start,
+                                          (PDEBUG_VALUE) ppTmp );
     // Normally we would check that hr was S_OK before assigning the out parameter, but
     // the way that dbgeng sets hr is not so helpful here: if there is trouble getting the
     // value for any one register, it returns the hr for that one (or rather, it returns
@@ -6169,11 +6317,12 @@ int WDebugRegisters::GetPseudoValues(
     array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE>( Indices->Length );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE> ppTmp = &tmp[ 0 ];
 
-    int hr = m_pNative->GetPseudoValues( (ULONG) Source,
-                                         Indices->Length,
-                                         ppIndices,
-                                         0, // Start
-                                         (PDEBUG_VALUE) ppTmp );
+    int hr = CallMethodWithSehProtection( &TN::GetPseudoValues,
+                                          (ULONG) Source,
+                                          Indices->Length,
+                                          (PULONG) ppIndices,
+                                          0, // Start
+                                          (PDEBUG_VALUE) ppTmp );
     // Normally we would check that hr was S_OK before assigning the out parameter, but
     // the way that dbgeng sets hr is not so helpful here: if there is trouble getting the
     // value for any one register, it returns the hr for that one (or rather, it returns
@@ -6211,11 +6360,12 @@ int WDebugRegisters::GetValues2(
     array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE>( Indices->Length );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE> ppTmp = &tmp[ 0 ];
 
-    int hr = m_pNative->GetValues2( (ULONG) Source,
-                                    Indices->Length,
-                                    ppIndices,
-                                    0, // Start
-                                    (PDEBUG_VALUE) ppTmp );
+    int hr = CallMethodWithSehProtection( &TN::GetValues2,
+                                          (ULONG) Source,
+                                          Indices->Length,
+                                          (PULONG) ppIndices,
+                                          0, // Start
+                                          (PDEBUG_VALUE) ppTmp );
     if( S_OK == hr )
     {
         Values = tmp;
@@ -6239,11 +6389,12 @@ int WDebugRegisters::GetValues2(
     array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE>^ tmp = gcnew array<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE>( Count );
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE> ppTmp = &tmp[ 0 ];
 
-    int hr = m_pNative->GetValues2( (ULONG) Source,
-                                    Count,
-                                    nullptr,
-                                    Start,
-                                    (PDEBUG_VALUE) ppTmp );
+    int hr = CallMethodWithSehProtection( &TN::GetValues2,
+                                          (ULONG) Source,
+                                          Count,
+                                          nullptr,
+                                          Start,
+                                          (PDEBUG_VALUE) ppTmp );
     if( S_OK == hr )
     {
         Values = tmp;
@@ -6261,11 +6412,12 @@ int WDebugRegisters::SetValues2(
 {
     pin_ptr<ULONG> ppIndices = &Indices[ 0 ];
     pin_ptr<Microsoft::Diagnostics::Runtime::Interop::DEBUG_VALUE> ppValues = &Values[ 0 ];
-    return m_pNative->SetValues2( Source,
-                                  Indices->Length,
-                                  ppIndices,
-                                  0, // Start
-                                  (PDEBUG_VALUE) ppValues );
+    return CallMethodWithSehProtection( &TN::SetValues2,
+                                        Source,
+                                        Indices->Length,
+                                        (PULONG) ppIndices,
+                                        0, // Start
+                                        (PDEBUG_VALUE) ppValues );
 }
 
 //int WDebugRegisters::OutputRegisters2(
@@ -6280,7 +6432,7 @@ int WDebugRegisters::GetInstructionOffset2(
     [Out] UInt64% Offset )
 {
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetInstructionOffset2( Source, pp );
+    return CallMethodWithSehProtection( &TN::GetInstructionOffset2, Source, (PULONG64) pp );
 }
 
 int WDebugRegisters::GetStackOffset2(
@@ -6288,7 +6440,7 @@ int WDebugRegisters::GetStackOffset2(
     [Out] UInt64% Offset )
 {
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetStackOffset2( Source, pp );
+    return CallMethodWithSehProtection( &TN::GetStackOffset2, Source, (PULONG64) pp );
 }
 
 int WDebugRegisters::GetFrameOffset2(
@@ -6296,7 +6448,7 @@ int WDebugRegisters::GetFrameOffset2(
     [Out] UInt64% Offset )
 {
     pin_ptr<UInt64> pp = &Offset;
-    return m_pNative->GetFrameOffset2( Source, pp );
+    return CallMethodWithSehProtection( &TN::GetFrameOffset2, Source, (PULONG64) pp );
 }
 
 
@@ -6324,7 +6476,7 @@ int WDebugAdvanced::GetThreadContext(
     [In] ULONG ContextSize )
 {
     WDebugClient::g_log->Write( L"DebugAdvanced::GetThreadContext" );
-    return m_pNative->GetThreadContext( Context, ContextSize );
+    return CallMethodWithSehProtection( &TN::GetThreadContext, Context, ContextSize );
 }
 
 int WDebugAdvanced::SetThreadContext(
@@ -6332,7 +6484,7 @@ int WDebugAdvanced::SetThreadContext(
     [In] ULONG ContextSize )
 {
     WDebugClient::g_log->Write( L"DebugAdvanced::SetThreadContext" );
-    return m_pNative->SetThreadContext( Context, ContextSize );
+    return CallMethodWithSehProtection( &TN::SetThreadContext, Context, ContextSize );
 }
 
 int WDebugAdvanced::Request(
@@ -6345,12 +6497,28 @@ int WDebugAdvanced::Request(
 {
     WDebugClient::g_log->Write( L"DebugAdvanced::Request" );
     pin_ptr< ULONG > pp = &OutSize;
-    return m_pNative->Request( static_cast< ULONG >( Request ),
-                               InBuffer,
-                               InBufferSize,
-                               OutBuffer,
-                               OutBufferSize,
-                               pp );
+    return CallMethodWithSehProtection( &TN::Request,
+                                        static_cast< ULONG >( Request ),
+                                        InBuffer,
+                                        InBufferSize,
+                                        OutBuffer,
+                                        OutBufferSize,
+                                        (PULONG) pp );
 }
 
 } // end namespace
+
+// "Magic"! This pragma disables warnings like:
+//
+//     C:\src\DbgShell\DbgEngWrapper\DbgEngWrapper.cpp : warning C4793: 'IDebugClient6::`vcall'{448}'': function compiled as native:
+//        non-clrcall vcall thunks must be compiled as native
+//
+// But those warnings show up as applicable to line 1 (as opposed to the places that would
+// make sense: where we do "&TN::MethodName"). Trying to disable the warning before those
+// spots and then re-enable right after ("#pragma warning(default:4793)"), doesn't get rid
+// of the warnings. But putting the pragma here, at the bottom of the file, /does/ work.
+//
+// I suspect something similar to this:
+// https://stackoverflow.com/questions/9683469/how-to-fix-warning-c4793-with-template-class/9814866#9814866
+
+ #pragma warning(disable:4793)

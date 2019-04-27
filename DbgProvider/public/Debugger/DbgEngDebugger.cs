@@ -23,6 +23,12 @@ namespace MS.Dbg
     {
         private static DbgEngDebugger g_Debugger;
 
+        private static void BadNewsFromDbgEngWrapper( string msg )
+        {
+            // This will be logged, even on Release builds.
+            Util.Fail( Util.Sprintf( "Bad news from DbgEngWrapper: {0}", msg ) );
+        }
+
 
         internal static DbgEngDebugger _GlobalDebugger
         {
@@ -34,7 +40,8 @@ namespace MS.Dbg
                         {
                             if( null == g_Debugger )
                             {
-                                StaticCheckHr( WDebugClient.DebugCreate( out WDebugClient dc ) );
+                                StaticCheckHr( WDebugClient.DebugCreate( BadNewsFromDbgEngWrapper,
+                                                                         out WDebugClient dc ) );
                                 g_Debugger = new DbgEngDebugger( dc, DbgEngThread.Singleton );
                             }
                         } );
@@ -4238,7 +4245,8 @@ namespace MS.Dbg
                     hr = m_debugControl.GetDebuggeeType( out targetClass, out qualifier );
                     if( 0 != hr )
                     {
-                        LogManager.Trace( "GetCurrentDbgEngContext: could not determine if kernel mode: {0}.", hr );
+                        LogManager.Trace( "GetCurrentDbgEngContext: could not determine if kernel mode: {0}.",
+                                          Util.FormatErrorCode( hr ) );
                         return;
                     }
 
@@ -4265,7 +4273,8 @@ namespace MS.Dbg
                         hr = m_debugSystemObjects.GetImplicitThreadDataOffset( out threadIdOrAddr );
                         if( 0 != hr )
                         {
-                            LogManager.Trace( "GetCurrentDbgEngContext: no current kernel-mode thread: {0}", hr );
+                            LogManager.Trace( "GetCurrentDbgEngContext: no current kernel-mode thread: {0}",
+                                              Util.FormatErrorCode( hr ) );
                             Util.Fail( "is this possible?" );
                             return;
                         }
@@ -4277,7 +4286,8 @@ namespace MS.Dbg
                         hr = m_debugSystemObjects.GetCurrentProcessId( out uiProcId );
                         if( 0 != hr )
                         {
-                            LogManager.Trace( "GetCurrentDbgEngContext: no current process: {0}.", hr );
+                            LogManager.Trace( "GetCurrentDbgEngContext: no current process: {0}.",
+                                              Util.FormatErrorCode( hr ) );
                             return;
                         }
                         procIdOrAddr = uiProcId;
@@ -4285,7 +4295,8 @@ namespace MS.Dbg
                         hr = m_debugSystemObjects.GetCurrentThreadId( out uiThreadId );
                         if( 0 != hr )
                         {
-                            LogManager.Trace( "GetCurrentDbgEngContext: no current thread: {0}.", hr );
+                            LogManager.Trace( "GetCurrentDbgEngContext: no current thread: {0}.",
+                                              Util.FormatErrorCode( hr ) );
                             return;
                         }
                         threadIdOrAddr = uiThreadId;
@@ -4294,7 +4305,8 @@ namespace MS.Dbg
                     hr = m_debugSymbols.GetCurrentScopeFrameIndexEx( DEBUG_FRAME.DEFAULT, out frameId );
                     if( 0 != hr )
                     {
-                        LogManager.Trace( "GetCurrentDbgEngContext: no current frame: {0}." , hr );
+                        LogManager.Trace( "GetCurrentDbgEngContext: no current frame: {0}.",
+                                          Util.FormatErrorCode( hr ) );
                         return;
                     }
                 } );
