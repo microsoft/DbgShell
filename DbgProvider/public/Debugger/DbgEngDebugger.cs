@@ -67,11 +67,29 @@ namespace MS.Dbg
             return _GlobalDebugger;
         }
 
+
+        // There's a bug in dbgeng.dll that results in an AV in dbgeng. The situation is
+        // triggered when we load up an image file as a dump. After we call WaitForEvent,
+        // dbgeng calls back into us to notify us of various state changes, and in those,
+        // we query current state, such as a the current scope frame, and then dbgeng AVs.
+        //
+        // If we didn't handle it, it would get handled by dbgeng's own WaitForEvent
+        // underneath us, so now DbgEngWrapper catches all exceptions that come out of
+        // dbgeng. However, even in that case, some of dbgeng's internal state gets messed
+        // up (engine nesting level), so we'll conspire to avoid hitting the AV in the
+        // first place: When loading an image as a dump file, we'll skip calling
+        // GetCurrentScopeFrameIndexEx that first time.
+        internal int m_loadingImageHack;
+
         internal void LoadCrashDump( string dumpFileName,
-                                   string targetFriendlyName )
+                                     string targetFriendlyName )
         {
             DbgEngThread.Singleton.Execute( () =>
                 {
+                    if( dumpFileName.EndsWith( ".dll" ) || dumpFileName.EndsWith( ".exe" ) )
+                    {
+                        m_loadingImageHack = 1;
+                    }
                     CheckHr( m_debugClient.OpenDumpFileWide( dumpFileName, 0 ) );
                     SetNextTargetName( targetFriendlyName );
                 } );
@@ -4302,12 +4320,19 @@ namespace MS.Dbg
                         threadIdOrAddr = uiThreadId;
                     }
 
-                    hr = m_debugSymbols.GetCurrentScopeFrameIndexEx( DEBUG_FRAME.DEFAULT, out frameId );
-                    if( 0 != hr )
+                    if( m_loadingImageHack-- > 0 )
                     {
-                        LogManager.Trace( "GetCurrentDbgEngContext: no current frame: {0}.",
-                                          Util.FormatErrorCode( hr ) );
-                        return;
+                        LogManager.Trace( "Avoiding querying current scope frame to avoid dbgeng bug." );
+                    }
+                    else
+                    {
+                        hr = m_debugSymbols.GetCurrentScopeFrameIndexEx( DEBUG_FRAME.DEFAULT, out frameId );
+                        if( 0 != hr )
+                        {
+                            LogManager.Trace( "GetCurrentDbgEngContext: no current frame: {0}.",
+                                              Util.FormatErrorCode( hr ) );
+                            return;
+                        }
                     }
                 } );
 

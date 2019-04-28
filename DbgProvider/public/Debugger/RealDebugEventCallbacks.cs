@@ -609,6 +609,7 @@ namespace MS.Dbg
                         m_debugger.m_sympath = null;
                     }
 
+                    // Re: m_loadingImageHack: this is where the AV in dbgeng occurs.
                     var eventArgs = new SymbolStateChangedEventArgs( m_debugger, Flags, Argument );
                     int retVal = _RaiseEvent( m_debugger.SymbolStateChanged, eventArgs );
                     if( _ShouldOutput( retVal, eventArgs ) )
