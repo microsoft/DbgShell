@@ -567,7 +567,8 @@ namespace MS.Dbg
             {
             }
 
-            protected override string Command { get { return "#{"; } } // "XTPUSHSGR"
+            //protected override string Command { get { return "#{"; } } // "XTPUSHSGR"
+            protected override string Command { get { return "#p"; } } // NOT "XTPUSHSGR"
 
             public static readonly PushSgrSequence Instance = new PushSgrSequence();
         } // end class PushSgrSequence
@@ -578,7 +579,8 @@ namespace MS.Dbg
             {
             }
 
-            protected override string Command { get { return "#}"; } } // "XTPOPSGR"
+            //protected override string Command { get { return "#}"; } } // "XTPOPSGR"
+            protected override string Command { get { return "#q"; } } // NOT "XTPOPSGR"
 
             public static readonly PopSgrSequence Instance = new PopSgrSequence();
         } // end class PopSgrSequence

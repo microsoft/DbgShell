@@ -121,8 +121,22 @@ namespace MS.Dbg
 
             m_hashCommands = new Dictionary< char, Func< Action< List< int > > > >()
             {
-                { '{', () => _PushSgr },
-                { '}', () => _PopSgr },
+                // TROUBLE: The current definition of XTPUSHSGR and XTPOPSGR use curly
+                // brackets, which turns out to conflict badly with C# string formatting.
+                // For example, this:
+                //
+                //
+                //    $csFmt = (New-ColorString).AppendPushFg( 'Cyan' ).Append( 'this should all be cyan: {0}' )
+                //    [string]::format( $csFmt.ToString( $true ), 'blah' )
+                //
+                // will blow up.
+                //
+                // For now, I'm going to switch to some other characters while we see if
+                // we get can something worked out with xterm.
+                //{ '{', () => _PushSgr },
+                //{ '}', () => _PopSgr },
+                { 'p', () => _PushSgr },
+                { 'q', () => _PopSgr },
             };
 
             m_state = new ControlSequenceParseState( m_commandTreeRoot );

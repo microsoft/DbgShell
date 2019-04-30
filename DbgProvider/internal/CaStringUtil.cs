@@ -143,7 +143,7 @@ namespace MS.Dbg
                 {
                     int commandLen = 1;
                     if( c == '#' )
-                        commandLen = 2; // '#' is the first char of a command like "#{" or "#}"
+                        commandLen = 2; // '#' is the first char of a command like "#p" or "#q"
 
                     return curIdx + commandLen; // note that this could be just past the end of the string.
                 }
@@ -327,7 +327,7 @@ namespace MS.Dbg
                     destSb.Append( s[ i ] );
                     if( s[ i ] == '#' )
                     {
-                        // This is the first char of a two-char command code ("#{" or "#}").
+                        // This is the first char of a two-char command code ("#p" or "#q").
                         inTwoCharControlSeq = true;
                     }
                     else if( !_IsDigitOrSemi( s[ i ] ) )
@@ -582,8 +582,22 @@ namespace MS.Dbg
 
 
         internal const string SGR = "m";    // SGR: "Select Graphics Rendition"
-        internal const string PUSH = "#{";  // XTPUSHSGR
-        internal const string POP = "#}";   // XTPOPSGR
+
+        // TROUBLE: The current definition of XTPUSHSGR and XTPOPSGR use curly brackets,
+        // which turns out to conflict badly with C# string formatting. For example, this:
+        //
+        //
+        //    $csFmt = (New-ColorString).AppendPushFg( 'Cyan' ).Append( 'this should all be cyan: {0}' )
+        //    [string]::format( $csFmt.ToString( $true ), 'blah' )
+        //
+        // will blow up.
+        //
+        // For now, I'm going to switch to some other characters while we see if we get
+        // can something worked out with xterm.
+        //internal const string PUSH = "#{";  // XTPUSHSGR
+        //internal const string POP = "#}";   // XTPOPSGR
+        internal const string PUSH = "#p";  // NOT XTPUSHSGR
+        internal const string POP = "#q";   // NOT XTPOPSGR
 
      // public static string FG( ConsoleColor foreground )
      // {
@@ -715,8 +729,8 @@ namespace MS.Dbg
                                                                  // leading space is longer than the entire outputWidth
         }
 
-        private const string c_PushAndReset  = "\u009b#{\u009b0m";
-        private const string c_StandalonePop = "\u009b#}";
+        private const string c_PushAndReset  = "\u009b#p\u009b0m";
+        private const string c_StandalonePop = "\u009b#q";
 
         public static string IndentAndWrap( string str,
                                             int outputWidth,
@@ -1272,9 +1286,9 @@ namespace MS.Dbg
                                             0 ),
             new CaStringUtilLengthTestCase( "\u009bm",
                                             0 ),
-            new CaStringUtilLengthTestCase( "\u009b#{",
+            new CaStringUtilLengthTestCase( "\u009b#p",
                                             0 ),
-            new CaStringUtilLengthTestCase( "\u009b#{\u009b91mRED\u009b#}",
+            new CaStringUtilLengthTestCase( "\u009b#p\u009b91mRED\u009b#q",
                                             3 ),
             new CaStringUtilLengthTestCase( "\u009bm123",
                                             3 ),
@@ -1402,9 +1416,9 @@ namespace MS.Dbg
  /* 15 */   new CaStringUtilTruncateTestCase( "\u009bm1234567\u009bm",
                                               6,
                                               "\u009bm12345\u009bm…" ),
- /* 16 */   new CaStringUtilTruncateTestCase( "\u009bm1234567\u009b#{", // <-- Note: two-char command code
+ /* 16 */   new CaStringUtilTruncateTestCase( "\u009bm1234567\u009b#p", // <-- Note: two-char command code
                                               6,
-                                              "\u009bm12345\u009b#{…" ),
+                                              "\u009bm12345\u009b#p…" ),
  /* 17 */   new CaStringUtilTruncateTestCase( "",
                                               1,
                                               false,
