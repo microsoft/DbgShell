@@ -160,8 +160,8 @@ follow:
 1. Ideally you can then use the "release" folder as the package (but I've had to use
    "debug" to workaround some things before). Make a copy of either "release" or "debug"
    to "DbgShell". Then go into "DbgShell" and make sure there isn't any cruft in there,
-   like `DbgShell.vshost.*`.
-1. When it looks good, zip it up.
+   like `DbgShell.vshost.*`. Handy command line: `dir .\bin\ -Recurse -Include *.iobj, *.ipdb, *.ilk, *.vshost.*, *.metagen | del`
+1. When it looks good, zip it up. Handy command line: `del .\bin\DbgShell.zip ; Compress-Archive -Path .\bin\DbgShell -DestinationPath .\bin\DbgShell.zip -CompressionLevel Optimal`
 1. Upload to the distribution point of your choosing.
 1. Before publicizing the release, go to a "non-developer machine" (no Visual Studio
    installed), download the release there, and test it to make sure it works there.
