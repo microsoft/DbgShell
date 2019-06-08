@@ -8,6 +8,7 @@
 #include <memory>
 #undef CreateProcess // We define some functions that we want called "CreateProcess", not "CreateProcessW".
 #include "dbgeng.h"
+#include "dbgmodel.h"
 #undef DEBUG_PROCESS // We want to use the managed enum definition
 //#include "EventCallbacks.h"
 
@@ -41,6 +42,9 @@ namespace DbgEngWrapper
     ref class WDebugDataSpaces;
     ref class WDebugRegisters;
     ref class WDebugAdvanced;
+    ref class WHostDataModelAccess;
+    ref class WDataModelManager;
+    ref class WDebugHost;
 
     // This contains the code common to all the IDebug* wrappers: a pointer to the
     // native interface, and explicit conversion operators for casting.
@@ -227,6 +231,18 @@ namespace DbgEngWrapper
             }
             System::Diagnostics::Debug::Assert( nullptr != pNative );
             return gcnew WDebugAdvanced( pNative );
+        }
+
+        static explicit operator WHostDataModelAccess^( WDebugEngInterface^ ptr )
+        {
+            ::IHostDataModelAccess* pNative = nullptr;
+            HRESULT hr = ptr->m_pNative->QueryInterface( IID_IHostDataModelAccess, (PVOID*) &pNative );
+            if( S_OK != hr )
+            {
+                Marshal::ThrowExceptionForHR( hr );
+            }
+            System::Diagnostics::Debug::Assert( nullptr != pNative );
+            return gcnew WHostDataModelAccess( pNative );
         }
     }; // end WDebugEngInterface
 
@@ -3346,4 +3362,38 @@ namespace DbgEngWrapper
      //     _Out_opt_ PULONG StringSize
      //     );
     }; // end class WDebugAdvanced
+
+
+    public ref class WDataModelManager : WDebugEngInterface< ::IDataModelManager2 >
+    {
+    public:
+
+        WDataModelManager( ::IDataModelManager2* pDMM );
+
+        WDataModelManager( IntPtr pDMM );
+    }; // end class WDataModelManager
+
+
+    public ref class WDebugHost : WDebugEngInterface< ::IDebugHost >
+    {
+    public:
+
+        WDebugHost( ::IDebugHost* pDH );
+
+        WDebugHost( IntPtr pDH );
+    }; // end class WDebugHost
+
+
+    public ref class WHostDataModelAccess : WDebugEngInterface< ::IHostDataModelAccess >
+    {
+    public:
+
+        WHostDataModelAccess( ::IHostDataModelAccess* pHDMA );
+
+        WHostDataModelAccess( IntPtr pHDMA );
+
+        int GetDataModel(
+            [Out] WDataModelManager^% manager,
+            [Out] WDebugHost^% host);
+    }; // end class WHostDataModelAccess
 }

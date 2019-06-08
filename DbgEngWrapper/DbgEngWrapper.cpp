@@ -6506,6 +6506,101 @@ int WDebugAdvanced::Request(
                                         (PULONG) pp );
 }
 
+
+//
+// WDataModelManager stuff
+//
+
+
+WDataModelManager::WDataModelManager( ::IDataModelManager2* pDMM )
+    : WDebugEngInterface( pDMM )
+{
+    WDebugClient::g_log->Write( L"Created DataModelManager" );
+} // end constructor
+
+
+WDataModelManager::WDataModelManager( IntPtr pDMM )
+    : WDebugEngInterface( pDMM )
+{
+    WDebugClient::g_log->Write( L"Created DataModelManager" );
+} // end constructor
+
+
+//
+// WDebugHost stuff
+//
+
+
+WDebugHost::WDebugHost( ::IDebugHost* pDH )
+    : WDebugEngInterface( pDH )
+{
+    WDebugClient::g_log->Write( L"Created DebugHost" );
+} // end constructor
+
+
+WDebugHost::WDebugHost( IntPtr pDH )
+    : WDebugEngInterface( pDH )
+{
+    WDebugClient::g_log->Write( L"Created DebugHost" );
+} // end constructor
+
+
+
+//
+// WHostDataModelAccess stuff
+//
+
+
+WHostDataModelAccess::WHostDataModelAccess( ::IHostDataModelAccess* pHDMA )
+    : WDebugEngInterface( pHDMA )
+{
+    WDebugClient::g_log->Write( L"Created HostDataModelAccess" );
+} // end constructor
+
+
+WHostDataModelAccess::WHostDataModelAccess( IntPtr pHDMA )
+    : WDebugEngInterface( pHDMA )
+{
+    WDebugClient::g_log->Write( L"Created HostDataModelAccess" );
+} // end constructor
+
+
+int WHostDataModelAccess::GetDataModel(
+    [Out] WDataModelManager^% manager,
+    [Out] WDebugHost^% host)
+{
+    WDebugClient::g_log->Write( L"HostDataModelAccess::GetDataModel" );
+
+    manager = nullptr;
+    host = nullptr;
+
+    ::IDataModelManager* pDMM = nullptr;
+    ::IDebugHost* pDH = nullptr;
+    int hr = m_pNative->GetDataModel( &pDMM, &pDH );
+
+    if( SUCCEEDED( hr ) )
+    {
+        ::IDataModelManager2* pDMM2 = nullptr;
+        hr = pDMM->QueryInterface( IID_IDataModelManager2, reinterpret_cast<PVOID*>( &pDMM2 ) );
+
+        pDMM->Release();
+
+        if( SUCCEEDED( hr ) )
+        {
+            manager = gcnew WDataModelManager( pDMM2 );
+            host = gcnew WDebugHost( pDH );
+        }
+        else
+        {
+            pDH->Release();
+        }
+    }
+
+
+    return hr;
+} // end constructor
+
+
 } // end namespace
 
 // "Magic"! This pragma disables warnings like:
