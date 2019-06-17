@@ -148,32 +148,35 @@ internal static partial class ConsoleControl
         } // end constructor
 
 
-        public void Write( ConsoleHandle handle, string s )
+        public void Write( ConsoleHandle handle, ReadOnlySpan< char > s, bool appendNewline )
         {
-            int startIndex = 0;
-
             if( m_state.IsParsing )
             {
                 // Need to continue.
-                startIndex = _HandleControlSequence( s, -1 );
+                int startIndex = _HandleControlSequence( s, -1 );
+                s = s.Slice( startIndex );
             }
 
-            int escIndex = s.IndexOf( CSI, startIndex );
+            int escIndex = s.IndexOf( CSI );
 
             while( escIndex >= 0 )
             {
                 //Tool.WL( "escIndex: {0}, startIndex: {1}", escIndex, startIndex );
-                string chunk = s.Substring( startIndex, escIndex - startIndex );
-                //Console.Write( chunk );
+                var chunk = s.Slice( 0, escIndex );
                 ConsoleControl._RealWriteConsole( handle, chunk );
-                startIndex = _HandleControlSequence( s, escIndex );
-                escIndex = s.IndexOf( CSI, startIndex );
+                int startIndex = _HandleControlSequence( s, escIndex );
+                s = s.Slice( startIndex );
+                escIndex = s.IndexOf( CSI );
             }
 
-            if( !(startIndex >= s.Length) )
+            if( !s.IsEmpty )
             {
-                //Console.Write( s.Substring( startIndex ) );
-                ConsoleControl._RealWriteConsole( handle, s.Substring( startIndex ) );
+                ConsoleControl._RealWriteConsole( handle, s );
+            }
+
+            if( appendNewline )
+            {
+                ConsoleControl._RealWriteConsole( handle, ColorHostUserInterface.Crlf.AsSpan() );
             }
         } // end Write()
 
@@ -183,7 +186,7 @@ internal static partial class ConsoleControl
         ///    could be past the end of the string, or could be the start of another
         ///    control sequence).
         /// </summary>
-        private int _HandleControlSequence( string s, int escIndex )
+        private int _HandleControlSequence( ReadOnlySpan< char > s, int escIndex )
         {
             m_state.Begin(); // we may actually be continuing...
 

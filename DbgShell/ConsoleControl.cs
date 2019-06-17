@@ -2727,95 +2727,89 @@ namespace MS.DbgShell
             return LucidaSupportedCodePages.Contains(currentLocaleCodePage);
         }
 
-#endregion
+        #endregion
 
         /// <summary>
-        /// 
         /// Wrap Win32 WriteConsole
-        /// 
         /// </summary>
         /// <param name="consoleHandle">
-        /// 
         /// handle for the console where the string is written
-        /// 
         /// </param>
         /// <param name="output">
-        /// 
         /// string that is written
-        /// 
+        /// </param>
+        /// <param name="newLine">
+        /// New line is written.
         /// </param>
         /// <exception cref="HostException">
-        /// 
         /// if the Win32's WriteConsole fails 
-        /// 
         /// </exception>
-
-        internal static void WriteConsole(ConsoleHandle consoleHandle, string output)
+        internal static void WriteConsole( ConsoleHandle consoleHandle, ReadOnlySpan< char > output, bool newLine = false )
         {
-            Util.Assert(!consoleHandle.IsInvalid, "ConsoleHandle is not valid");
-            Util.Assert(!consoleHandle.IsClosed, "ConsoleHandle is closed");
+            Util.Assert( !consoleHandle.IsInvalid, "ConsoleHandle is not valid" );
+            Util.Assert( !consoleHandle.IsClosed, "ConsoleHandle is closed" );
 
-            if (String.IsNullOrEmpty(output))
-                return;
-
-            // Native WriteConsole doesn't support output buffer longer than 64K. 
-            // We need to chop the output string if it is too long. 
-
-            int cursor = 0; // This records the chopping position in output string
-            const int maxBufferSize = 16383; // this is 64K/4 - 1 to account for possible width of each character.
-
-            while (cursor < output.Length)
+            if( output.IsEmpty )
             {
-                string outBuffer;
-
-                if (cursor + maxBufferSize < output.Length)
+                if( newLine )
                 {
-                    outBuffer = output.Substring(cursor, maxBufferSize);
-                    cursor += maxBufferSize;
+                    _RealWriteConsole( consoleHandle, Environment.NewLine.AsSpan() );
+                }
+                return;
+            }
+
+            // [danthom] Debugging note: put a breakpoint here to catch output as it
+            // is going out.
+
+            // If a newline gets injected between strings where a color control
+            // sequence is broken across them, things blow up terribly.
+            int cursor = 0; // This records the chopping position in output string
+            const int MaxBufferSize = 16383; // this is 64K/4 - 1 to account for possible width of each character.
+            while( cursor < output.Length )
+            {
+                ReadOnlySpan< char > outBuffer;
+
+                if( cursor + MaxBufferSize < output.Length )
+                {
+                    outBuffer = output.Slice( cursor, MaxBufferSize );
+                    cursor += MaxBufferSize;
                 }
                 else
                 {
-                    outBuffer = output.Substring(cursor);
+                    outBuffer = output.Slice( cursor );
                     cursor = output.Length;
                 }
 
-                //_RealWriteConsole( consoleHandle, outBuffer );
-
-                // [danthom] Debugging note: put a breakpoint here to catch output as it
-                // is going out.
-
-                // If a newline gets injected between strings where a color control
-                // sequence is broken across them, things blow up terribly.
-                if( 0 == Util.Strcmp_OI( ColorHostUserInterface.Crlf, outBuffer ) )
+                if( ColorHostUserInterface.Crlf.AsSpan().SequenceEqual( outBuffer ) )
                 {
                     _RealWriteConsole( consoleHandle, outBuffer );
                 }
                 else
                 {
-                    sm_colorWriter.Write( consoleHandle, outBuffer );
+                    sm_colorWriter.Write( consoleHandle, outBuffer, newLine );
                 }
             }
-        } // end WriteConsole()
+
+        }// end WriteConsole()
 
         // A problem with doing this at such an incredibly low level is that if there is any
         // kind of problem with it, and then we try to WriteErrorLine... and hilarity ensues.
         // TODO: a possible mitigation is if we detect an invalid control code or somesuch,
         // reset the colors and parse state.
-        private static AnsiColorWriter sm_colorWriter = new AnsiColorWriter();
+        private static readonly AnsiColorWriter sm_colorWriter = new AnsiColorWriter();
 
-        private static void _RealWriteConsole( ConsoleHandle handle, string s )
+        private static void _RealWriteConsole( ConsoleHandle handle, ReadOnlySpan< char > s )
         {
-            DWORD charsWritten;
-            bool itWorked = NativeMethods.WriteConsole( handle.DangerousGetHandle(),
-                                                        s,
+            bool itWorked = NativeMethods.WriteConsole( handle,
+                                                        in MemoryMarshal.GetReference( s ),
                                                         (DWORD) s.Length,
-                                                        out charsWritten,
+                                                        out uint _,
                                                         IntPtr.Zero );
             if( !itWorked )
             {
                 int err = Marshal.GetLastWin32Error();
 
-                HostException e = CreateHostException(err, "WriteConsole",
+                HostException e = CreateHostException( err, "WriteConsole",
                     ErrorCategory.WriteError, "The Win32 internal error \"{0}\" 0x{1:X} occurred while writing to the console output buffer at the current cursor position. Contact Microsoft Customer Support Services." ); //ConsoleControlStrings.WriteConsoleExceptionTemplate);
                 throw e;
             }
@@ -3496,11 +3490,13 @@ namespace MS.DbgShell
                 out DWORD numberOfCharsWritten
             );
 
-            [DllImport("KERNEL32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            // [zhent] unlike PowerShell Core, we use a ref char instead of char*. This doesn't require compiling with /unsafe,
+            // allowing us pretend we are doing something more safe (we aren't).
+            [DllImport( "KERNEL32.dll", EntryPoint = "WriteConsole", SetLastError = true, CharSet = CharSet.Unicode )]
             internal static extern bool WriteConsole
             (
-                NakedWin32Handle consoleOutput,
-                string buffer,
+                SafeHandle consoleOutput,
+                in char buffer,
                 DWORD numberOfCharsToWrite,
                 out DWORD numberOfCharsWritten,
                 IntPtr reserved

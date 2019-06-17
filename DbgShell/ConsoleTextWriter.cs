@@ -66,7 +66,7 @@ namespace MS.DbgShell
         void
         WriteLine(string value)
         {
-            this.Write(value + ColorHostUserInterface.Crlf);
+            _ui.WriteToConsole( value.AsSpan(), true, newLine: true );
         }
 
 
@@ -84,7 +84,7 @@ namespace MS.DbgShell
         void
         Write(Char c)
         {
-            this.Write(new String(c, 1));
+            _ui.WriteToConsole( c, true );
         }
 
 
@@ -93,7 +93,7 @@ namespace MS.DbgShell
         void
         Write(Char[] a)
         {
-            this.Write(new String(a));
+            _ui.WriteToConsole( a.AsSpan(), true );
         }
 
 
