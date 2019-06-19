@@ -313,13 +313,22 @@ namespace MS.Dbg
             m_apparentLength += other.m_apparentLength;
             return this;
         }
-
-        public ColorString AppendFgRgb( byte r, byte g, byte b,  ColorString other )
+        
+        public ColorString AppendFgRgb( byte r, byte g, byte b,  ColorString other = null)
         {
+            _CheckReadOnly( true );
+            m_elements.Add( new SgrControlSequence( new[] { 38, 2, r, g, b } ) );
             if( null == other )
                 return this;
+            return Append( other );
+        }
+
+        public ColorString AppendBgRgb( byte r, byte g, byte b, ColorString other = null )
+        {
             _CheckReadOnly( true );
-            m_elements.Add( new ContentElement( $"\x01b[38;2;{r};{g};{b}m" ));
+            m_elements.Add( new SgrControlSequence( new[] { 48, 2, r, g, b } ) );
+            if( null == other )
+                return this;
             return Append( other );
         }
 

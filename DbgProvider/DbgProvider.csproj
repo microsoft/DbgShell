@@ -90,7 +90,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="internal\AnsiColorWriter.cs" />
     <Compile Include="internal\BlockingCollectionHolder.cs" />
     <Compile Include="internal\CaStringUtil.cs" />
     <Compile Include="internal\CircularBuffer.cs" />

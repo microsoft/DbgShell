@@ -747,10 +747,27 @@ namespace MS.DbgShell
             }
         }
 
+        internal static bool CheckVirtualTerminalSupported()
+        {
+            var handle = GetActiveScreenBufferHandle();
+            var m = GetMode( handle );
+            if( NativeMethods.SetConsoleMode( handle.DangerousGetHandle(), (uint) (m | ConsoleControl.ConsoleModes.VirtualTerminal) ) )
+            {
+                // We only know if vt100 is supported if the previous call actually set the new flag, older
+                // systems ignore the setting.
+                m = GetMode( handle );
+                if( (m & ConsoleModes.VirtualTerminal) != 0 )
+                {
+                    sm_colorWriter.VirtualTerminalSupported = true;
+                    return true;
+                }
+            }
+            return false;
+        }
 
-#endregion
+        #endregion
 
-#region Input
+        #region Input
 
 
 
@@ -2758,36 +2775,19 @@ namespace MS.DbgShell
                 return;
             }
 
+
             // [danthom] Debugging note: put a breakpoint here to catch output as it
             // is going out.
 
             // If a newline gets injected between strings where a color control
             // sequence is broken across them, things blow up terribly.
-            int cursor = 0; // This records the chopping position in output string
-            const int MaxBufferSize = 16383; // this is 64K/4 - 1 to account for possible width of each character.
-            while( cursor < output.Length )
+            if( ColorHostUserInterface.Crlf.AsSpan().SequenceEqual( output ) )
             {
-                ReadOnlySpan< char > outBuffer;
-
-                if( cursor + MaxBufferSize < output.Length )
-                {
-                    outBuffer = output.Slice( cursor, MaxBufferSize );
-                    cursor += MaxBufferSize;
-                }
-                else
-                {
-                    outBuffer = output.Slice( cursor );
-                    cursor = output.Length;
-                }
-
-                if( ColorHostUserInterface.Crlf.AsSpan().SequenceEqual( outBuffer ) )
-                {
-                    _RealWriteConsole( consoleHandle, outBuffer );
-                }
-                else
-                {
-                    sm_colorWriter.Write( consoleHandle, outBuffer, newLine );
-                }
+                _RealWriteConsole( consoleHandle, output );
+            }
+            else
+            {
+                sm_colorWriter.Write( consoleHandle, output, newLine );
             }
 
         }// end WriteConsole()

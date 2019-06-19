@@ -60,15 +60,7 @@ namespace MS.DbgShell
                 // Turn on virtual terminal if possible.
 
                 // This might throw - not sure how exactly (no console), but if it does, we shouldn't fail to start.
-                var handle = ConsoleControl.GetActiveScreenBufferHandle();
-                var m = ConsoleControl.GetMode(handle);
-                if (ConsoleControl.NativeMethods.SetConsoleMode(handle.DangerousGetHandle(), (uint)(m | ConsoleControl.ConsoleModes.VirtualTerminal)))
-                {
-                    // We only know if vt100 is supported if the previous call actually set the new flag, older
-                    // systems ignore the setting.
-                    m = ConsoleControl.GetMode(handle);
-                    this.SupportsVirtualTerminal = (m & ConsoleControl.ConsoleModes.VirtualTerminal) != 0;
-                }
+                SupportsVirtualTerminal = ConsoleControl.CheckVirtualTerminalSupported();
             }
             catch
             {
