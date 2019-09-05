@@ -46,6 +46,99 @@ namespace DbgEngWrapper
     ref class WDataModelManager;
     ref class WDebugHost;
 
+
+    public enum class ModelObjectKind : int
+    {
+        /// <summary>
+        /// The model object is a property accessor which can be called to retrieve value, etc...
+        ///
+        /// Calling GetIntrinsicValue on the object will yield a variant in which the punkVal
+        /// IUnknown pointer is an IModelPropertyAccessor.
+        /// </summary>
+        ObjectPropertyAccessor,
+
+        /// <summary>
+        /// The model object is a wrapped host context (allowing such to be used as an indexer, etc...)
+        ///
+        /// Calling GetIntrinsicValue on the object will yield a variant in which the punkVal
+        /// IUnknown pointer is an IDebugHostContext.
+        /// </summary>
+        ObjectContext,
+
+        /// <summary>
+        /// It's a typed object within the debuggee.  It may or may not have a model associated with it.
+        /// If it has a model, key/value pairs may be associated.
+        ///
+        /// This object type has no "intrinsic value".  It always has a location which can be acquired.
+        /// </summary>
+        ObjectTargetObject,
+
+        /// <summary>
+        /// It's a reference to an object within the debuggee (e.g.: the object *REFERS TO* a "target int" or a
+        /// "target int&").  This is distinct from an object within the debuggee which is a reference (e.g.:
+        /// the object *IS* a "target int&").
+        ///
+        /// This allows an evaluator or other client of the model to take a "reference" to a "reference"
+        /// (object reference to a int&) or to take a "reference" to an object which is enregistered.
+        ///
+        /// This object type has no "intrinsic value".  It always has a location which can be acquired.
+        /// The underlying object can be acquired through the Dereference method.
+        /// </summary>
+        ObjectTargetObjectReference,
+
+        /// <summary>
+        /// The model object is a synthetic object (a key/value/metadata store)
+        ///
+        /// This object type has no "intrinsic value" or location.  It is purely a key/value/metadata store.
+        /// </summary>
+        ObjectSynthetic,
+
+        /// <summary>
+        /// The model object represents no value.  If a given key exists but only has a value conditionally (e.g.: it's
+        /// a property accessor), it can return NoValue to indicate this.  The caller should treat this appropriately (e.g.:
+        /// not displaying the key/value in a visualization, etc...)
+        ///
+        /// This object type has no "intrinsic value" or location.
+        /// </summary>
+        ObjectNoValue,
+
+        /// <summary>
+        /// The model object represents an error.
+        ///
+        /// This object type has no "intrinsci value" or location.  It can always be converted to a string to determine
+        /// the error message.
+        /// </summary>
+        ObjectError,
+
+        /// <summary>
+        /// The type is an intrinsic which is communicated through a variant (and the resulting variant type)
+        ///
+        /// Calling GetIntrinsicValue on this type will yield a variant in which the value has been packed in
+        /// its natural form.  String objects are packed as VT_BSTR.
+        /// </summary>
+        ObjectIntrinsic,
+
+        /// <summary>
+        /// The model object is a method which can be called.
+        ///
+        /// Calling GetIntrinsicValue on the object will yield a variant in which the punkVal
+        /// IUnknown pointer is an IModelMethod.
+        /// </summary>
+        ObjectMethod,
+
+        /// <summary>
+        /// The model object is a key reference.
+        ///
+        /// Calling GetIntrinsicValue on the object will yield a variant in which the punkVal
+        /// IUnknown pointer is an IKeyReference.
+        /// </summary>
+        ObjectKeyReference,
+    };
+
+    static_assert( ::ObjectPropertyAccessor == (int) ModelObjectKind::ObjectPropertyAccessor, "enum should line up" );
+    static_assert( ::ObjectKeyReference == (int) ModelObjectKind::ObjectKeyReference, "enum should line up" );
+
+
     // This contains the code common to all the IDebug* wrappers: a pointer to the
     // native interface, and explicit conversion operators for casting.
     template< typename TNativeInterface >
@@ -75,7 +168,7 @@ namespace DbgEngWrapper
 
         // This simple exception filter just saves the exception code for the caller and
         // then requests that the handler be executed.
-        int MyExceptionFilter( EXCEPTION_POINTERS* pEp, HRESULT* pCode )
+        static int MyExceptionFilter( EXCEPTION_POINTERS* pEp, HRESULT* pCode )
         {
             *pCode = pEp->ExceptionRecord->ExceptionCode;
             return EXCEPTION_EXECUTE_HANDLER;
@@ -103,6 +196,27 @@ namespace DbgEngWrapper
             __try
             {
                 return (m_pNative->*pfn)(args...);
+            }
+            __except( MyExceptionFilter( GetExceptionInformation(), &hr ) )
+            {
+                String^ msg = String::Format( "SEH exception from dbgeng: 0x{0:x}", hr );
+                WDebugClient::g_notifyBadThingCallback( msg );
+                return hr;
+            }
+        }
+
+
+        template<typename TInterface, typename Method, typename ... Arguments>
+        static HRESULT
+        CallMethodWithSehProtection(
+            TInterface* t,
+            Method pfn,
+            Arguments... args)
+        {
+            HRESULT hr = 0;
+            __try
+            {
+                return (t->*pfn)(args...);
             }
             __except( MyExceptionFilter( GetExceptionInformation(), &hr ) )
             {
@@ -2836,7 +2950,7 @@ namespace DbgEngWrapper
             [In] ULONG BytesRequested,
             [In] BYTE* buffer,
             [Out] ULONG% BytesRead);
-        
+
         // This is a convenience wrapper for ReadVirtual for reading a single discrete value
         // without needing an extra byte array or copies
         generic <typename TValue>
@@ -3371,6 +3485,8 @@ namespace DbgEngWrapper
         WDataModelManager( ::IDataModelManager2* pDMM );
 
         WDataModelManager( IntPtr pDMM );
+
+        int GetRootNamespace( [Out] IntPtr% rootNamespace );
     }; // end class WDataModelManager
 
 
@@ -3396,4 +3512,18 @@ namespace DbgEngWrapper
             [Out] WDataModelManager^% manager,
             [Out] WDebugHost^% host);
     }; // end class WHostDataModelAccess
+
+
+    public ref class WModelObject : WDebugEngInterface< ::IModelObject >
+    {
+    private:
+        WModelObject() : WDebugEngInterface( nullptr ) { throw gcnew Exception( L"should never be called" ); }
+
+     // WModelObject( ::IModelObject* pMO );
+
+     // WModelObject( IntPtr pMO );
+
+    public:
+        static int GetKind( IntPtr pModelObject, [Out] ModelObjectKind% kind );
+    }; // end class WModelObject
 }

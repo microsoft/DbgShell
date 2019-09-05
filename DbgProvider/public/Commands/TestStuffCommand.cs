@@ -927,4 +927,30 @@ namespace MS.Dbg.Commands
         } // end ProcessRecord()
     } // end class TestStuff9Command
 
+
+    [Cmdlet( VerbsDiagnostic.Test, "StuffA" )]
+    public class TestStuffACommand : DbgBaseCommand
+    {
+        private void _CheckHr( int hr )
+        {
+            if( 0 != hr )
+                throw new DbgEngException( hr );
+        }
+
+
+        protected override void ProcessRecord()
+        {
+            base.ProcessRecord();
+
+            WHostDataModelAccess hdma = (WHostDataModelAccess) Debugger.DebuggerInterface;
+
+            hdma.GetDataModel( out WDataModelManager manager, out WDebugHost host );
+
+            _CheckHr( manager.GetRootNamespace( out IntPtr rootNs ) );
+
+            _CheckHr( WModelObject.GetKind( rootNs, out ModelObjectKind kind ) );
+            WriteObject( kind );
+        } // end ProcessRecord()
+    } // end class TestStuff9Command
+
 }

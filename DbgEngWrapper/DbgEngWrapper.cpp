@@ -6526,6 +6526,16 @@ WDataModelManager::WDataModelManager( IntPtr pDMM )
 } // end constructor
 
 
+int WDataModelManager::GetRootNamespace(
+    [Out] IntPtr% rootNamespace )
+{
+    WDebugClient::g_log->Write( L"DataModelManager::GetRootNamespace" );
+    pin_ptr< IntPtr > pp = &rootNamespace;
+    return CallMethodWithSehProtection( &TN::GetRootNamespace,
+                                        (::IModelObject**) pp );
+}
+
+
 //
 // WDebugHost stuff
 //
@@ -6599,6 +6609,40 @@ int WHostDataModelAccess::GetDataModel(
 
     return hr;
 } // end constructor
+
+
+//
+// WModelObject stuff
+//
+
+
+/*
+WModelObject::WModelObject( ::IModelObject* pMO )
+    : WDebugEngInterface( pMO )
+{
+    //WDebugClient::g_log->Write( L"Created ModelObject" );
+} // end constructor
+
+
+WModelObject::WModelObject( IntPtr pMO )
+    : WDebugEngInterface( pMO )
+{
+    //WDebugClient::g_log->Write( L"Created ModelObject" );
+} // end constructor
+*/
+
+int WModelObject::GetKind(
+    IntPtr pModelObject,
+    [Out] ModelObjectKind% kind )
+{
+    IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+
+    pin_ptr<ModelObjectKind> pp = &kind;
+
+    return CallMethodWithSehProtection( pReal,
+                                        &IModelObject::GetKind,
+                                        (::ModelObjectKind*) pp );
+}
 
 
 } // end namespace
