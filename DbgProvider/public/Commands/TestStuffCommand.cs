@@ -942,15 +942,50 @@ namespace MS.Dbg.Commands
         {
             base.ProcessRecord();
 
-            WHostDataModelAccess hdma = (WHostDataModelAccess) Debugger.DebuggerInterface;
+            using( Debugger.SetCurrentCmdlet( this ) )
+            {
+                MsgLoop.Prepare();
 
-            hdma.GetDataModel( out WDataModelManager manager, out WDebugHost host );
+                Debugger.ExecuteOnDbgEngThread( () =>
+                {
+                    WHostDataModelAccess hdma = (WHostDataModelAccess) Debugger.DebuggerInterface;
 
-            _CheckHr( manager.GetRootNamespace( out IntPtr rootNs ) );
+                    hdma.GetDataModel( out WDataModelManager manager, out WDebugHost host );
 
-            _CheckHr( WModelObject.GetKind( rootNs, out ModelObjectKind kind ) );
-            WriteObject( kind );
+                    _CheckHr( manager.GetRootNamespace( out IntPtr rootNs ) );
+
+                    _CheckHr( WModelObject.GetKind( rootNs, out ModelObjectKind kind ) );
+                    SafeWriteObject( kind );
+
+                    _WriteThing( new Tuple<string, IntPtr, IntPtr>( "(rootNs)", rootNs, IntPtr.Zero ) );
+
+                    MsgLoop.SignalDone();
+                } );
+
+                MsgLoop.Run();
+            } // end using( InterceptCtrlC )
+
         } // end ProcessRecord()
+
+        private int m_indent;
+
+        private void _WriteThing( Tuple< string, IntPtr, IntPtr > thing )
+        {
+            SafeWriteObject( new String( ' ', m_indent ) + "Name: " + thing.Item1 + " " + thing.Item2.ToString( "x" ) + " " + thing.Item3.ToString( "x" ) );
+
+
+            if( thing.Item2 != IntPtr.Zero )
+            {
+                _CheckHr( WModelObject.EnumerateKeyValues( thing.Item2, out var keyEnumerable  ) );
+
+                m_indent += 4;
+                foreach( var subThing in keyEnumerable  )
+                {
+                    _WriteThing( subThing );
+                }
+                m_indent -= 4;
+            }
+        }
     } // end class TestStuff9Command
 
 }

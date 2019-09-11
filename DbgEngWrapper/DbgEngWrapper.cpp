@@ -6645,6 +6645,32 @@ int WModelObject::GetKind(
 }
 
 
+int WModelObject::EnumerateKeyValues(
+    IntPtr pModelObject,
+    //[Out] IntPtr% enumerator )
+     [Out] KeyEnumerable^% theEnumerator )
+{
+    theEnumerator = nullptr;
+
+    IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+
+    IKeyEnumerator* pNativeEnumerator = nullptr;
+
+    HRESULT hr = CallMethodWithSehProtection( pReal,
+                                              &IModelObject::EnumerateKeyValues,
+                                              &pNativeEnumerator );
+
+    if( FAILED( hr ) )
+    {
+        return hr;
+    }
+
+    theEnumerator = gcnew KeyEnumerable( pNativeEnumerator );
+
+    return hr;
+}
+
+
 } // end namespace
 
 // "Magic"! This pragma disables warnings like:

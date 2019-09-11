@@ -3514,6 +3514,134 @@ namespace DbgEngWrapper
     }; // end class WHostDataModelAccess
 
 
+    // I really wish I could make this a "value struct" instead of a "ref struct", but I
+    // can't find a good way to dispose of the resources.
+    public ref struct KeyEnumerator : System::Collections::Generic::IEnumerator<System::Tuple<String^, IntPtr, IntPtr>^>//, IDisposable
+    {
+    private:
+        ::IKeyEnumerator* m_pNative;
+
+        String^ m_currentKey;
+        IModelObject* m_currentVal;
+        IKeyStore* m_currentKeyStore;
+
+        void _FreeCurrentValues()
+        {
+            if( m_currentVal )
+            {
+                m_currentVal->Release();
+                m_currentVal = nullptr;
+            }
+
+            if( m_currentKeyStore )
+            {
+                m_currentKeyStore->Release();
+                m_currentKeyStore = nullptr;
+            }
+        }
+
+    internal:
+        KeyEnumerator( IKeyEnumerator* pNative )
+        {
+            //m_pNative = static_cast<IKeyEnumerator*>( pNative.ToPointer() );
+            m_pNative = pNative;
+        }
+
+    public:
+        virtual bool MoveNext() = System::Collections::Generic::IEnumerator<Tuple<String^, IntPtr, IntPtr>^>::MoveNext
+        {
+            if( nullptr == m_pNative )
+            {
+                return false;
+            }
+
+            BSTR key;
+
+            _FreeCurrentValues();
+
+            // Why pin when we can just use some temporaries on the stack?
+         // pin_ptr<IModelObject*> ppVal = &m_currentVal;
+         // pin_ptr<IKeyStore*> ppKeyStore = &m_currentKeyStore;
+         // HRESULT hr = m_pNative->GetNext( &key, (IModelObject**) ppVal, (IKeyStore**) &ppKeyStore );
+            IModelObject* pVal = nullptr;
+            IKeyStore* pKeyStore = nullptr;
+            HRESULT hr = m_pNative->GetNext( &key, &pVal, &pKeyStore );
+            if( hr == S_OK )
+            {
+                m_currentKey = Marshal::PtrToStringBSTR( IntPtr( key ) );
+                SysFreeString( key );
+                key = nullptr;
+                m_currentVal = pVal;
+                m_currentKeyStore = pKeyStore;
+
+                return true;
+            }
+            return false;
+        }
+
+        property Tuple<String^, IntPtr, IntPtr>^ Current
+        {
+            virtual Tuple<String^, IntPtr, IntPtr>^ get() = System::Collections::Generic::IEnumerator<Tuple<String^, IntPtr, IntPtr>^>::Current::get
+            {
+                return gcnew Tuple<String^, IntPtr, IntPtr>( m_currentKey, IntPtr( m_currentVal ), IntPtr( m_currentKeyStore ) );
+            }
+        };
+
+        // This is required as IEnumerator<T> also implements IEnumerator
+        property Object^ Current2
+        {
+            virtual Object^ get() = System::Collections::IEnumerator::Current::get
+            {
+                return Current;
+            }
+        };
+
+        virtual void Reset() = System::Collections::Generic::IEnumerator<Tuple<String^, IntPtr, IntPtr>^>::Reset
+        {
+            HRESULT hr = m_pNative->Reset();
+            // TODO: do we have a proper assert available?
+            if( FAILED( hr ) )
+            {
+                __debugbreak();
+            }
+        }
+
+        ~KeyEnumerator()
+        {
+            _FreeCurrentValues();
+            m_pNative->Release();
+            m_pNative = nullptr;
+            m_currentKey = nullptr;
+            m_currentVal = nullptr;
+            m_currentKeyStore = nullptr;
+        }
+    };
+
+    public ref struct KeyEnumerable : System::Collections::Generic::IEnumerable<System::Tuple<String^, IntPtr, IntPtr>^>
+    {
+    private:
+        // TODO: or maybe I make THIS thing handle Release()ing the model object.
+        IKeyEnumerator* m_pNative;
+
+    public:
+        KeyEnumerable( IKeyEnumerator* pNative )
+        {
+            m_pNative = pNative;
+        }
+
+        virtual System::Collections::Generic::IEnumerator<System::Tuple<String^, IntPtr, IntPtr>^>^ GetEnumerator() = System::Collections::Generic::IEnumerable<System::Tuple<String^, IntPtr, IntPtr>^>::GetEnumerator
+        {
+            return gcnew KeyEnumerator( m_pNative );
+        }
+
+        virtual System::Collections::IEnumerator^ GetEnumeratorNonGeneric() = System::Collections::IEnumerable::GetEnumerator
+        {
+            return GetEnumerator();
+        }
+
+    };
+
+
     public ref class WModelObject : WDebugEngInterface< ::IModelObject >
     {
     private:
@@ -3525,5 +3653,9 @@ namespace DbgEngWrapper
 
     public:
         static int GetKind( IntPtr pModelObject, [Out] ModelObjectKind% kind );
+
+        //static int EnumerateKeyValues( IntPtr pModelObject, [Out] IntPtr% enumerator );
+        static int EnumerateKeyValues( IntPtr pModelObject, [Out] KeyEnumerable^% enumerator );
+
     }; // end class WModelObject
 }
