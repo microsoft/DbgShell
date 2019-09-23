@@ -187,6 +187,7 @@
     <Compile Include="public\Debugger\DefaultDerivedTypeDetectionPlugin.cs" />
     <Compile Include="public\Debugger\Enums.cs" />
     <Compile Include="public\Debugger\HoldingPipelineCallback.cs" />
+    <Compile Include="public\Debugger\ModelObject.cs" />
     <Compile Include="public\Debugger\ModuleVersionInfo.cs" />
     <Compile Include="public\Debugger\SymbolTransformRecord.cs" />
     <Compile Include="public\Debugger\TypeInfo\DbgArrayTypeInfo.cs" />

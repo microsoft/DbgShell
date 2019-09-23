@@ -971,7 +971,8 @@ namespace MS.Dbg.Commands
 
         private void _WriteThing( Tuple< string, IntPtr, IntPtr > thing )
         {
-            SafeWriteObject( new String( ' ', m_indent ) + "Name: " + thing.Item1 + " " + thing.Item2.ToString( "x" ) + " " + thing.Item3.ToString( "x" ) );
+            _CheckHr( WModelObject.GetKind( thing.Item2, out ModelObjectKind kind ) );
+            SafeWriteObject( new String( ' ', m_indent ) + "Name: " + thing.Item1 + " (" + kind + ") " + thing.Item2.ToString( "x" ) + " " + thing.Item3.ToString( "x" ) );
 
 
             if( thing.Item2 != IntPtr.Zero )
@@ -986,6 +987,46 @@ namespace MS.Dbg.Commands
                 m_indent -= 4;
             }
         }
-    } // end class TestStuff9Command
+    } // end class TestStuffACommand
+
+
+
+    [Cmdlet( VerbsDiagnostic.Test, "StuffB" )]
+    public class TestStuffBCommand : DbgBaseCommand
+    {
+        private void _CheckHr( int hr )
+        {
+            if( 0 != hr )
+                throw new DbgEngException( hr );
+        }
+
+
+        protected override void ProcessRecord()
+        {
+            base.ProcessRecord();
+
+            using( Debugger.SetCurrentCmdlet( this ) )
+            {
+                MsgLoop.Prepare();
+
+                Debugger.ExecuteOnDbgEngThread( () =>
+                {
+                    WHostDataModelAccess hdma = (WHostDataModelAccess) Debugger.DebuggerInterface;
+
+                    hdma.GetDataModel( out WDataModelManager manager, out WDebugHost host );
+
+                    _CheckHr( manager.GetRootNamespace( out IntPtr rootNs ) );
+
+                    ModelObject mo = ModelObject.CreateModelObject( "(root)", rootNs, IntPtr.Zero );
+
+                    SafeWriteObject( mo );
+
+                    MsgLoop.SignalDone();
+                } );
+
+                MsgLoop.Run();
+            } // end using( InterceptCtrlC )
+        } // end ProcessRecord()
+    } // end class TestStuffBCommand
 
 }

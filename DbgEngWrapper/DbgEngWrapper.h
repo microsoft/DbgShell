@@ -3652,10 +3652,14 @@ namespace DbgEngWrapper
      // WModelObject( IntPtr pMO );
 
     public:
+        static int AddRef( IntPtr pModelObject );
+        static int Release( IntPtr pModelObject );
+
         static int GetKind( IntPtr pModelObject, [Out] ModelObjectKind% kind );
 
         //static int EnumerateKeyValues( IntPtr pModelObject, [Out] IntPtr% enumerator );
         static int EnumerateKeyValues( IntPtr pModelObject, [Out] KeyEnumerable^% enumerator );
 
+        static int GetIntrinsicValue( IntPtr pModelObject, [Out] Object^% value );
     }; // end class WModelObject
 }

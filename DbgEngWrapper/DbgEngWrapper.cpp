@@ -6631,6 +6631,26 @@ WModelObject::WModelObject( IntPtr pMO )
 } // end constructor
 */
 
+int WModelObject::AddRef(
+    IntPtr pModelObject )
+{
+    IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+
+    return CallMethodWithSehProtection( pReal,
+                                        &IModelObject::AddRef );
+}
+
+
+int WModelObject::Release(
+    IntPtr pModelObject )
+{
+    IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+
+    return CallMethodWithSehProtection( pReal,
+                                        &IModelObject::Release );
+}
+
+
 int WModelObject::GetKind(
     IntPtr pModelObject,
     [Out] ModelObjectKind% kind )
@@ -6670,6 +6690,29 @@ int WModelObject::EnumerateKeyValues(
     return hr;
 }
 
+
+int WModelObject::GetIntrinsicValue(
+    IntPtr pModelObject,
+     [Out] Object^% value )
+{
+    value = nullptr;
+    IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+    VARIANT v;
+    VariantInit(&v);
+
+    HRESULT hr = CallMethodWithSehProtection( pReal,
+                                              &IModelObject::GetIntrinsicValue,
+                                              &v );
+
+    if( FAILED( hr ) )
+    {
+        return hr;
+    }
+
+    value = Marshal::GetObjectForNativeVariant( IntPtr( &v ) );
+
+    return hr;
+}
 
 } // end namespace
 
