@@ -3541,10 +3541,11 @@ namespace DbgEngWrapper
         }
 
     internal:
-        KeyEnumerator( IKeyEnumerator* pNative )
+        KeyEnumerator( IKeyEnumerator* pNative ) : m_pNative( pNative ),
+                                                   m_currentKey( nullptr ),
+                                                   m_currentVal( nullptr ),
+                                                   m_currentKeyStore( nullptr )
         {
-            //m_pNative = static_cast<IKeyEnumerator*>( pNative.ToPointer() );
-            m_pNative = pNative;
         }
 
     public:
@@ -3652,6 +3653,7 @@ namespace DbgEngWrapper
      // WModelObject( IntPtr pMO );
 
     public:
+        // TODO: move these out, as they apply to any IUnknown
         static int AddRef( IntPtr pModelObject );
         static int Release( IntPtr pModelObject );
 
@@ -3661,5 +3663,7 @@ namespace DbgEngWrapper
         static int EnumerateKeyValues( IntPtr pModelObject, [Out] KeyEnumerable^% enumerator );
 
         static int GetIntrinsicValue( IntPtr pModelObject, [Out] Object^% value );
+
+        static int GetKeyValue( IntPtr pModelObject, String^ key, [Out] IntPtr% pVal, [Out] IntPtr% pKeyStore );
     }; // end class WModelObject
 }

@@ -6634,20 +6634,31 @@ WModelObject::WModelObject( IntPtr pMO )
 int WModelObject::AddRef(
     IntPtr pModelObject )
 {
-    IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+ // IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+
+ // return CallMethodWithSehProtection( pReal,
+ //                                     &IModelObject::AddRef );
+    IUnknown* pReal = reinterpret_cast<IUnknown*>( pModelObject.ToPointer() );
 
     return CallMethodWithSehProtection( pReal,
-                                        &IModelObject::AddRef );
+                                        &IUnknown::AddRef );
 }
 
 
 int WModelObject::Release(
     IntPtr pModelObject )
 {
-    IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+  //IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
 
-    return CallMethodWithSehProtection( pReal,
-                                        &IModelObject::Release );
+  //return CallMethodWithSehProtection( pReal,
+  //                                    &IModelObject::Release );
+    IUnknown* pReal = reinterpret_cast<IUnknown*>( pModelObject.ToPointer() );
+
+    if( pReal )
+    {
+        return CallMethodWithSehProtection( pReal,
+                                            &IUnknown::Release );
+    }
 }
 
 
@@ -6693,7 +6704,7 @@ int WModelObject::EnumerateKeyValues(
 
 int WModelObject::GetIntrinsicValue(
     IntPtr pModelObject,
-     [Out] Object^% value )
+    [Out] Object^% value )
 {
     value = nullptr;
     IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
@@ -6711,6 +6722,27 @@ int WModelObject::GetIntrinsicValue(
 
     value = Marshal::GetObjectForNativeVariant( IntPtr( &v ) );
 
+    return hr;
+}
+
+int WModelObject::GetKeyValue(
+    IntPtr pModelObject,
+    String^ key,
+    [Out] IntPtr% pVal,
+    [Out] IntPtr% pKeyStore )
+{
+    pVal = IntPtr( 0 );
+    pKeyStore = IntPtr( 0 );
+    IModelObject* pReal = reinterpret_cast<IModelObject*>( pModelObject.ToPointer() );
+    marshal_context mc;
+    pin_ptr<IntPtr> ppVal = &pVal;
+    pin_ptr<IntPtr> ppKeyStore = &pKeyStore;
+
+    HRESULT hr = CallMethodWithSehProtection( pReal,
+                                              &IModelObject::GetKeyValue,
+                                              mc.marshal_as<const wchar_t*>( key ),
+                                              (IModelObject**) ppVal,
+                                              (IKeyStore**) ppKeyStore );
     return hr;
 }
 

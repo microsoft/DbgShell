@@ -185,6 +185,7 @@
     <Compile Include="public\Debugger\DbgPublicSymbol.cs" />
     <Compile Include="public\Debugger\DebugOutputCallbacks.cs" />
     <Compile Include="public\Debugger\DefaultDerivedTypeDetectionPlugin.cs" />
+    <Compile Include="public\Debugger\DynamicModelObject.cs" />
     <Compile Include="public\Debugger\Enums.cs" />
     <Compile Include="public\Debugger\HoldingPipelineCallback.cs" />
     <Compile Include="public\Debugger\ModelObject.cs" />

@@ -1029,4 +1029,42 @@ namespace MS.Dbg.Commands
         } // end ProcessRecord()
     } // end class TestStuffBCommand
 
+
+    [Cmdlet( VerbsDiagnostic.Test, "StuffC" )]
+    public class TestStuffCCommand : DbgBaseCommand
+    {
+        private void _CheckHr( int hr )
+        {
+            if( 0 != hr )
+                throw new DbgEngException( hr );
+        }
+
+
+        protected override void ProcessRecord()
+        {
+            base.ProcessRecord();
+
+            using( Debugger.SetCurrentCmdlet( this ) )
+            {
+                MsgLoop.Prepare();
+
+                Debugger.ExecuteOnDbgEngThread( () =>
+                {
+                    WHostDataModelAccess hdma = (WHostDataModelAccess) Debugger.DebuggerInterface;
+
+                    hdma.GetDataModel( out WDataModelManager manager, out WDebugHost host );
+
+                    _CheckHr( manager.GetRootNamespace( out IntPtr rootNs ) );
+
+                    DynamicModelObject mo = DynamicModelObject.CreateModelObject( "(root)", rootNs, IntPtr.Zero );
+
+                    SafeWriteObject( mo );
+
+                    MsgLoop.SignalDone();
+                } );
+
+                MsgLoop.Run();
+            } // end using( InterceptCtrlC )
+        } // end ProcessRecord()
+    } // end class TestStuffCCommand
 }

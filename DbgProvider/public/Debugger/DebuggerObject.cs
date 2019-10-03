@@ -29,6 +29,9 @@ namespace MS.Dbg
         internal const int HR_ERROR_FILE_NOT_FOUND = unchecked( (int) 0x80070002 );
         internal const int E_FAIL = unchecked( (int) 0x80040005 );
 
+        internal const int E_BOUNDS = unchecked( (int) 0x8000000b );
+        internal const int E_NOT_SET = unchecked( (int) 0x80070490 ); // HRESULT_FROM_WIN32( ERROR_NOT_FOUND )
+
         // This is HRESULT_FOR_WIN32 for ERROR_NESTING_NOT_ALLOWED. HR_ILLEGAL_NESTING is
         // the symbolic name used in dbgeng sources.
         internal const int HR_ILLEGAL_NESTING = unchecked( (int) 0x800700d7 );
