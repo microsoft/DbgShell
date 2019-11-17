@@ -171,12 +171,9 @@ namespace MS.Dbg.Commands
                 case DbgMemoryDisplayFormat.Words:
                 case DbgMemoryDisplayFormat.WordsWithAscii:
                     return 2;
-                case DbgMemoryDisplayFormat.RGB:
-                    return 1; // Technically should be 3 but want to allow flexibility for line padding
                 case DbgMemoryDisplayFormat.DWords:
                 case DbgMemoryDisplayFormat.DWordsWithAscii:
                 case DbgMemoryDisplayFormat.DWordsWithBits:
-                case DbgMemoryDisplayFormat.RGBA:
                     return 4;
                 case DbgMemoryDisplayFormat.QWords:
                 case DbgMemoryDisplayFormat.QWordsWithAscii:
