@@ -34,26 +34,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -115,6 +115,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalOptions>/d2Zi+</AdditionalOptions>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -125,12 +126,12 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <!-- for VS 15.4.0+? -->
-    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT')">
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).DebugCRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
     <!-- for previous versions of VS? -->
-    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT')">
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).DebugCRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\debug_nonredist\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -142,6 +143,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalOptions>/d2Zi+</AdditionalOptions>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -152,12 +154,12 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <!-- for VS 15.4.0+? -->
-    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT')">
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).DebugCRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
     <!-- for previous versions of VS? -->
-    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT')">
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\debug_nonredist\$(PlatformShortName)\Microsoft.VC141.DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
+    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\debug_nonredist\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).DebugCRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\debug_nonredist\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).DebugCRT\*.dll" "$(OutDir)"    /D /Y &amp;&amp; xcopy "$(UCRTContentRoot)\bin\$(WindowsTargetPlatformVersion)\$(PlatformTarget)\ucrt\*.dll" "$(OutDir)" /D /Y </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -170,6 +172,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalOptions>/d2Zi+</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -182,12 +185,12 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <!-- for VS 15.4.0+? -->
-    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT')">
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
+    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).CRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).CRT\*.dll" "$(OutDir)" /D /Y</Command>
     </PostBuildEvent>
     <!-- for previous versions of VS? -->
-    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT')">
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
+    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).CRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).CRT\*.dll" "$(OutDir)" /D /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -200,6 +203,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalOptions>/d2Zi+</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -212,12 +216,12 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
     <!-- for VS 15.4.0+? -->
-    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT')">
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
+    <PostBuildEvent Condition="exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).CRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).CRT\*.dll" "$(OutDir)" /D /Y</Command>
     </PostBuildEvent>
     <!-- for previous versions of VS? -->
-    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC141.CRT')">
-      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\$(PlatformShortName)\Microsoft.VC141.CRT\*.dll" "$(OutDir)" /D /Y</Command>
+    <PostBuildEvent Condition="!exists('$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\onecore\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).CRT')">
+      <Command>xcopy "$(VCInstallDir)redist\MSVC\$(VCRedistVersion)\$(PlatformShortName)\Microsoft.VC$(PlatformToolsetVersion).CRT\*.dll" "$(OutDir)" /D /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
