@@ -456,15 +456,15 @@
   <PropertyGroup>
     <FileDescription>Core DbgShell binary: implements the PowerShell provider and C# object model.</FileDescription>
   </PropertyGroup>
-  <Import Project="..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.15.0.0\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets" Condition="Exists('..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.15.0.0\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets')" />
   <Import Project="..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets" Condition="Exists('..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\AddGitVersionInfo.1.0.0.1\build\AddGitVersionInfo.targets'))" />
-    <Error Condition="!Exists('..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.15.0.0\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.15.0.0\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets'))" />
+    <Error Condition="!Exists('..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.16.0.0.1\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.16.0.0.1\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets'))" />
   </Target>
+  <Import Project="..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.16.0.0.1\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets" Condition="Exists('..\packages\Unofficial.Microsoft.TextTemplating.BuildTasks.16.0.0.1\build\Unofficial.Microsoft.TextTemplating.BuildTasks.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
