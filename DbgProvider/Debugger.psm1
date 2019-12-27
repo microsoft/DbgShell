@@ -288,12 +288,14 @@ function Convert-CsvTraceToText( [CmdletBinding()]
             [System.IO.FileStream] $outStream = New-Object "System.IO.FileStream" -ArgumentList @( $outputTxtFile, [System.IO.FileMode]::CreateNew )
             $writer = New-Object "System.IO.StreamWriter" -ArgumentList @( $outStream )
 
-            # Skip the first two lines (CSV header stuff).
+            # Skip the first few lines (header stuff).
             $line = $reader.ReadLine()
             $line = $reader.ReadLine()
+            $line = $reader.ReadLine()
+
             if( $null -eq $line )
             {
-                Write-Error "There weren't even two lines?" -Category InvalidData -TargetObject $inputCsvFile
+                Write-Error "There weren't even header lines?" -Category InvalidData -TargetObject $inputCsvFile
                 return;
             }
 
