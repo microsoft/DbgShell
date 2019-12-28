@@ -970,6 +970,9 @@ string g_strings[] = {
 };
 
 
+// Just need something
+string g_oneString = "hello there";
+
 // A variable with a name that looks like a number.
 __declspec( dllexport ) // prevents it from being optimized away on FRE builds
 LONG abcd = 0xabcd;
@@ -1001,6 +1004,11 @@ DWORD GetSystemPageSize()
     {
         GetSystemInfo( &g_SysInfo );
         printf( "page size: %#x\n", g_SysInfo.dwPageSize );
+
+        // Just need to do "something" with an STL string object, to prevent
+        // the compiler/linker from optimizing too much of the structure away,
+        // so that the test that verifies we can convert STL strings will work.
+        g_oneString += " okay, now there is more stuff here";
     }
 
     return g_SysInfo.dwPageSize;
