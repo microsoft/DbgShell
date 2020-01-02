@@ -8,19 +8,15 @@ using System.Reflection;
 using System.Globalization;
 using System.ComponentModel;
 using System.Collections.Generic;
-using System.Security;
 using System.Diagnostics;
-using System.Diagnostics.Eventing;
 using System.Linq;
 using System.Management.Automation;
 using System.Security.Principal;
+using System.Diagnostics.Tracing;
 
 namespace MS.Dbg
 {
     // For the plugin API, so that plugins can log to our log.
-    //
-    // TODO: would probably be nice to switch to EventSource, but it might be a fair bit
-    // of work, to keep all the features that LogManager has.
     public interface ILogger
     {
         void Trace( string message );
@@ -73,8 +69,6 @@ namespace MS.Dbg
 
     internal class LogManager
     {
-        public static readonly Guid DbgProviderEtwProviderGuid = Guid.Parse( "{2CAB93B7-2674-4BE9-A64F-C6B37B2313CE}" );
-
         private static ulong sm_traceHandle;
         private static EventTraceProperties sm_etp;
         private static bool sm_useLowPriFile;
@@ -276,16 +270,61 @@ namespace MS.Dbg
         private static bool sm_onInitPath;
         private static List< string > sm_preTracingTracing;
 
-        private static EventProvider _InitDebugTraceEventProvider()
+
+        private class MyEventSource : EventSource
+        {
+            private EventSourceException m_lastError;
+
+            public MyEventSource()
+                : base( "Microsoft.Dbg.DbgShellEventSource",
+                        EventSourceSettings.EtwSelfDescribingEventFormat | EventSourceSettings.ThrowOnEventWriteErrors )
+            {
+            }
+
+            [NonEvent]
+            internal EventSourceException GetLastError() { return m_lastError; }
+
+            [Event( 1 )]
+            public bool WriteMessage( string msg )
+            {
+                bool retval = false;
+
+                try
+                {
+                    WriteEvent( 1, msg );
+                    retval = true;
+                }
+                catch( EventSourceException ese )
+                {
+#if DEBUG
+                    if( System.Diagnostics.Debugger.IsAttached )
+                    {
+                        System.Diagnostics.Debugger.Break();
+                    }
+#endif
+                    m_lastError = ese;
+                }
+
+                return retval;
+            }
+
+            [NonEvent]
+            public bool WriteMessage( string msgFmt, params object[] inserts )
+            {
+                return WriteMessage( Util.Sprintf( msgFmt, inserts ) );
+            }
+        } // end class MyEventSource
+
+        private static MyEventSource _InitDebugTraceEventSource()
         {
             sm_onInitPath = true;
-            EventProvider ep = new EventProvider( DbgProviderEtwProviderGuid );
+            MyEventSource es = new MyEventSource();
 
             // This won't make it into the log. But in case the EventProvider
             // constructor ever decides to do lazy registration, we'll trace
             // this so that our provider GUID will be sure to be registered
             // before we call StartTrace.
-            ep.WriteMessageEvent( "(starting session)" );
+            es.WriteMessage( "(starting session)" );
 
             Exception e = null;
             foreach( string potentialLogFile in _ChooseLogFilePath() )
@@ -293,7 +332,7 @@ namespace MS.Dbg
                 e = Util.TryWin32IO( () =>
                 {
                     sm_logFile = potentialLogFile;
-                    _StartTracing( ep );
+                    _StartTracing( es );
                 } );
                 if( null == e )
                     break;
@@ -333,16 +372,16 @@ namespace MS.Dbg
             sm_onInitPath = false;
             if( null != sm_preTracingTracing )
             {
-                _WriteToEventProvider( ep, "(Begin trace messages generated while setting up tracing.)" );
+                _WriteToEventProvider( es, "(Begin trace messages generated while setting up tracing.)" );
                 foreach( string preTrace in sm_preTracingTracing )
                 {
-                    _WriteToEventProvider( ep, preTrace );
+                    _WriteToEventProvider( es, preTrace );
                 }
-                _WriteToEventProvider( ep, "(End trace messages generated while setting up tracing.)" );
+                _WriteToEventProvider( es, "(End trace messages generated while setting up tracing.)" );
                 sm_preTracingTracing = null;
             }
-            return ep;
-        } // end _InitDebugTraceEventProvider()
+            return es;
+        } // end _InitDebugTraceEventSource()
 
 
         private static void _UnhandledExceptionHappened( object sender, UnhandledExceptionEventArgs e )
@@ -400,14 +439,14 @@ namespace MS.Dbg
                             }
                         }
 
-                        sm_eventProvider.Value.Dispose();
+                        sm_eventSource.Value.Dispose();
                     }
                 }
             }
 #if DEBUG
             catch( Exception e2 )
             {
-                Console.WriteLine( "Failed to dispose sm_eventProvider: {0}", e2 );
+                Console.WriteLine( "Failed to dispose sm_eventSource: {0}", e2 );
             }
 #else
             catch( Exception ) { }
@@ -416,8 +455,8 @@ namespace MS.Dbg
 
 
         private static bool sm_shuttingDown;
-        private static Lazy< EventProvider > sm_eventProvider =
-            new Lazy< EventProvider >( _InitDebugTraceEventProvider, true );
+        private static Lazy< MyEventSource > sm_eventSource =
+            new Lazy< MyEventSource >( _InitDebugTraceEventSource, true );
 
         private static object sm_syncRoot = new object();
 
@@ -458,31 +497,34 @@ namespace MS.Dbg
                     else
                     {
                         if( !sm_shuttingDown )
-                            _WriteToEventProvider( sm_eventProvider.Value, fullLine );
+                            _WriteToEventProvider( sm_eventSource.Value, fullLine );
                     }
                 } // end foreach( line )
             }
         } // end Trace()
 
 
-        private static void _WriteToEventProvider( EventProvider ep, string fullLine )
+        private static void _WriteToEventProvider( MyEventSource es, string fullLine )
         {
-            if( !ep.WriteMessageEvent( fullLine ) )
+            if( !es.WriteMessage( fullLine ) )
             {
-                if( EventProvider.WriteEventErrorCode.NoFreeBuffers == EventProvider.GetLastWriteEventError() )
+                // Before, when we were using EventProvider, we could check
+                // EventProvider.GetLastWriteEventError(), and see if the error was
+                // something like NoFreeBuffers, to help us decide whether or not it was
+                // worth trying again. But now we don't have that, with EventSource... so
+                // we'll just guess that maybe that could've been the problem, and try
+                // again unconditionally.
+#if DEBUG
+                Console.WriteLine( "Tracing error: maybe NoFreeBuffers? Will try again..." );
+#endif
+                Thread.Sleep( 20 );
+
+                if( !es.WriteMessage( fullLine ) )
                 {
 #if DEBUG
-                    Console.WriteLine( "Tracing error: NoFreeBuffers. Will try again..." );
+                     Console.WriteLine( "Tracing error: {0}", Util.GetExceptionMessages( es.GetLastError() ) );
+                     Console.WriteLine( "Log message was: {0}", fullLine );
 #endif
-                    Thread.Sleep( 20 );
-
-                    if( !ep.WriteMessageEvent( fullLine ) )
-                    {
-#if DEBUG
-                         Console.WriteLine( "Tracing error: {0}. Data was:", EventProvider.GetLastWriteEventError() );
-                         Console.WriteLine( "{0}", fullLine );
-#endif
-                    }
                 }
             }
         } // end _WriteToEventProvider()
@@ -532,7 +574,7 @@ namespace MS.Dbg
 
         private static int sm_maxLogFileSizeMB;
 
-        private static void _StartTracing( EventProvider ep )
+        private static void _StartTracing( MyEventSource es )
         {
             try
             {
@@ -576,9 +618,22 @@ namespace MS.Dbg
                     }
                 }
 
-                sm_etp = new EventTraceProperties( DbgProviderEtwProviderGuid, sm_logFile, sm_maxLogFileSizeMB, bufSizeKb, bufsPerProc );
+                // BEWARE: The GUID returned from
+                //    MyEventSource.GetGuid( typeof( MyEventSource ) )
+                // is different from the GUID returned from
+                //    es.Guid
+                // !
+                Guid theGuid = es.Guid;
 
-                int err = NativeMethods.StartTrace( out sm_traceHandle, "Microsoft.DbgProvider.TraceSession", sm_etp );
+                sm_etp = new EventTraceProperties( theGuid,
+                                                   sm_logFile,
+                                                   sm_maxLogFileSizeMB,
+                                                   bufSizeKb,
+                                                   bufsPerProc );
+
+                int err = NativeMethods.StartTrace( out sm_traceHandle,
+                                                    "Microsoft.DbgProvider.TraceSession",
+                                                    sm_etp );
                 if( 0 != err )
                 {
                     var e = new Win32Exception( err );
@@ -586,9 +641,8 @@ namespace MS.Dbg
                     throw e;
                 }
 
-                Guid tmp = DbgProviderEtwProviderGuid;
                 err = NativeMethods.EnableTraceEx2( sm_traceHandle,
-                                                    ref tmp,
+                                                    ref theGuid,
                                                     ControlCode.ENABLE_PROVIDER,
                                                     TraceLevel.Verbose,
                                                     0, // matchAnyKeyword
@@ -605,16 +659,16 @@ namespace MS.Dbg
                 if( !sm_shuttingDown )
                 {
                     // Can't call Trace directly because this code is called in the code path that
-                    // lazily initializes the sm_eventProvider field.
-                    ep.WriteMessageEvent( "==========================================================" );
-                    ep.WriteMessageEvent( Util.Sprintf( "DbgProvider version {0}", fvi.FileVersion ) );
-                    ep.WriteMessageEvent( Util.Sprintf( "CurrentCulture/CurrentUICulture: {0} / {1}", CultureInfo.CurrentCulture.Name, CultureInfo.CurrentUICulture.Name ) );
-                    ep.WriteMessageEvent( Util.Sprintf( "Process ID: {0} (0x{0:x4})", NativeMethods.GetCurrentProcessId() ) );
-                    ep.WriteMessageEvent( Util.Sprintf( "Process command line: {0}", Environment.CommandLine ) );
-                    ep.WriteMessageEvent( Util.Sprintf( "User type: {0}, interactive: {1}",
+                    // lazily initializes the sm_eventSource field.
+                    es.WriteMessage( "==========================================================" );
+                    es.WriteMessage( Util.Sprintf( "DbgProvider version {0}", fvi.FileVersion ) );
+                    es.WriteMessage( Util.Sprintf( "CurrentCulture/CurrentUICulture: {0} / {1}", CultureInfo.CurrentCulture.Name, CultureInfo.CurrentUICulture.Name ) );
+                    es.WriteMessage( Util.Sprintf( "Process ID: {0} (0x{0:x4})", NativeMethods.GetCurrentProcessId() ) );
+                    es.WriteMessage( Util.Sprintf( "Process command line: {0}", Environment.CommandLine ) );
+                    es.WriteMessage( Util.Sprintf( "User type: {0}, interactive: {1}",
                                                         _GetUserType(),
                                                         Environment.UserInteractive ) );
-                    ep.WriteMessageEvent( Util.Sprintf( "Current machine: {0}", Environment.MachineName ) );
+                    es.WriteMessage( Util.Sprintf( "Current machine: {0}", Environment.MachineName ) );
                     Flush();
                 }
             }
@@ -713,7 +767,7 @@ namespace MS.Dbg
                         if( (0 == err) || (ERROR_MORE_DATA == err) )
                         {
                             File.Copy( sm_logFile, copyToFile, overwrite );
-                            _StartTracing( sm_eventProvider.Value );
+                            _StartTracing( sm_eventSource.Value );
                         }
                         else
                         {
@@ -871,7 +925,7 @@ namespace MS.Dbg
                                                           EventTraceControl.Stop );
                     if( (0 == err) || (ERROR_MORE_DATA == err) )
                     {
-                        _StartTracing( sm_eventProvider.Value );
+                        _StartTracing( sm_eventSource.Value );
                     }
                     else
                     {
