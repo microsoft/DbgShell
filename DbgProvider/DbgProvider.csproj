@@ -292,7 +292,6 @@
     <EmbeddedResource Include="resources.resx" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
     <None Include="Debugger.ArgumentCompleters.ps1">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
