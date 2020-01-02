@@ -12,6 +12,7 @@ using System.Text;
 using System.Management.Automation;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Host;
+using System.Runtime.CompilerServices;
 using System.Security;
 using ConsoleHandle = Microsoft.Win32.SafeHandles.SafeFileHandle;
 
@@ -59,15 +60,7 @@ namespace MS.DbgShell
                 // Turn on virtual terminal if possible.
 
                 // This might throw - not sure how exactly (no console), but if it does, we shouldn't fail to start.
-                var handle = ConsoleControl.GetActiveScreenBufferHandle();
-                var m = ConsoleControl.GetMode(handle);
-                if (ConsoleControl.NativeMethods.SetConsoleMode(handle.DangerousGetHandle(), (uint)(m | ConsoleControl.ConsoleModes.VirtualTerminal)))
-                {
-                    // We only know if vt100 is supported if the previous call actually set the new flag, older
-                    // systems ignore the setting.
-                    m = ConsoleControl.GetMode(handle);
-                    this.SupportsVirtualTerminal = (m & ConsoleControl.ConsoleModes.VirtualTerminal) != 0;
-                }
+                SupportsVirtualTerminal = ConsoleControl.CheckVirtualTerminalSupported();
             }
             catch
             {
@@ -639,7 +632,26 @@ namespace MS.DbgShell
 
         #region WriteToConsole
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void WriteToConsole(char c, bool transcribeResult)
+        {
+            ReadOnlySpan<char> value = stackalloc char[1] {c};
+            WriteToConsole(value, transcribeResult);
+        }
+
         internal void WriteToConsole(string value, bool transcribeResult)
+        {
+            WriteToConsole(value.AsSpan(), transcribeResult, newLine: false);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void WriteToConsole(ReadOnlySpan<char> value, bool transcribeResult)
+        {
+            WriteToConsole(value, transcribeResult, newLine: false);
+        }
+
+        internal void WriteToConsole(ReadOnlySpan<char> value, bool transcribeResult, bool newLine)
         {
             ConsoleHandle handle = ConsoleControl.GetActiveScreenBufferHandle();
 
@@ -662,7 +674,7 @@ namespace MS.DbgShell
 
             // This is atomic, so we don't lock here...
 
-            ConsoleControl.WriteConsole(handle, value);
+            ConsoleControl.WriteConsole(handle, value, newLine);
 
             if (transcribeResult)
             {
@@ -697,10 +709,8 @@ namespace MS.DbgShell
 
         private void WriteLineToConsole(string text)
         {
-            WriteToConsole(text, true);
-            WriteToConsole(Crlf, true);
+            WriteToConsole(text.AsSpan(), transcribeResult: true, newLine: true );
         }
-
 
 
         private void WriteLineToConsole()
@@ -832,8 +842,7 @@ namespace MS.DbgShell
 
             lock (_instanceLock)
             {
-                this.Write(value);
-                this.Write(Crlf);
+                this.WriteToConsole(value.AsSpan(), transcribeResult: true, newLine: true);
             }
         }
 

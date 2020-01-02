@@ -154,7 +154,7 @@ namespace MS.DbgShell
 
         private
         void
-        PostWrite(string value)
+        PostWrite(ReadOnlySpan<char> value)
         {
             PostWrite();
 

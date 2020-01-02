@@ -37,7 +37,7 @@ namespace MS.Dbg
         Pointers,
         PointersWithSymbols,
         PointersWithAscii,
-        PointersWithSymbolsAndAscii
+        PointersWithSymbolsAndAscii,
     }
 
     public class DbgMemory : ISupportColor, ICloneable
