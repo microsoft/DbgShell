@@ -676,11 +676,11 @@ namespace MS.DbgShell
 
             ConsoleControl.WriteConsole(handle, value, newLine);
 
-            //if (transcribeResult)
-            //{
-            //    PostWrite(value);
-            //}
-            //else
+            if (transcribeResult)
+            {
+                PostWrite(value);
+            }
+            else
             {
                 PostWrite();
             }

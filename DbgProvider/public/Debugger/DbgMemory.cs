@@ -313,6 +313,7 @@ namespace MS.Dbg
                     case DbgMemoryDisplayFormat.DWords:
                     case DbgMemoryDisplayFormat.DWordsWithAscii:
                     case DbgMemoryDisplayFormat.DWordsWithBits:
+                        return DWords.Count;
                     case DbgMemoryDisplayFormat.QWords:
                     case DbgMemoryDisplayFormat.QWordsWithAscii:
                         return QWords.Count;
