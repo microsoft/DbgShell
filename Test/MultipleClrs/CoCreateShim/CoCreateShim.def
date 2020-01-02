@@ -1,4 +1,0 @@
-LIBRARY CoCreateShim.dll
-
-EXPORTS
-    CallCoCreateInstance

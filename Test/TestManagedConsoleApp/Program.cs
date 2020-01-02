@@ -319,41 +319,6 @@ namespace TestManagedConsoleApp
                 }
             }, // end createChildProcess
 
-            { "twoClrSleep", (args) =>
-                {
-                    int rc = 0;
-                    int sleepMillis = 10000;
-                    if( (null != args) && (args.Length > 0) )
-                    {
-                        if( !Int32.TryParse( args[ 0 ], out sleepMillis ) )
-                        {
-                            Console.WriteLine( "ERROR: bad sleep param: {0}", args[ 0 ] );
-                            sleepMillis = 10000;
-                        }
-                    }
-
-                    try
-                    {
-                        string v4LibPath = Path.Combine( Path.GetDirectoryName( Assembly.GetExecutingAssembly().Location ),
-                                                         "v4Lib.dll" );
-
-                        var objHandle = Activator.CreateComInstanceFrom( v4LibPath, "v4Lib.Sleeper" );
-                        Console.WriteLine( "Got objHandle. Null? {0}", null == objHandle );
-
-                        dynamic dObj = (dynamic) objHandle.Unwrap();
-                        Console.WriteLine( "Now sleeping through two CLRs..." );
-                        dObj.SleepThroughv2( sleepMillis );
-                    }
-                    catch( Exception e )
-                    {
-                        Console.WriteLine( "Error: {0}", e );
-                        rc = Marshal.GetHRForException( e );
-                    }
-
-                    return rc;
-                }
-            }, // end twoClrSleep
-
         };
     } // end class Program
 }
