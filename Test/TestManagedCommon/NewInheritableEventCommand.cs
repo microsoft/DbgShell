@@ -8,8 +8,7 @@ using System.Threading;
 namespace MS.Dbg.Commands
 {
     /// <summary>
-    ///    Creates a new, anonymous manual reset event, with a security descriptor
-    ///    granting the current user Synchronize access, and handle inheritance set.
+    ///    Creates a new, anonymous manual reset event, and handle inheritance set.
     /// </summary>
     /// <remarks>
     ///    This is useful for coordinating with child process (such as our test apps).
@@ -26,18 +25,12 @@ namespace MS.Dbg.Commands
         {
             base.ProcessRecord();
 
-            var secAttrs = new EventWaitHandleSecurity();
-            SecurityIdentifier sid = WindowsIdentity.GetCurrent().User;
-            var rights = EventWaitHandleRights.Synchronize;
-            var aceType = AccessControlType.Allow;
-            var ace = new EventWaitHandleAccessRule( sid, rights, aceType );
-            secAttrs.AddAccessRule( ace );
             bool createdNew;
+
             var eventWaitHandle = new EventWaitHandle( false,
                                                        EventResetMode.ManualReset,
                                                        null,
-                                                       out createdNew,
-                                                       secAttrs );
+                                                       out createdNew );
 
             bool itWorked = NativeMethods.SetHandleInformation( eventWaitHandle.SafeWaitHandle,
                                                                 HandleFlag.Inherit,
