@@ -497,11 +497,9 @@ namespace MS.Dbg
                 }
                 else
                 {
-#if DEBUG
                     string key = Util.Sprintf( "{0}+{1}", Util.GetGenericTypeName( child ), child.SymTag );
                     if( sm_unhandledTypes.Add( key ) )
                         LogManager.Trace( "Need to handle children of type {0} ({1}, parent {2}, id {3}).", Util.GetGenericTypeName( child ), child.SymTag, TypeId, child.TypeId );
-#endif
                 }
             }
 
@@ -526,9 +524,7 @@ namespace MS.Dbg
             m_functions = functions;
         } // end _PopulateMembers()
 
-#if DEBUG
         private static HashSet< string > sm_unhandledTypes = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
-#endif
 
 
         public static DbgUdtTypeInfo GetUdtTypeInfo( DbgEngDebugger debugger,
