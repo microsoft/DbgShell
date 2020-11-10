@@ -54,7 +54,9 @@ namespace MS.DbgShell
 
         static int Main( string[] args )
         {
-            Console.OutputEncoding = Encoding.Unicode;
+            // This allows "[Console]::WriteLine( [char] 0x2026 )" to work just as well as
+            // "[char] 0x2026".
+            Console.OutputEncoding = Encoding.UTF8;
 
             //
             // We've got four possibilities:
