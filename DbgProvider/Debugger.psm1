@@ -961,6 +961,9 @@ function ~x
                 {
                     Get-DbgUModeThreadInfo -Current
                 }
+                elseif($threadId -match '~\[\s*([0-9a-f]{4})\s*\]') {
+                    Switch-DbgUModeThreadInfo -Thread ([System.Convert]::ToInt32($matches[1], 16))
+                }
                 else
                 {
                     [UInt32] $uid = 0
