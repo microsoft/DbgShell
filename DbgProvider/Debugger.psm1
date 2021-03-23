@@ -961,8 +961,12 @@ function ~x
                 {
                     Get-DbgUModeThreadInfo -Current
                 }
-                elseif($threadId -match '~\[\s*([0-9a-f]{4})\s*\]') {
-                    Switch-DbgUModeThreadInfo -Thread ([System.Convert]::ToInt32($matches[1], 16))
+                elseif($threadId -match '~\[\s*([0-9a-f]{1,4})\s*\]') {
+                    [Uint32] $TID = 0
+                    if( ![UInt32]::TryParse($matches[1], [System.Globalization.NumberStyles]::HexNumber, $null, [ref] $TID ) ) {
+                        throw "Invalid TID: $TID"
+                    }
+                    Get-DbgUModeThreadInfo -SystemID $TID
                 }
                 else
                 {
