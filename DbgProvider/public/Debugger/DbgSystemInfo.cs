@@ -6,7 +6,7 @@ using System.Linq;
 namespace MS.Dbg
 {
     /// <summary>
-    ///    Represents basic id information about a dbgeng.dlll "system".
+    ///    Represents basic id information about a dbgeng.dll "system".
     /// </summary>
     /// <remarks>
     ///    In the world of dbgeng.dll, a kernel-mode target constitutes a "system", a
