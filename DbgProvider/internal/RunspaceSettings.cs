@@ -1018,7 +1018,7 @@ namespace MS.Dbg
             } // end _TryHandleBangCommand()
 
 
-            private static Regex sm_threadCmdPat = new Regex( @"~\s*(?<id>\d+|\.|#|\*)?\s*(?<command>.*)\z", RegexOptions.Singleline );
+            private static Regex sm_threadCmdPat = new Regex( @"~\s*(?<id>\d+|~\[[0-9a-fA-F]{1,4}\]|\.|#|\*)?\s*(?<command>.*)\z", RegexOptions.Singleline );
 
             private bool _TryHandleThreadCommand( CommandLookupEventArgs clea )
             {

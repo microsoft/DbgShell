@@ -961,6 +961,14 @@ function ~x
                 {
                     Get-DbgUModeThreadInfo -Current
                 }
+                elseif($threadId -match '~\[\s*([0-9a-f]{1,4})\s*\]') {
+                    [Uint32] $TID = 0
+                    if( ![UInt32]::TryParse($matches[1], [System.Globalization.NumberStyles]::HexNumber, $null, [ref] $TID ) )
+                    {
+                        throw "Invalid TID: $($matches[1])"
+                    }
+                    Get-DbgUModeThreadInfo -SystemID $TID
+                }
                 else
                 {
                     [UInt32] $uid = 0
