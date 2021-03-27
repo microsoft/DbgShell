@@ -54,8 +54,10 @@ namespace MS.Dbg.Commands
         [Alias( "Passes" )]
         public uint PassCount { get; set; }
 
+        [Parameter( Mandatory = false )]
         public ScriptBlock Command { get; set; }
 
+        [Parameter( Mandatory = false )]
         public string DbgEngCommand { get; set; }
 
 
