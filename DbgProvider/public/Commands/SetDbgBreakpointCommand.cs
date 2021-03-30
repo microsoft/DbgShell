@@ -6,8 +6,7 @@ using Microsoft.Diagnostics.Runtime.Interop;
 
 namespace MS.Dbg.Commands
 {
-    [Cmdlet( VerbsCommon.Set, "DbgBreakpoint",
-             DefaultParameterSetName = c_Expression_ScriptBlockCommand_ParamSet )]
+    [Cmdlet( VerbsCommon.Set, "DbgBreakpoint")]
     [OutputType( typeof( DbgBreakpointInfo ) )]
     public class SetDbgBreakpointCommand : DbgBaseCommand
     {
@@ -26,20 +25,15 @@ namespace MS.Dbg.Commands
         // originally typed, to set as the breakpoint's expression.
         //
 
-        private const string c_Expression_ScriptBlockCommand_ParamSet = "Expression_ScriptBlockCommand_ParamSet";
-        private const string c_Address_ScriptBlockCommand_ParamSet = "Address_ScriptBlockCommand_ParamSet";
-        private const string c_Expression_DbgEngCommand_ParamSet = "Expression_DbgEngCommand_ParamSet";
-        private const string c_Address_DbgEngCommand_ParamSet = "Address_DbgEngCommand_ParamSet";
+        private const string c_Expression_ParamSet = "Expression_ParamSet";
+        private const string c_Address_ParamSet = "Address_ParamSet";
 
 
         [Parameter( Mandatory = true,
                     Position = 0,
                     ValueFromPipeline = true,
-                    ParameterSetName = c_Expression_ScriptBlockCommand_ParamSet )]
-        [Parameter( Mandatory = true,
-                    Position = 0,
-                    ValueFromPipeline = true,
-                    ParameterSetName = c_Expression_DbgEngCommand_ParamSet )]
+                    ParameterSetName = c_Expression_ParamSet
+                  )]
         [ValidateNotNullOrEmpty]
         public string Expression { get; set; }
 
@@ -47,11 +41,8 @@ namespace MS.Dbg.Commands
         [Parameter( Mandatory = true,
                     Position = 0,
                     ValueFromPipeline = true,
-                    ParameterSetName = c_Address_ScriptBlockCommand_ParamSet )]
-        [Parameter( Mandatory = true,
-                    Position = 0,
-                    ValueFromPipeline = true,
-                    ParameterSetName = c_Address_DbgEngCommand_ParamSet )]
+                    ParameterSetName = c_Address_ParamSet
+                  )]
         public ulong Address { get; set; }
 
 
@@ -63,12 +54,10 @@ namespace MS.Dbg.Commands
         [Alias( "Passes" )]
         public uint PassCount { get; set; }
 
-        [Parameter( Mandatory = false, ParameterSetName = c_Expression_ScriptBlockCommand_ParamSet )]
-        [Parameter( Mandatory = false, ParameterSetName = c_Address_ScriptBlockCommand_ParamSet )]
+        [Parameter( Mandatory = false )]
         public ScriptBlock Command { get; set; }
 
-        [Parameter( Mandatory = false, ParameterSetName = c_Expression_DbgEngCommand_ParamSet )]
-        [Parameter( Mandatory = false, ParameterSetName = c_Address_DbgEngCommand_ParamSet )]
+        [Parameter( Mandatory = false )]
         public string DbgEngCommand { get; set; }
 
 
@@ -129,8 +118,6 @@ namespace MS.Dbg.Commands
             if( 0 != Address )
             {
                 addr = Address;
-                Util.Assert( (c_Address_ScriptBlockCommand_ParamSet == this.ParameterSetName) ||
-                             (c_Address_DbgEngCommand_ParamSet == this.ParameterSetName) );
                 Expression = DbgProvider.FormatAddress( Address, Debugger.TargetIs32Bit, true ).ToString( false );
             }
             else
