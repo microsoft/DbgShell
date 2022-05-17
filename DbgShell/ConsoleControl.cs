@@ -759,6 +759,16 @@ namespace MS.DbgShell
                 if( (m & ConsoleModes.VirtualTerminal) != 0 )
                 {
                     sm_colorWriter.VirtualTerminalSupported = true;
+
+                    // We use C1 control characters (specifically the C1 CSI, 0x9b). But
+                    // they broke^H^H^H^H^H turned those off by default. We can turn them
+                    // back on with this sequence:
+                    //
+                    // C.f. https://github.com/microsoft/terminal/issues/10310
+                    //      https://github.com/microsoft/terminal/pull/11690
+
+                    ReadOnlySpan<char> DECAC1_AcceptC1Controls = stackalloc char[] { (char) 0x1b, ' ', '7' };
+                    _RealWriteConsole( handle, DECAC1_AcceptC1Controls );
                     return true;
                 }
             }
