@@ -103,7 +103,11 @@ function Expand-LIST_ENTRY
 
            [Parameter( Mandatory = $false, Position = 2 )]
            [ValidateNotNullOrEmpty()]
-           [string] $ListEntryMemberName
+           [string] $ListEntryMemberName,
+
+           # Limit the number of items we return.
+           [Parameter( Mandatory = $false )]
+           [int] $Count
          )
 
     begin
@@ -161,6 +165,7 @@ function Expand-LIST_ENTRY
         {
             $headAddr = addrOf $Head
 
+            $prevListEntry = $null
             $curListEntry = $Head.Flink
 
             [int] $idx = 0
@@ -183,6 +188,28 @@ function Expand-LIST_ENTRY
 
                 Write-Output $val
 
+                $idx++
+
+                if( $prevListEntry )
+                {
+                    # Sometimes lists are corrupt (or we are looking at junk); sanity
+                    # check the links.
+                    #
+                    # Note that we do this check *after* writing out the bad item, so that
+                    # you can easily look at the bad item.
+
+                    # TODO: this is obviously not applicable for singly-linked lists...
+                    if( $curListEntry.Blink.DbgGetPointer() -ne $prevListEntry.DbgGetPointer() )
+                    {
+                        Write-Warning "Corrupt linked list detected, at index ${idx}: the current entry's Blink does not point to the previous entry's link."
+                        break
+                    }
+                }
+
+                if( $Count -and ($idx -ge $Count) )
+                {
+                    break
+                }
 
                 # The $ListEntryMemberName might have dots (".") in it (like
                 # "Tcb.ThreadListEntry"), so we'll use Invoke-Expression to get what we
@@ -192,8 +219,8 @@ function Expand-LIST_ENTRY
                 # TODO: Using 'Flink' won't work for singly-linked lists (the link pointer
                 # in SINGLE_LIST_ENTRY is called 'Next'). We should just switch to just
                 # follow the pointer at offset 0.
+                $prevListEntry = $curListEntry
                 $curListEntry = Invoke-Expression "`$val.$ListEntryMemberName.Flink"
-                $idx++
             }
 
             # If things go badly, this is likely where we find out--$curListEntry will
@@ -208,7 +235,6 @@ function Expand-LIST_ENTRY
                                                      $curListEntry )             # TargetObject
                 $PSCmdlet.ThrowTerminatingError( $er )
             }
-
         }
         finally { }
     } # end 'process' block
